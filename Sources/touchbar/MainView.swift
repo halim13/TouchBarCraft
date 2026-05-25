@@ -1052,6 +1052,37 @@ struct AnimationOptionsView: View {
             }
             .pickerStyle(.menu)
             
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Custom GIF File Path:")
+                    .font(.system(size: 10))
+                    .foregroundColor(.gray)
+                
+                HStack(spacing: 8) {
+                    TextField("Absolute path to .gif file", text: Binding(
+                        get: { widget.customGifPath },
+                        set: { state.widgets[index].customGifPath = $0; state.saveConfig() }
+                    ))
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 11))
+                    
+                    Button("Select File...") {
+                        selectGifFile()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+                
+                if !widget.customGifPath.isEmpty {
+                    Button("Clear Custom GIF") {
+                        state.widgets[index].customGifPath = ""
+                        state.saveConfig()
+                    }
+                    .buttonStyle(.borderless)
+                    .font(.system(size: 10))
+                    .foregroundColor(.red)
+                }
+            }
+            
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
                     Text("Frame Interval Speed:")
@@ -1067,6 +1098,21 @@ struct AnimationOptionsView: View {
                     get: { widget.animationSpeed },
                     set: { state.widgets[index].animationSpeed = $0; state.saveConfig() }
                 ), in: 0.05...1.0, step: 0.05)
+            }
+        }
+    }
+    
+    private func selectGifFile() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowedContentTypes = [.gif]
+        
+        if panel.runModal() == .OK {
+            if let path = panel.url?.path {
+                state.widgets[index].customGifPath = path
+                state.saveConfig()
             }
         }
     }

@@ -187,6 +187,7 @@ public struct WidgetAnimationView: View {
     
     @State private var currentFrameIndex: Int = 0
     @State private var timer: Timer? = nil
+    @State private var customFrames: [NSImage] = []
     
     public var body: some View {
         HStack(spacing: 6) {
@@ -194,27 +195,49 @@ public struct WidgetAnimationView: View {
                 .font(.system(size: isSimulator ? widget.fontSize - 2 : widget.fontSize))
                 .foregroundColor(Color(hex: widget.textColorHex))
             
-            Text(currentFrame)
-                .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, design: .monospaced))
-                .foregroundColor(Color(hex: widget.textColorHex))
+            if !customFrames.isEmpty {
+                if let image = customFrames[safe: currentFrameIndex % customFrames.count] {
+                    Image(nsImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: isSimulator ? 30 : 40, height: isSimulator ? 20 : 30)
+                }
+            } else {
+                Text(currentFrame)
+                    .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, design: .monospaced))
+                    .foregroundColor(Color(hex: widget.textColorHex))
+            }
         }
         .padding(.horizontal, isSimulator ? 8 : 12)
         .padding(.vertical, isSimulator ? 5 : 6)
         .background(Color(hex: widget.backgroundColorHex).opacity(0.2))
         .cornerRadius(6)
         .onAppear {
-            startAnimation()
+            loadFramesAndStart()
         }
         .onDisappear {
             timer?.invalidate()
         }
         .onChange(of: widget.animationType) {
             currentFrameIndex = 0
-            startAnimation()
+            loadFramesAndStart()
+        }
+        .onChange(of: widget.customGifPath) {
+            currentFrameIndex = 0
+            loadFramesAndStart()
         }
         .onChange(of: widget.animationSpeed) {
             startAnimation()
         }
+    }
+    
+    private func loadFramesAndStart() {
+        if !widget.customGifPath.isEmpty {
+            customFrames = SystemUtils.extractGifFrames(from: widget.customGifPath)
+        } else {
+            customFrames = []
+        }
+        startAnimation()
     }
     
     private var currentFrame: String {
@@ -226,13 +249,20 @@ public struct WidgetAnimationView: View {
     private func startAnimation() {
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: widget.animationSpeed, repeats: true) { _ in
-            let frames = widget.animationType.frames
-            if !frames.isEmpty {
-                DispatchQueue.main.async {
-                    currentFrameIndex = (currentFrameIndex + 1) % frames.count
+            DispatchQueue.main.async {
+                let total = !customFrames.isEmpty ? customFrames.count : widget.animationType.frames.count
+                if total > 0 {
+                    currentFrameIndex = (currentFrameIndex + 1) % total
                 }
             }
         }
+    }
+}
+
+// Safe array lookup helper
+extension Array {
+    subscript(safe index: Index) -> Element? {
+        return indices.contains(index) ? self[index] : nil
     }
 }
 
@@ -392,6 +422,8 @@ public struct WidgetAnkiView: View {
                     Text("Q: \(anki.questionPreview)")
                         .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
                         .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: isSimulator ? 120 : 250, alignment: .leading)
                     
                     Button(action: {
                         anki.revealAnswer()
@@ -408,6 +440,9 @@ public struct WidgetAnkiView: View {
                 } else {
                     Text("A: \(anki.answerPreview)")
                         .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: isSimulator ? 100 : 200, alignment: .leading)
                         .lineLimit(1)
                     
                     HStack(spacing: 4) {
@@ -539,9 +574,9 @@ public struct WidgetBrightnessButtonsView: View {
                 executeBrightnessChange(up: false)
             }) {
                 Image(systemName: "sun.min.fill")
-                    .font(.system(size: isSimulator ? widget.fontSize - 2 : widget.fontSize))
+                    .font(.system(size: isSimulator ? widget.fontSize - 3 : widget.fontSize - 1))
                     .foregroundColor(Color(hex: widget.textColorHex))
-                    .padding(isSimulator ? 4 : 5)
+                    .frame(width: isSimulator ? 22 : 30, height: isSimulator ? 18 : 24)
                     .background(Color.white.opacity(0.1))
                     .cornerRadius(4)
             }
@@ -551,28 +586,24 @@ public struct WidgetBrightnessButtonsView: View {
                 executeBrightnessChange(up: true)
             }) {
                 Image(systemName: "sun.max.fill")
-                    .font(.system(size: isSimulator ? widget.fontSize - 2 : widget.fontSize))
+                    .font(.system(size: isSimulator ? widget.fontSize - 3 : widget.fontSize - 1))
                     .foregroundColor(Color(hex: widget.textColorHex))
-                    .padding(isSimulator ? 4 : 5)
+                    .frame(width: isSimulator ? 22 : 30, height: isSimulator ? 18 : 24)
                     .background(Color.white.opacity(0.1))
                     .cornerRadius(4)
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, isSimulator ? 6 : 8)
-        .padding(.vertical, isSimulator ? 4 : 5)
+        .padding(.horizontal, isSimulator ? 4 : 6)
+        .padding(.vertical, isSimulator ? 3 : 4)
         .background(Color(hex: widget.backgroundColorHex).opacity(0.15))
         .cornerRadius(6)
     }
     
     private func executeBrightnessChange(up: Bool) {
         DispatchQueue.global(qos: .userInitiated).async {
-            let keyCode = up ? 144 : 145
-            let scriptString = "tell application \"System Events\" to key code \(keyCode)"
-            if let script = NSAppleScript(source: scriptString) {
-                var error: NSDictionary?
-                script.executeAndReturnError(&error)
-            }
+            let keyType: Int32 = up ? 2 : 3
+            SystemUtils.postAuxiliaryKey(keyType)
         }
     }
 }

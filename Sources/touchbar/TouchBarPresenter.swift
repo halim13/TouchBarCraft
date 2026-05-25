@@ -265,11 +265,8 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             item.view = hostView
             
         case .animation:
-            let hostView = NSHostingView(rootView:
-                WidgetAnimationView(widget: widget, state: state, isSimulator: false)
-                    .frame(height: 30)
-            )
-            item.view = hostView
+            let animView = makeNativeAnimationView(for: widget)
+            item.view = animView
             
         case .anki:
             let ankiView = makeNativeAnkiView(for: widget, state: state)
@@ -280,7 +277,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             item.view = volumeView
             
         case .brightnessButtons:
-            let brightnessView = makeNativeBrightnessButtons(for: widget)
+            let brightnessView = makeNativeBrightnessControls(for: widget)
             item.view = brightnessView
         }
         
@@ -576,7 +573,53 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         return 50.0
     }
     
-    private func makeNativeBrightnessButtons(for widget: TouchBarWidget) -> NSView {
+    private func makeNativeAnimationView(for widget: TouchBarWidget) -> NSView {
+        let view = NSImageView()
+        view.imageScaling = .scaleProportionallyUpOrDown
+        
+        let frames = SystemUtils.extractGifFrames(from: widget.customGifPath)
+        if !frames.isEmpty {
+            // Render custom GIF frames using native NSImageView animation
+            view.image = frames.first
+            
+            // Create a custom timer to cycle through frames manually since Touch Bar views benefit from explicit frame-by-frame updates
+            var currentFrame = 0
+            let timer = Timer.scheduledTimer(withTimeInterval: widget.animationSpeed, repeats: true) { _ in
+                DispatchQueue.main.async {
+                    currentFrame = (currentFrame + 1) % frames.count
+                    view.image = frames[currentFrame]
+                }
+            }
+            // Bind timer lifecycle to view
+            objc_setAssociatedObject(view, unsafeBitCast(timer, to: UnsafeRawPointer.self), timer, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            
+            view.translatesAutoresizingMaskIntoConstraints = false
+            view.widthAnchor.constraint(equalToConstant: 40).isActive = true
+            view.heightAnchor.constraint(equalToConstant: 30).isActive = true
+            return view
+        } else {
+            // Fallback to text labels for presets
+            let label = NSTextField(labelWithString: "")
+            label.font = NSFont.monospacedSystemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
+            label.textColor = NSColor(Color(hex: widget.textColorHex))
+            
+            let presetFrames = widget.animationType.frames
+            if !presetFrames.isEmpty {
+                var currentFrame = 0
+                label.stringValue = presetFrames[0]
+                let timer = Timer.scheduledTimer(withTimeInterval: widget.animationSpeed, repeats: true) { _ in
+                    DispatchQueue.main.async {
+                        currentFrame = (currentFrame + 1) % presetFrames.count
+                        label.stringValue = presetFrames[currentFrame]
+                    }
+                }
+                objc_setAssociatedObject(label, unsafeBitCast(timer, to: UnsafeRawPointer.self), timer, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            }
+            return label
+        }
+    }
+    
+    private func makeNativeBrightnessControls(for widget: TouchBarWidget) -> NSStackView {
         let stack = NSStackView()
         stack.orientation = .horizontal
         stack.spacing = 6
@@ -600,6 +643,13 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         upBtn.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
         upBtn.contentTintColor = NSColor(Color(hex: widget.textColorHex))
         
+        downBtn.translatesAutoresizingMaskIntoConstraints = false
+        upBtn.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            downBtn.widthAnchor.constraint(equalToConstant: 40),
+            upBtn.widthAnchor.constraint(equalToConstant: 40)
+        ])
+        
         stack.addArrangedSubview(downBtn)
         stack.addArrangedSubview(upBtn)
         
@@ -616,18 +666,9 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     
     private func adjustBrightness(up: Bool) {
         DispatchQueue.global(qos: .userInitiated).async {
-            // Use CGDisplaySetDisplayBrightnessGamma via CoreBrightness private framework
-            // Reliable fallback: post NX system key events (F1/F2) via CGEvent
-            let src = CGEventSource(stateID: .hidSystemState)
-            // NSF1FunctionKey = 0x63, NSF2FunctionKey = 0x61 in CGKeyCode terms
-            // But real special media key codes: BRIGHTNESS_DOWN = 0x6B (107), BRIGHTNESS_UP = 0x71 (113)
-            // Actually use the NX_ key press approach via NSEvent
-            let nsKeyCode: CGKeyCode = up ? 113 : 107
-            if let downEvent = CGEvent(keyboardEventSource: src, virtualKey: nsKeyCode, keyDown: true),
-               let upEvent   = CGEvent(keyboardEventSource: src, virtualKey: nsKeyCode, keyDown: false) {
-                downEvent.post(tap: .cghidEventTap)
-                upEvent.post(tap: .cghidEventTap)
-            }
+            // NX_KEYTYPE_BRIGHTNESS_UP = 2, NX_KEYTYPE_BRIGHTNESS_DOWN = 3
+            let keyType: Int32 = up ? 2 : 3
+            SystemUtils.postAuxiliaryKey(keyType)
         }
     }
 }
