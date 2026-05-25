@@ -65,6 +65,12 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     // Clock properties
     public var showSeconds: Bool
     
+    // Brightness buttons properties
+    public var brightnessButtonSize: Double // button width in simulator
+    
+    // Volume slider properties
+    public var volumeSliderWidth: Double
+    
     // Aesthetic properties
     public var fontSize: Double
     
@@ -93,6 +99,8 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         ankiTextMaxWidth: Double = 250.0,
         showSeconds: Bool = true,
         fontSize: Double = 12.0,
+        brightnessButtonSize: Double = 16.0,
+        volumeSliderWidth: Double = 150.0,
         customGifPath: String = ""
     ) {
         self.id = id
@@ -116,6 +124,8 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiTextMaxWidth = ankiTextMaxWidth
         self.showSeconds = showSeconds
         self.fontSize = fontSize
+        self.brightnessButtonSize = brightnessButtonSize
+        self.volumeSliderWidth = volumeSliderWidth
         self.customGifPath = customGifPath
     }
     
@@ -124,7 +134,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         case actionType, actionValue, monitorType, animationType, animationSpeed
         case ankiDeckName, ankiShowAgain, ankiShowHard, ankiShowGood, ankiShowEasy, ankiQuestionField, ankiAnswerField, ankiTextMaxWidth
         case showSeconds
-        case fontSize
+        case fontSize, brightnessButtonSize, volumeSliderWidth
         case customGifPath
     }
 
@@ -154,6 +164,8 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         
         self.showSeconds = try container.decodeIfPresent(Bool.self, forKey: .showSeconds) ?? true
         self.fontSize = try container.decodeIfPresent(Double.self, forKey: .fontSize) ?? 12.0
+        self.brightnessButtonSize = try container.decodeIfPresent(Double.self, forKey: .brightnessButtonSize) ?? 16.0
+        self.volumeSliderWidth = try container.decodeIfPresent(Double.self, forKey: .volumeSliderWidth) ?? 150.0
         self.customGifPath = try container.decodeIfPresent(String.self, forKey: .customGifPath) ?? ""
     }
 }

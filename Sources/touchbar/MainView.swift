@@ -934,15 +934,9 @@ struct WidgetOptionsView: View {
         case .anki:
             AnkiConfigView(widget: widget, index: index, state: state)
         case .volumeSlider:
-            Text("Fully automatic system widget. Renders an interactive sliding bar that changes the macOS global output volume in real-time.")
-                .font(.system(size: 11))
-                .foregroundColor(.gray)
-                .lineSpacing(4)
+            VolumeSliderOptionsView(widget: widget, index: index, state: state)
         case .brightnessButtons:
-            Text("Fully automatic system widget. Renders interactive Dim and Brighten keys that adjust your MacBook display's brightness level in real-time.")
-                .font(.system(size: 11))
-                .foregroundColor(.gray)
-                .lineSpacing(4)
+            BrightnessOptionsView(widget: widget, index: index, state: state)
         }
     }
 }
@@ -1151,6 +1145,74 @@ struct AnimationOptionsView: View {
             if let path = panel.url?.path {
                 state.widgets[index].customGifPath = path
                 state.saveConfig()
+            }
+        }
+    }
+}
+
+struct VolumeSliderOptionsView: View {
+    let widget: TouchBarWidget
+    let index: Int
+    let state: AppState
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Configures the volume slider width.")
+                .font(.system(size: 11))
+                .foregroundColor(.gray)
+            
+            HStack(spacing: 8) {
+                Text("Slider Width:")
+                    .font(.system(size: 11))
+                    .frame(width: 90, alignment: .leading)
+                
+                Slider(value: Binding(
+                    get: { widget.volumeSliderWidth },
+                    set: { val in
+                        state.widgets[index].volumeSliderWidth = val
+                        state.saveConfig()
+                        state.ankiState.refreshTouchBar()
+                    }
+                ), in: 80...300, step: 5)
+                
+                Text("\(Int(widget.volumeSliderWidth))px")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(.gray)
+                    .frame(width: 50, alignment: .trailing)
+            }
+        }
+    }
+}
+
+struct BrightnessOptionsView: View {
+    let widget: TouchBarWidget
+    let index: Int
+    let state: AppState
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Configures the brightness button size.")
+                .font(.system(size: 11))
+                .foregroundColor(.gray)
+            
+            HStack(spacing: 8) {
+                Text("Button Width:")
+                    .font(.system(size: 11))
+                    .frame(width: 90, alignment: .leading)
+                
+                Slider(value: Binding(
+                    get: { widget.brightnessButtonSize },
+                    set: { val in
+                        state.widgets[index].brightnessButtonSize = val
+                        state.saveConfig()
+                        state.ankiState.refreshTouchBar()
+                    }
+                ), in: 10...40, step: 1)
+                
+                Text("\(Int(widget.brightnessButtonSize))px")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(.gray)
+                    .frame(width: 50, alignment: .trailing)
             }
         }
     }

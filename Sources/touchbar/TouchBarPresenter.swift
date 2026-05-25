@@ -479,22 +479,23 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         let greenColor = NSColor(red: 0.1, green: 0.7, blue: 0.3, alpha: 1.0)
         let blueColor = NSColor(red: 0.2, green: 0.5, blue: 0.9, alpha: 1.0)
         
+        // Anki ease ratings: 1=Again, 2=Hard, 3=Good, 4=Easy
         if buttonCount == 2 {
             if widget.ankiShowAgain {
                 result.append((title: "Again", rating: 1, color: redColor))
             }
             if widget.ankiShowGood {
-                result.append((title: "Good", rating: 2, color: greenColor))
+                result.append((title: "Good", rating: 3, color: greenColor))
             }
         } else if buttonCount == 3 {
             if widget.ankiShowAgain {
                 result.append((title: "Again", rating: 1, color: redColor))
             }
             if widget.ankiShowGood {
-                result.append((title: "Good", rating: 2, color: greenColor))
+                result.append((title: "Good", rating: 3, color: greenColor))
             }
             if widget.ankiShowEasy {
-                result.append((title: "Easy", rating: 3, color: blueColor))
+                result.append((title: "Easy", rating: 4, color: blueColor))
             }
         } else {
             if widget.ankiShowAgain {
@@ -539,7 +540,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         slider.controlSize = .small
         slider.wantsLayer = true
         slider.translatesAutoresizingMaskIntoConstraints = false
-        slider.widthAnchor.constraint(equalToConstant: 130).isActive = true
+        slider.widthAnchor.constraint(equalToConstant: CGFloat(widget.volumeSliderWidth)).isActive = true
         
         let maxImg = NSImage(systemSymbolName: "speaker.wave.3.fill", accessibilityDescription: "Max Volume")
         let maxView = NSImageView(image: maxImg ?? NSImage())
@@ -648,8 +649,8 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         downBtn.translatesAutoresizingMaskIntoConstraints = false
         upBtn.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            downBtn.widthAnchor.constraint(equalToConstant: 40),
-            upBtn.widthAnchor.constraint(equalToConstant: 40)
+            downBtn.widthAnchor.constraint(equalToConstant: CGFloat(widget.brightnessButtonSize)),
+            upBtn.widthAnchor.constraint(equalToConstant: CGFloat(widget.brightnessButtonSize))
         ])
         
         stack.addArrangedSubview(downBtn)
@@ -668,9 +669,20 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     
     private func adjustBrightness(up: Bool) {
         DispatchQueue.global(qos: .userInitiated).async {
-            // NX_KEYTYPE_BRIGHTNESS_UP = 2, NX_KEYTYPE_BRIGHTNESS_DOWN = 3
-            let keyType: Int32 = up ? 2 : 3
-            touchbar.SystemUtils.postAuxiliaryKeyIOHID(keyType)
+            // Primary method: Use AppleScript (most reliable on modern macOS)
+            let scriptString = """
+            tell application "System Events"
+                key code \(up ? "144" : "145") using {command down}
+            end tell
+            """
+            if let script = NSAppleScript(source: scriptString) {
+                var error: NSDictionary?
+                if script.executeAndReturnError(&error) != nil {
+                    // Fallback to IOHID if AppleScript fails
+                    let keyType: Int32 = up ? 2 : 3
+                    touchbar.SystemUtils.postAuxiliaryKeyIOHID(keyType)
+                }
+            }
         }
     }
 }

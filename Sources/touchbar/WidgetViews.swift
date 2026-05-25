@@ -476,22 +476,23 @@ public struct WidgetAnkiView: View {
     private func getRatingButtons(for widget: TouchBarWidget, buttonCount: Int) -> [(title: String, rating: Int, color: Color)] {
         var result: [(title: String, rating: Int, color: Color)] = []
         
+        // Anki ease ratings: 1=Again, 2=Hard, 3=Good, 4=Easy
         if buttonCount == 2 {
             if widget.ankiShowAgain {
                 result.append((title: "Again", rating: 1, color: .red))
             }
             if widget.ankiShowGood {
-                result.append((title: "Good", rating: 2, color: .green))
+                result.append((title: "Good", rating: 3, color: .green))
             }
         } else if buttonCount == 3 {
             if widget.ankiShowAgain {
                 result.append((title: "Again", rating: 1, color: .red))
             }
             if widget.ankiShowGood {
-                result.append((title: "Good", rating: 2, color: .green))
+                result.append((title: "Good", rating: 3, color: .green))
             }
             if widget.ankiShowEasy {
-                result.append((title: "Easy", rating: 3, color: .blue))
+                result.append((title: "Easy", rating: 4, color: .blue))
             }
         } else {
             if widget.ankiShowAgain {
@@ -528,7 +529,7 @@ public struct WidgetVolumeSliderView: View {
             Slider(value: $volume, in: 0...100, onEditingChanged: { _ in
                 setSystemVolume(Int(volume))
             })
-            .frame(width: isSimulator ? 100 : 150)
+            .frame(width: isSimulator ? widget.volumeSliderWidth * 0.6 : widget.volumeSliderWidth)
             
             Image(systemName: "speaker.wave.3.fill")
                 .font(.system(size: isSimulator ? widget.fontSize - 2 : widget.fontSize))
@@ -576,7 +577,7 @@ public struct WidgetBrightnessButtonsView: View {
                 Image(systemName: "sun.min.fill")
                     .font(.system(size: isSimulator ? widget.fontSize - 3 : widget.fontSize - 1))
                     .foregroundColor(Color(hex: widget.textColorHex))
-                    .frame(width: isSimulator ? 22 : 30, height: isSimulator ? 18 : 24)
+                    .frame(width: isSimulator ? widget.brightnessButtonSize : 30, height: isSimulator ? widget.brightnessButtonSize : 24)
                     .background(Color.white.opacity(0.1))
                     .cornerRadius(4)
             }
@@ -588,7 +589,7 @@ public struct WidgetBrightnessButtonsView: View {
                 Image(systemName: "sun.max.fill")
                     .font(.system(size: isSimulator ? widget.fontSize - 3 : widget.fontSize - 1))
                     .foregroundColor(Color(hex: widget.textColorHex))
-                    .frame(width: isSimulator ? 22 : 30, height: isSimulator ? 18 : 24)
+                    .frame(width: isSimulator ? widget.brightnessButtonSize : 30, height: isSimulator ? widget.brightnessButtonSize : 24)
                     .background(Color.white.opacity(0.1))
                     .cornerRadius(4)
             }
@@ -602,9 +603,20 @@ public struct WidgetBrightnessButtonsView: View {
     
     private func executeBrightnessChange(up: Bool) {
         DispatchQueue.global(qos: .userInitiated).async {
-            // Use IOHID for reliable brightness control (MTMR style)
-            let keyType: Int32 = up ? 2 : 3
-            SystemUtils.postAuxiliaryKeyIOHID(keyType)
+            // Use AppleScript as primary method (more reliable on modern macOS)
+            let scriptString = """
+            tell application "System Events"
+                key code \(up ? "144" : "145") using {command down}
+            end tell
+            """
+            if let script = NSAppleScript(source: scriptString) {
+                var error: NSDictionary?
+                script.executeAndReturnError(&error)
+                if error == nil { return }
+            }
+            
+            // Fallback to IOHID for brightness control
+            SystemUtils.postAuxiliaryKeyIOHID(up ? 2 : 3)
         }
     }
 }
