@@ -11,22 +11,27 @@ public final class SystemMonitorHelper: @unchecked Sendable {
     
     private init() {}
     
-    public func getBatteryPercentage() -> Int {
+    public func getBatteryInfo() -> (percentage: Int, isCharging: Bool, isFull: Bool) {
         let snapshot = IOPSCopyPowerSourcesInfo()
-        guard let rawSnapshot = snapshot else { return 100 }
+        guard let rawSnapshot = snapshot else { return (100, false, true) }
         let info = rawSnapshot.takeRetainedValue()
         let sourcesList = IOPSCopyPowerSourcesList(info)
-        guard let rawSourcesList = sourcesList else { return 100 }
+        guard let rawSourcesList = sourcesList else { return (100, false, true) }
         let list = rawSourcesList.takeRetainedValue() as [CFTypeRef]
         
         for source in list {
             if let description = IOPSGetPowerSourceDescription(info, source)?.takeUnretainedValue() as? [String: Any] {
-                if let capacity = description[kIOPSCurrentCapacityKey] as? Int {
-                    return capacity
-                }
+                let capacity = description[kIOPSCurrentCapacityKey] as? Int ?? 100
+                let isCharging = description[kIOPSIsChargingKey] as? Bool ?? false
+                let isCharged = description[kIOPSIsChargedKey] as? Bool ?? (capacity >= 100)
+                return (capacity, isCharging, isCharged)
             }
         }
-        return 100
+        return (100, false, true)
+    }
+    
+    public func getBatteryPercentage() -> Int {
+        return getBatteryInfo().percentage
     }
     
     public func getCPUUsage() -> Double {

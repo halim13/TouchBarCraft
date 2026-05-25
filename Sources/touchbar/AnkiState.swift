@@ -199,6 +199,7 @@ public final class AnkiState {
             let answered = await AnkiConnectClient.shared.answerCard(ease: ease)
             if answered {
                 self.cardsReviewed += 1
+                try? await Task.sleep(nanoseconds: 150_000_000) // 150ms delay
                 await loadCurrentCard()
             } else {
                 self.isLoading = false

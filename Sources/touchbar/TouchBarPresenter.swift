@@ -50,6 +50,11 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         }
         // Selalu pastikan tombol close (X) tidak muncul ketika Touch Bar aktif
         dfrSystemModalShowsCloseBoxWhenFrontMost?(false)
+        for delay in [0.01, 0.05, 0.1, 0.2, 0.3, 0.5] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                self?.dfrSystemModalShowsCloseBoxWhenFrontMost?(false)
+            }
+        }
     }
     
     // MARK: - Setup System Tray Item
@@ -423,9 +428,16 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         }
         
         if !anki.isShowingAnswer {
-            let label = NSTextField(labelWithString: "Q: \(card.question)")
-            label.font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
-            label.textColor = NSColor(Color(hex: widget.textColorHex))
+            let label = NSTextField(labelWithString: "")
+            let font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
+            let textColor = NSColor(Color(hex: widget.textColorHex))
+            let boldColor = NSColor(Color(hex: widget.ankiBoldColorHex))
+            
+            let prefix = NSMutableAttributedString(string: "Q: ", attributes: [.font: font, .foregroundColor: textColor])
+            let content = parseBoldTags(in: card.question, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
+            prefix.append(content)
+            
+            label.attributedStringValue = prefix
             label.lineBreakMode = .byTruncatingTail
             label.cell?.truncatesLastVisibleLine = true
             // Cap label width so Reveal button is always visible
@@ -445,9 +457,16 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             stack.addArrangedSubview(label)
             stack.addArrangedSubview(btn)
         } else {
-            let label = NSTextField(labelWithString: "A: \(card.answer)")
-            label.font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
-            label.textColor = NSColor(Color(hex: widget.textColorHex))
+            let label = NSTextField(labelWithString: "")
+            let font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
+            let textColor = NSColor(Color(hex: widget.textColorHex))
+            let boldColor = NSColor(Color(hex: widget.ankiBoldColorHex))
+            
+            let prefix = NSMutableAttributedString(string: "A: ", attributes: [.font: font, .foregroundColor: textColor])
+            let content = parseBoldTags(in: card.answer, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
+            prefix.append(content)
+            
+            label.attributedStringValue = prefix
             label.lineBreakMode = .byTruncatingTail
             label.cell?.truncatesLastVisibleLine = true
             // Cap label width so rating buttons are always visible
@@ -473,6 +492,45 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         }
         
         return stack
+    }
+    
+    private func parseBoldTags(in text: String, defaultFont: NSFont, defaultColor: NSColor, boldColor: NSColor) -> NSAttributedString {
+        let attributed = NSMutableAttributedString()
+        let parts = text.components(separatedBy: "<b>")
+        for (index, part) in parts.enumerated() {
+            if index == 0 {
+                let attrs: [NSAttributedString.Key: Any] = [
+                    .font: defaultFont,
+                    .foregroundColor: defaultColor
+                ]
+                attributed.append(NSAttributedString(string: part, attributes: attrs))
+            } else {
+                let subParts = part.components(separatedBy: "</b>")
+                if subParts.count > 1 {
+                    let boldText = subParts[0]
+                    let boldFont = NSFont.boldSystemFont(ofSize: defaultFont.pointSize)
+                    let boldAttrs: [NSAttributedString.Key: Any] = [
+                        .font: boldFont,
+                        .foregroundColor: boldColor
+                    ]
+                    attributed.append(NSAttributedString(string: boldText, attributes: boldAttrs))
+                    
+                    let regularText = subParts.dropFirst().joined(separator: "</b>")
+                    let regularAttrs: [NSAttributedString.Key: Any] = [
+                        .font: defaultFont,
+                        .foregroundColor: defaultColor
+                    ]
+                    attributed.append(NSAttributedString(string: regularText, attributes: regularAttrs))
+                } else {
+                    let attrs: [NSAttributedString.Key: Any] = [
+                        .font: defaultFont,
+                        .foregroundColor: defaultColor
+                    ]
+                    attributed.append(NSAttributedString(string: "<b>" + part, attributes: attrs))
+                }
+            }
+        }
+        return attributed
     }
     
     private func getRatingButtons(for widget: TouchBarWidget, buttonCount: Int) -> [(title: String, rating: Int, color: NSColor)] {
@@ -673,30 +731,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     
     private func adjustBrightness(up: Bool) {
         DispatchQueue.global(qos: .userInitiated).async {
-            // Primary method: Use AppleScript (most reliable on modern macOS)
-            let scriptString = """
-            tell application "System Events"
-                key code \(up ? "144" : "145") using {command down}
-            end tell
-            """
-            var usedFallback = false
-            if let script = NSAppleScript(source: scriptString) {
-                var error: NSDictionary?
-                script.executeAndReturnError(&error)
-                // If AppleScript succeeded (no error), we're done
-                // If AppleScript failed, use fallback
-                if error != nil {
-                    usedFallback = true
-                }
-            } else {
-                usedFallback = true
-            }
-            
-            if usedFallback {
-                // Fallback to IOHID if AppleScript fails
-                let keyType: Int32 = up ? 2 : 3
-                touchbar.SystemUtils.postAuxiliaryKeyIOHID(keyType)
-            }
+            touchbar.SystemUtils.adjustBrightness(up: up)
         }
     }
 }

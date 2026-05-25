@@ -15,6 +15,8 @@ public final class AppState {
     
     // Live system stats
     public var batteryLevel: Int = 100
+    public var isBatteryCharging: Bool = false
+    public var isBatteryFull: Bool = false
     public var cpuUsage: Double = 0.0
     public var ramUsage: Double = 0.0
     public var currentTime: String = ""
@@ -310,7 +312,10 @@ public final class AppState {
         self.currentDate = formatterDate.string(from: Date())
         
         // Query system monitor helper
-        self.batteryLevel = SystemMonitorHelper.shared.getBatteryPercentage()
+        let batteryInfo = SystemMonitorHelper.shared.getBatteryInfo()
+        self.batteryLevel = batteryInfo.percentage
+        self.isBatteryCharging = batteryInfo.isCharging
+        self.isBatteryFull = batteryInfo.isFull
         self.cpuUsage = SystemMonitorHelper.shared.getCPUUsage()
         self.ramUsage = SystemMonitorHelper.shared.getRAMUsage()
     }

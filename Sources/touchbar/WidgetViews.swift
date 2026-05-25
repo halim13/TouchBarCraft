@@ -119,6 +119,92 @@ public struct WidgetLabelView: View {
     }
 }
 
+public struct WidgetBatteryIconView: View {
+    let widget: TouchBarWidget
+    let state: AppState
+    let isSimulator: Bool
+    
+    @State private var currentFrameIndex: Int = 0
+    @State private var timer: Timer? = nil
+    @State private var activeFrames: [NSImage] = []
+    @State private var activePath: String = ""
+    
+    public var body: some View {
+        Group {
+            if !activeFrames.isEmpty {
+                if let nsImg = activeFrames[safe: currentFrameIndex % activeFrames.count] {
+                    Image(nsImage: nsImg)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: isSimulator ? 18 : 22, height: isSimulator ? 18 : 22)
+                } else {
+                    fallbackIcon
+                }
+            } else if !activePath.isEmpty, let nsImg = NSImage(contentsOfFile: activePath) {
+                Image(nsImage: nsImg)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: isSimulator ? 18 : 22, height: isSimulator ? 18 : 22)
+            } else {
+                fallbackIcon
+            }
+        }
+        .onAppear {
+            updateIcon()
+        }
+        .onChange(of: state.batteryLevel) { updateIcon() }
+        .onChange(of: state.isBatteryCharging) { updateIcon() }
+        .onChange(of: state.isBatteryFull) { updateIcon() }
+        .onChange(of: widget.batteryChargingIcon) { updateIcon() }
+        .onChange(of: widget.batteryFullIcon) { updateIcon() }
+        .onChange(of: widget.batteryLowIcon) { updateIcon() }
+    }
+    
+    private var fallbackIcon: some View {
+        Image(systemName: widget.iconName)
+            .font(.system(size: isSimulator ? widget.fontSize - 2 : widget.fontSize))
+            .foregroundColor(Color(hex: widget.textColorHex))
+    }
+    
+    private func updateIcon() {
+        let path: String
+        if state.isBatteryCharging && !widget.batteryChargingIcon.isEmpty {
+            path = widget.batteryChargingIcon
+        } else if state.batteryLevel <= widget.batteryLowThreshold && !widget.batteryLowIcon.isEmpty {
+            path = widget.batteryLowIcon
+        } else if state.isBatteryFull && !widget.batteryFullIcon.isEmpty {
+            path = widget.batteryFullIcon
+        } else {
+            path = ""
+        }
+        
+        guard path != activePath else { return }
+        activePath = path
+        
+        timer?.invalidate()
+        timer = nil
+        
+        guard !path.isEmpty else {
+            activeFrames = []
+            return
+        }
+        
+        if path.lowercased().hasSuffix(".gif") {
+            activeFrames = SystemUtils.extractGifFrames(from: path)
+            if !activeFrames.isEmpty {
+                currentFrameIndex = 0
+                timer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { [self] _ in
+                    Task { @MainActor in
+                        self.currentFrameIndex += 1
+                    }
+                }
+            }
+        } else {
+            activeFrames = []
+        }
+    }
+}
+
 public struct WidgetSystemMonitorView: View {
     let widget: TouchBarWidget
     let state: AppState
@@ -144,15 +230,19 @@ public struct WidgetSystemMonitorView: View {
         switch widget.monitorType {
         case .cpu: return .emerald
         case .ram: return .amber
-        case .battery: return state.batteryLevel > 20 ? .cyan : .rose
+        case .battery: return state.batteryLevel > widget.batteryLowThreshold ? .cyan : .rose
         }
     }
     
     public var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: widget.iconName)
-                .font(.system(size: isSimulator ? widget.fontSize - 2 : widget.fontSize))
-                .foregroundColor(Color(hex: widget.textColorHex))
+            if widget.monitorType == .battery {
+                WidgetBatteryIconView(widget: widget, state: state, isSimulator: isSimulator)
+            } else {
+                Image(systemName: widget.iconName)
+                    .font(.system(size: isSimulator ? widget.fontSize - 2 : widget.fontSize))
+                    .foregroundColor(Color(hex: widget.textColorHex))
+            }
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(String(format: "%.0f%% %@", value, suffix))
@@ -394,7 +484,8 @@ public struct WidgetAnkiView: View {
                     .background(Color(hex: widget.backgroundColorHex))
                     .cornerRadius(4)
                 }
-                // Sync status indicator/button (tombol tetap ada, spinner di sebelah jika syncing)
+            } else {
+                // Sync status indicator/button
                 HStack(alignment: .center, spacing: 4) {
                     Button(action: {
                         anki.syncDecks()
@@ -419,11 +510,14 @@ public struct WidgetAnkiView: View {
                     Text("Anki: Select Deck")
                         .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
                 } else if !anki.isShowingAnswer {
-                    Text("Q: \(anki.questionPreview)")
-                        .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .frame(maxWidth: isSimulator ? widget.ankiTextMaxWidth * 0.48 : widget.ankiTextMaxWidth, alignment: .leading)
+                    (
+                        Text("Q: ")
+                            .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
+                        + parseBoldTags(in: anki.questionPreview, defaultColor: Color(hex: widget.textColorHex), boldColor: Color(hex: widget.ankiBoldColorHex), fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize)
+                    )
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: isSimulator ? widget.ankiTextMaxWidth * 0.48 : widget.ankiTextMaxWidth, alignment: .leading)
                     
                     Button(action: {
                         anki.revealAnswer()
@@ -438,12 +532,14 @@ public struct WidgetAnkiView: View {
                     }
                     .buttonStyle(.plain)
                 } else {
-                    Text("A: \(anki.answerPreview)")
-                        .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .frame(maxWidth: isSimulator ? widget.ankiTextMaxWidth * 0.48 : widget.ankiTextMaxWidth, alignment: .leading)
-                        .lineLimit(1)
+                    (
+                        Text("A: ")
+                            .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
+                        + parseBoldTags(in: anki.answerPreview, defaultColor: Color(hex: widget.textColorHex), boldColor: Color(hex: widget.ankiBoldColorHex), fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize)
+                    )
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: isSimulator ? widget.ankiTextMaxWidth * 0.48 : widget.ankiTextMaxWidth, alignment: .leading)
                     
                     HStack(spacing: 4) {
                         let count = anki.currentCard?.buttonCount ?? 4
@@ -471,6 +567,26 @@ public struct WidgetAnkiView: View {
         .padding(.vertical, isSimulator ? 5 : 6)
         .background(Color(hex: widget.backgroundColorHex).opacity(0.15))
         .cornerRadius(6)
+    }
+    
+    private func parseBoldTags(in text: String, defaultColor: Color, boldColor: Color, fontSize: CGFloat) -> Text {
+        var parts: [Text] = []
+        let components = text.components(separatedBy: "<b>")
+        for (index, component) in components.enumerated() {
+            if index == 0 {
+                parts.append(Text(component).foregroundColor(defaultColor).font(.system(size: fontSize)))
+            } else {
+                let subParts = component.components(separatedBy: "</b>")
+                if subParts.count > 1 {
+                    parts.append(Text(subParts[0]).bold().foregroundColor(boldColor).font(.system(size: fontSize)))
+                    let regularText = subParts.dropFirst().joined(separator: "</b>")
+                    parts.append(Text(regularText).foregroundColor(defaultColor).font(.system(size: fontSize)))
+                } else {
+                    parts.append(Text("<b>" + component).foregroundColor(defaultColor).font(.system(size: fontSize)))
+                }
+            }
+        }
+        return parts.reduce(Text("")) { $0 + $1 }
     }
     
     private func getRatingButtons(for widget: TouchBarWidget, buttonCount: Int) -> [(title: String, rating: Int, color: Color)] {
@@ -603,20 +719,7 @@ public struct WidgetBrightnessButtonsView: View {
     
     private func executeBrightnessChange(up: Bool) {
         DispatchQueue.global(qos: .userInitiated).async {
-            // Use AppleScript as primary method (more reliable on modern macOS)
-            let scriptString = """
-            tell application "System Events"
-                key code \(up ? "144" : "145") using {command down}
-            end tell
-            """
-            if let script = NSAppleScript(source: scriptString) {
-                var error: NSDictionary?
-                script.executeAndReturnError(&error)
-                if error == nil { return }
-            }
-            
-            // Fallback to IOHID for brightness control
-            SystemUtils.postAuxiliaryKeyIOHID(up ? 2 : 3)
+            SystemUtils.adjustBrightness(up: up)
         }
     }
 }

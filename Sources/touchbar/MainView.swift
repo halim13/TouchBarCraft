@@ -800,30 +800,61 @@ struct AnkiConfigView: View {
                 
                 Divider()
                 
-                // Custom Width Setting
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Widget Custom Width")
+                // Custom Width & Aesthetic Setting
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Widget Custom Width & Aesthetics")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.gray)
                     
                     HStack(spacing: 8) {
                         Text("Max Text Width:")
                             .font(.system(size: 11))
-                            .frame(width: 95, alignment: .leading)
+                            .frame(width: 105, alignment: .leading)
                         
-                        Slider(value: Binding(
-                            get: { widget.ankiTextMaxWidth },
+                        TextField("", text: Binding(
+                            get: { String(Int(widget.ankiTextMaxWidth)) },
                             set: { val in
-                                state.widgets[index].ankiTextMaxWidth = val
+                                if let num = Double(val.filter { $0.isNumber }) {
+                                    state.widgets[index].ankiTextMaxWidth = num
+                                    state.saveConfig()
+                                    state.ankiState.refreshTouchBar()
+                                }
+                            }
+                        ))
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 80)
+                        
+                        Text("px")
+                            .font(.system(size: 11))
+                            .foregroundColor(.gray)
+                    }
+                    
+                    HStack(spacing: 8) {
+                        Text("Bold Custom Color:")
+                            .font(.system(size: 11))
+                            .frame(width: 105, alignment: .leading)
+                        
+                        TextField("#HEX", text: Binding(
+                            get: { widget.ankiBoldColorHex },
+                            set: { val in
+                                state.widgets[index].ankiBoldColorHex = val
                                 state.saveConfig()
                                 state.ankiState.refreshTouchBar()
                             }
-                        ), in: 100...600, step: 10)
+                        ))
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 80)
                         
-                        Text("\(Int(widget.ankiTextMaxWidth))px")
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundColor(.gray)
-                            .frame(width: 40, alignment: .trailing)
+                        ColorPicker("", selection: Binding(
+                            get: { Color(hex: widget.ankiBoldColorHex) },
+                            set: { color in
+                                if let hexString = color.toHex() {
+                                    state.widgets[index].ankiBoldColorHex = hexString
+                                    state.saveConfig()
+                                    state.ankiState.refreshTouchBar()
+                                }
+                            }
+                        ))
                     }
                 }
                 
@@ -1055,15 +1086,105 @@ struct SystemMonitorOptionsView: View {
     let state: AppState
     
     var body: some View {
-        Picker("System Resource:", selection: Binding(
-            get: { widget.monitorType },
-            set: { state.widgets[index].monitorType = $0; state.saveConfig() }
-        )) {
-            ForEach(MonitorType.allCases, id: \.self) { monitor in
-                Text(monitor.rawValue).tag(monitor)
+        VStack(alignment: .leading, spacing: 10) {
+            Picker("System Resource:", selection: Binding(
+                get: { widget.monitorType },
+                set: { state.widgets[index].monitorType = $0; state.saveConfig() }
+            )) {
+                ForEach(MonitorType.allCases, id: \.self) { monitor in
+                    Text(monitor.rawValue).tag(monitor)
+                }
+            }
+            .pickerStyle(.radioGroup)
+            
+            if widget.monitorType == .battery {
+                Divider()
+                    .padding(.vertical, 4)
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Battery Icon Customization")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.gray)
+                    
+                    // Low threshold setting
+                    HStack(spacing: 8) {
+                        Text("Low Battery Limit:")
+                            .font(.system(size: 11))
+                            .frame(width: 140, alignment: .leading)
+                        
+                        TextField("", text: Binding(
+                            get: { String(widget.batteryLowThreshold) },
+                            set: { val in
+                                if let num = Int(val.filter { $0.isNumber }) {
+                                    state.widgets[index].batteryLowThreshold = num
+                                    state.saveConfig()
+                                }
+                            }
+                        ))
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 60)
+                        
+                        Text("% (Default 20%)")
+                            .font(.system(size: 10))
+                            .foregroundColor(.gray)
+                    }
+                    
+                    // Custom Charging Icon
+                    customFileRow(label: "Charging Icon:", path: widget.batteryChargingIcon) { path in
+                        state.widgets[index].batteryChargingIcon = path
+                        state.saveConfig()
+                    }
+                    
+                    // Custom Low Icon
+                    customFileRow(label: "Low Battery Icon:", path: widget.batteryLowIcon) { path in
+                        state.widgets[index].batteryLowIcon = path
+                        state.saveConfig()
+                    }
+                    
+                    // Custom Full Icon
+                    customFileRow(label: "Full Battery Icon:", path: widget.batteryFullIcon) { path in
+                        state.widgets[index].batteryFullIcon = path
+                        state.saveConfig()
+                    }
+                }
             }
         }
-        .pickerStyle(.radioGroup)
+    }
+    
+    private func customFileRow(label: String, path: String, onSelect: @escaping (String) -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundColor(.gray)
+            
+            HStack(spacing: 8) {
+                TextField("Path to static image or .gif file", text: Binding(
+                    get: { path },
+                    set: { onSelect($0) }
+                ))
+                .textFieldStyle(.roundedBorder)
+                
+                Button("Browse...") {
+                    let panel = NSOpenPanel()
+                    panel.allowsMultipleSelection = false
+                    panel.canChooseDirectories = false
+                    panel.canChooseFiles = true
+                    panel.allowedContentTypes = [.image, .gif]
+                    
+                    if panel.runModal() == .OK {
+                        if let selectPath = panel.url?.path {
+                            onSelect(selectPath)
+                        }
+                    }
+                }
+                
+                if !path.isEmpty {
+                    Button("Clear") {
+                        onSelect("")
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1166,19 +1287,22 @@ struct VolumeSliderOptionsView: View {
                     .font(.system(size: 11))
                     .frame(width: 90, alignment: .leading)
                 
-                Slider(value: Binding(
-                    get: { widget.volumeSliderWidth },
+                TextField("", text: Binding(
+                    get: { String(Int(widget.volumeSliderWidth)) },
                     set: { val in
-                        state.widgets[index].volumeSliderWidth = val
-                        state.saveConfig()
-                        state.ankiState.refreshTouchBar()
+                        if let num = Double(val.filter { $0.isNumber }) {
+                            state.widgets[index].volumeSliderWidth = num
+                            state.saveConfig()
+                            state.ankiState.refreshTouchBar()
+                        }
                     }
-                ), in: 80...300, step: 5)
+                ))
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 80)
                 
-                Text("\(Int(widget.volumeSliderWidth))px")
-                    .font(.system(size: 10, design: .monospaced))
+                Text("px")
+                    .font(.system(size: 11))
                     .foregroundColor(.gray)
-                    .frame(width: 50, alignment: .trailing)
             }
         }
     }
@@ -1200,19 +1324,22 @@ struct BrightnessOptionsView: View {
                     .font(.system(size: 11))
                     .frame(width: 90, alignment: .leading)
                 
-                Slider(value: Binding(
-                    get: { widget.brightnessButtonSize },
+                TextField("", text: Binding(
+                    get: { String(Int(widget.brightnessButtonSize)) },
                     set: { val in
-                        state.widgets[index].brightnessButtonSize = val
-                        state.saveConfig()
-                        state.ankiState.refreshTouchBar()
+                        if let num = Double(val.filter { $0.isNumber }) {
+                            state.widgets[index].brightnessButtonSize = num
+                            state.saveConfig()
+                            state.ankiState.refreshTouchBar()
+                        }
                     }
-                ), in: 10...40, step: 1)
+                ))
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 80)
                 
-                Text("\(Int(widget.brightnessButtonSize))px")
-                    .font(.system(size: 10, design: .monospaced))
+                Text("px")
+                    .font(.system(size: 11))
                     .foregroundColor(.gray)
-                    .frame(width: 50, alignment: .trailing)
             }
         }
     }

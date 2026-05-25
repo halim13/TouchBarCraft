@@ -74,6 +74,15 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     // Aesthetic properties
     public var fontSize: Double
     
+    // Battery custom icons
+    public var batteryChargingIcon: String
+    public var batteryFullIcon: String
+    public var batteryLowIcon: String
+    public var batteryLowThreshold: Int
+    
+    // Anki bold custom color
+    public var ankiBoldColorHex: String
+
     // Animation Custom properties
     public var customGifPath: String
     
@@ -101,6 +110,11 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         fontSize: Double = 12.0,
         brightnessButtonSize: Double = 16.0,
         volumeSliderWidth: Double = 150.0,
+        batteryChargingIcon: String = "",
+        batteryFullIcon: String = "",
+        batteryLowIcon: String = "",
+        batteryLowThreshold: Int = 20,
+        ankiBoldColorHex: String = "#FFD60A",
         customGifPath: String = ""
     ) {
         self.id = id
@@ -126,6 +140,11 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.fontSize = fontSize
         self.brightnessButtonSize = brightnessButtonSize
         self.volumeSliderWidth = volumeSliderWidth
+        self.batteryChargingIcon = batteryChargingIcon
+        self.batteryFullIcon = batteryFullIcon
+        self.batteryLowIcon = batteryLowIcon
+        self.batteryLowThreshold = batteryLowThreshold
+        self.ankiBoldColorHex = ankiBoldColorHex
         self.customGifPath = customGifPath
     }
     
@@ -135,6 +154,8 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         case ankiDeckName, ankiShowAgain, ankiShowHard, ankiShowGood, ankiShowEasy, ankiQuestionField, ankiAnswerField, ankiTextMaxWidth
         case showSeconds
         case fontSize, brightnessButtonSize, volumeSliderWidth
+        case batteryChargingIcon, batteryFullIcon, batteryLowIcon, batteryLowThreshold
+        case ankiBoldColorHex
         case customGifPath
     }
 
@@ -166,6 +187,14 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.fontSize = try container.decodeIfPresent(Double.self, forKey: .fontSize) ?? 12.0
         self.brightnessButtonSize = try container.decodeIfPresent(Double.self, forKey: .brightnessButtonSize) ?? 16.0
         self.volumeSliderWidth = try container.decodeIfPresent(Double.self, forKey: .volumeSliderWidth) ?? 150.0
+        
+        self.batteryChargingIcon = try container.decodeIfPresent(String.self, forKey: .batteryChargingIcon) ?? ""
+        self.batteryFullIcon = try container.decodeIfPresent(String.self, forKey: .batteryFullIcon) ?? ""
+        self.batteryLowIcon = try container.decodeIfPresent(String.self, forKey: .batteryLowIcon) ?? ""
+        self.batteryLowThreshold = try container.decodeIfPresent(Int.self, forKey: .batteryLowThreshold) ?? 20
+        
+        self.ankiBoldColorHex = try container.decodeIfPresent(String.self, forKey: .ankiBoldColorHex) ?? "#FFD60A"
+        
         self.customGifPath = try container.decodeIfPresent(String.self, forKey: .customGifPath) ?? ""
     }
 }

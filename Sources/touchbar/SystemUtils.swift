@@ -9,6 +9,10 @@ public struct SystemUtils {
     private typealias IOHIDEventCreateAuxiliaryControlButtonType = @convention(c) (CFAllocator?, UInt32, Bool, UInt32) -> AnyObject?
     private typealias IOHIDEventSystemClientDispatchEventType = @convention(c) (AnyObject?, AnyObject?) -> Void
 
+    // Dynamic function pointer types for private DisplayServices APIs
+    private typealias DisplayServicesGetBrightnessType = @convention(c) (CGDirectDisplayID, UnsafeMutablePointer<Float>) -> Int32
+    private typealias DisplayServicesSetBrightnessType = @convention(c) (CGDirectDisplayID, Float) -> Int32
+
     // MARK: - Auxiliary Key via NSEvent (legacy)
     /// Sends an auxiliary key event (like Brightness Up/Down) using the traditional NSEvent method.
     /// This method may be ignored by newer macOS versions but retained for compatibility.
@@ -58,6 +62,33 @@ public struct SystemUtils {
             dispatchEvent(client, down)
             dispatchEvent(client, up)
         }
+    }
+
+    // MARK: - Screen Brightness Control via DisplayServices
+    /// Adjusts screen brightness up or down.
+    public static func adjustBrightness(up: Bool) {
+        let displayID = CGMainDisplayID()
+        let handle = dlopen("/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices", RTLD_NOW)
+        if let handle = handle,
+           let getBrightnessSym = dlsym(handle, "DisplayServicesGetBrightness"),
+           let setBrightnessSym = dlsym(handle, "DisplayServicesSetBrightness") {
+            let getBrightness = unsafeBitCast(getBrightnessSym, to: DisplayServicesGetBrightnessType.self)
+            let setBrightness = unsafeBitCast(setBrightnessSym, to: DisplayServicesSetBrightnessType.self)
+            
+            var current: Float = 0.5
+            if getBrightness(displayID, &current) == 0 {
+                let step: Float = 0.0625
+                let newBrightness = up ? min(1.0, current + step) : max(0.0, current - step)
+                _ = setBrightness(displayID, newBrightness)
+                dlclose(handle)
+                return
+            }
+            dlclose(handle)
+        }
+        
+        // Fallback to IOHID if DisplayServices is not available or fails
+        let key: Int32 = up ? 2 : 3
+        postAuxiliaryKeyIOHID(key)
     }
 
     // MARK: - GIF Frame Extraction
