@@ -394,15 +394,15 @@ public struct WidgetAnkiView: View {
                     .background(Color(hex: widget.backgroundColorHex))
                     .cornerRadius(4)
                 }
-            } else {
                 // Sync status indicator/button (tombol tetap ada, spinner di sebelah jika syncing)
-                HStack(spacing: 4) {
+                HStack(alignment: .center, spacing: 4) {
                     Button(action: {
                         anki.syncDecks()
                     }) {
                         Image(systemName: "arrow.triangle.2.circlepath")
                             .font(.system(size: isSimulator ? 10 : 12))
                             .foregroundColor(Color(hex: widget.textColorHex).opacity(anki.isSyncing ? 0.4 : 1.0))
+                            .frame(height: 12)
                     }
                     .buttonStyle(.plain)
                     .disabled(anki.isSyncing)

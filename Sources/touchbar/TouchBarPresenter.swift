@@ -106,6 +106,9 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             widgetMap[widget.id.uuidString] = widget
         }
         
+        // Disable the close box (X button) in DFRFoundation
+        dfrSystemModalShowsCloseBoxWhenFrontMost?(false)
+        
         let touchBar: NSTouchBar
         if !rebuild, let existing = self.globalTouchBar {
             touchBar = existing
@@ -116,11 +119,11 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             self.globalTouchBar = touchBar
         }
         
-        dfrSystemModalShowsCloseBoxWhenFrontMost?(false)
-        
         let presentSelector = NSSelectorFromString("presentSystemModalTouchBar:systemTrayItemIdentifier:")
         if NSTouchBar.responds(to: presentSelector) {
             NSTouchBar.perform(presentSelector, with: touchBar, with: trayIdentifier)
+            // Call it again after presentation to ensure macOS doesn't override it
+            dfrSystemModalShowsCloseBoxWhenFrontMost?(false)
             print("System-wide Touch Bar successfully presented (rebuild: \(rebuild))!")
         } else {
             print("Failed to resolve presentSystemModalTouchBar selector.")

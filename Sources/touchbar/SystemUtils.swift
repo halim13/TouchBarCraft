@@ -7,30 +7,32 @@ public struct SystemUtils {
     /// brightnessUp: 2 (NX_KEYTYPE_BRIGHTNESS_UP)
     /// brightnessDown: 3 (NX_KEYTYPE_BRIGHTNESS_DOWN)
     public static func postAuxiliaryKey(_ key: Int32) {
-        func makeEvent(down: Bool) -> NSEvent? {
-            let flags = NSEvent.ModifierFlags(rawValue: down ? 0xa00 : 0xb00)
-            let data1 = Int((key << 16) | (down ? 0xa00 : 0xb00))
+        // Correct layout for media/brightness auxiliary keys in macOS:
+        // subtype is 8 (NX_SUBTYPE_AUX_CONTROL_BUTTONS)
+        // data1 consists of: (key << 16) | (NX_KEYSTATE_DOWN/UP << 8)
+        func postEvent(down: Bool) {
+            let state: Int = down ? 0xa : 0xb
+            let data1 = (Int(key) << 16) | (state << 8)
             
             let ev = NSEvent.otherEvent(
                 with: .systemDefined,
                 location: NSPoint.zero,
-                modifierFlags: flags,
+                modifierFlags: down ? NSEvent.ModifierFlags(rawValue: 0xa00) : NSEvent.ModifierFlags(rawValue: 0xb00),
                 timestamp: 0,
                 windowNumber: 0,
                 context: nil,
-                subtype: 8, // NX_SUBTYPE_AUX_CONTROL_BUTTONS
+                subtype: 8,
                 data1: data1,
                 data2: -1
             )
-            return ev
+            
+            if let cgEvent = ev?.cgEvent {
+                cgEvent.post(tap: .cghidEventTap)
+            }
         }
         
-        if let downEvent = makeEvent(down: true)?.cgEvent {
-            downEvent.post(tap: .cghidEventTap)
-        }
-        if let upEvent = makeEvent(down: false)?.cgEvent {
-            upEvent.post(tap: .cghidEventTap)
-        }
+        postEvent(down: true)
+        postEvent(down: false)
     }
     
     /// Mengekstrak frame gambar dari file GIF lokal

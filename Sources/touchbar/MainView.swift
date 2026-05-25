@@ -202,24 +202,28 @@ public struct MainView: View {
                                     
                                     // Move buttons
                                     HStack(spacing: 4) {
+                                        let isFirst = index == 0
                                         Button(action: {
-                                            moveUp(index: index)
+                                            withAnimation { moveUp(index: index) }
                                         }) {
                                             Image(systemName: "chevron.up")
-                                                .font(.system(size: 8))
-                                                .foregroundColor(index == 0 ? .gray : .white)
+                                                .font(.system(size: 9))
+                                                .foregroundColor(isFirst ? .gray : .white)
+                                                .frame(width: 14, height: 14)
                                         }
-                                        .disabled(index == 0)
+                                        .disabled(isFirst)
                                         .buttonStyle(.plain)
                                         
+                                        let isLast = index == state.widgets.count - 1
                                         Button(action: {
-                                            moveDown(index: index)
+                                            withAnimation { moveDown(index: index) }
                                         }) {
                                             Image(systemName: "chevron.down")
-                                                .font(.system(size: 8))
-                                                .foregroundColor(index == state.widgets.count - 1 ? .gray : .white)
+                                                .font(.system(size: 9))
+                                                .foregroundColor(isLast ? .gray : .white)
+                                                .frame(width: 14, height: 14)
                                         }
-                                        .disabled(index == state.widgets.count - 1)
+                                        .disabled(isLast)
                                         .buttonStyle(.plain)
                                         
                                         Button(action: {
@@ -228,6 +232,7 @@ public struct MainView: View {
                                             Image(systemName: "trash")
                                                 .font(.system(size: 10))
                                                 .foregroundColor(.red.opacity(0.8))
+                                                .frame(width: 14, height: 14)
                                         }
                                         .buttonStyle(.plain)
                                     }
@@ -580,13 +585,17 @@ public struct MainView: View {
     // Sidebar move helpers
     private func moveUp(index: Int) {
         guard index > 0 else { return }
-        state.widgets.swapAt(index, index - 1)
+        var list = state.widgets
+        list.swapAt(index, index - 1)
+        state.widgets = list
         state.saveConfig()
     }
     
     private func moveDown(index: Int) {
         guard index < state.widgets.count - 1 else { return }
-        state.widgets.swapAt(index, index + 1)
+        var list = state.widgets
+        list.swapAt(index, index + 1)
+        state.widgets = list
         state.saveConfig()
     }
 }
