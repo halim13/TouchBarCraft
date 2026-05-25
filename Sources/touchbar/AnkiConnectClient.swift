@@ -92,7 +92,7 @@ public actor AnkiConnectClient {
     }
     
     /// Get the current card being reviewed
-    public func getCurrentCard() async -> AnkiCard? {
+    public func getCurrentCard(questionField: String = "Front", answerField: String = "Back") async -> AnkiCard? {
         do {
             guard let result = try await request(action: "guiCurrentCard") as? [String: Any] else {
                 return nil
@@ -108,23 +108,35 @@ public actor AnkiConnectClient {
             var questionText = ""
             var answerText = ""
             
-            // Try common field names
-            if let frontField = fieldsDict["Front"]?["value"] as? String {
-                questionText = stripHTML(frontField)
-            } else if let firstField = fieldsDict.values.first?["value"] as? String {
-                questionText = stripHTML(firstField)
+            // Try custom user-defined fields first
+            if let customFront = fieldsDict[questionField]?["value"] as? String {
+                questionText = stripHTML(customFront)
+            }
+            if let customBack = fieldsDict[answerField]?["value"] as? String {
+                answerText = stripHTML(customBack)
             }
             
-            if let backField = fieldsDict["Back"]?["value"] as? String {
-                answerText = stripHTML(backField)
-            } else if fieldsDict.count > 1 {
-                let values = Array(fieldsDict.values)
-                if let secondField = values[1]["value"] as? String {
-                    answerText = stripHTML(secondField)
+            // Fallback: Try common field names if empty
+            if questionText.isEmpty {
+                if let frontField = fieldsDict["Front"]?["value"] as? String {
+                    questionText = stripHTML(frontField)
+                } else if let firstField = fieldsDict.values.first?["value"] as? String {
+                    questionText = stripHTML(firstField)
                 }
             }
             
-            // Fallback: use question/answer from modelName if fields are empty
+            if answerText.isEmpty {
+                if let backField = fieldsDict["Back"]?["value"] as? String {
+                    answerText = stripHTML(backField)
+                } else if fieldsDict.count > 1 {
+                    let values = Array(fieldsDict.values)
+                    if let secondField = values[1]["value"] as? String {
+                        answerText = stripHTML(secondField)
+                    }
+                }
+            }
+            
+            // Fallback: use question/answer from modelName if fields are still empty
             if questionText.isEmpty {
                 questionText = result["question"] as? String ?? "Card"
                 questionText = stripHTML(questionText)
@@ -165,6 +177,17 @@ public actor AnkiConnectClient {
             return (result as? Bool) ?? true
         } catch {
             print("AnkiConnect: Failed to answer card: \(error)")
+            return false
+        }
+    }
+    
+    /// Trigger sync in Anki
+    public func sync() async -> Bool {
+        do {
+            _ = try await request(action: "sync")
+            return true
+        } catch {
+            print("AnkiConnect: Failed to sync: \(error)")
             return false
         }
     }

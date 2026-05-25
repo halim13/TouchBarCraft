@@ -364,21 +364,13 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             stack.addArrangedSubview(label)
             
             let count = card.buttonCount
-            let labels = ["Again", "Hard", "Good", "Easy"]
-            let colors = [
-                NSColor(red: 0.9, green: 0.2, blue: 0.2, alpha: 1.0),
-                NSColor(red: 0.9, green: 0.5, blue: 0.1, alpha: 1.0),
-                NSColor(red: 0.1, green: 0.7, blue: 0.3, alpha: 1.0),
-                NSColor(red: 0.2, green: 0.5, blue: 0.9, alpha: 1.0)
-            ]
+            let buttonsToShow = getRatingButtons(for: widget, buttonCount: count)
             
-            for i in 0..<min(count, 4) {
-                let rating = i + 1
-                let title = labels[i]
-                let btn = NSButton(title: title, target: self, action: #selector(ankiRatingTapped(_:)))
-                btn.tag = rating
+            for btnSpec in buttonsToShow {
+                let btn = NSButton(title: btnSpec.title, target: self, action: #selector(ankiRatingTapped(_:)))
+                btn.tag = btnSpec.rating
                 btn.bezelStyle = .rounded
-                btn.bezelColor = colors[i]
+                btn.bezelColor = btnSpec.color
                 btn.contentTintColor = .white
                 btn.font = NSFont.systemFont(ofSize: 11, weight: .bold)
                 stack.addArrangedSubview(btn)
@@ -386,6 +378,49 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         }
         
         return stack
+    }
+    
+    private func getRatingButtons(for widget: TouchBarWidget, buttonCount: Int) -> [(title: String, rating: Int, color: NSColor)] {
+        var result: [(title: String, rating: Int, color: NSColor)] = []
+        
+        let redColor = NSColor(red: 0.9, green: 0.2, blue: 0.2, alpha: 1.0)
+        let orangeColor = NSColor(red: 0.9, green: 0.5, blue: 0.1, alpha: 1.0)
+        let greenColor = NSColor(red: 0.1, green: 0.7, blue: 0.3, alpha: 1.0)
+        let blueColor = NSColor(red: 0.2, green: 0.5, blue: 0.9, alpha: 1.0)
+        
+        if buttonCount == 2 {
+            if widget.ankiShowAgain {
+                result.append((title: "Again", rating: 1, color: redColor))
+            }
+            if widget.ankiShowGood {
+                result.append((title: "Good", rating: 2, color: greenColor))
+            }
+        } else if buttonCount == 3 {
+            if widget.ankiShowAgain {
+                result.append((title: "Again", rating: 1, color: redColor))
+            }
+            if widget.ankiShowGood {
+                result.append((title: "Good", rating: 2, color: greenColor))
+            }
+            if widget.ankiShowEasy {
+                result.append((title: "Easy", rating: 3, color: blueColor))
+            }
+        } else {
+            if widget.ankiShowAgain {
+                result.append((title: "Again", rating: 1, color: redColor))
+            }
+            if widget.ankiShowHard {
+                result.append((title: "Hard", rating: 2, color: orangeColor))
+            }
+            if widget.ankiShowGood {
+                result.append((title: "Good", rating: 3, color: greenColor))
+            }
+            if widget.ankiShowEasy {
+                result.append((title: "Easy", rating: 4, color: blueColor))
+            }
+        }
+        
+        return result
     }
 }
 

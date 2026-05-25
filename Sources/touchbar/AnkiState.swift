@@ -89,10 +89,24 @@ public final class AnkiState {
         }
     }
     
+    private func getActiveAnkiWidget() -> TouchBarWidget? {
+        guard let state = AppState.shared else { return nil }
+        if let selectedID = state.selectedWidgetID,
+           let widget = state.widgets.first(where: { $0.id == selectedID }),
+           widget.type == .anki {
+            return widget
+        }
+        return state.widgets.first(where: { $0.type == .anki })
+    }
+    
     /// Load the current card from Anki
     public func loadCurrentCard() async {
         self.isLoading = true
-        let card = await AnkiConnectClient.shared.getCurrentCard()
+        let widget = getActiveAnkiWidget()
+        let qField = widget?.ankiQuestionField ?? "Front"
+        let aField = widget?.ankiAnswerField ?? "Back"
+        
+        let card = await AnkiConnectClient.shared.getCurrentCard(questionField: qField, answerField: aField)
         self.currentCard = card
         self.isShowingAnswer = false
         self.isLoading = false
@@ -137,9 +151,25 @@ public final class AnkiState {
         }
     }
     
+    /// Sync deck updates with AnkiWeb
+    public func syncDecks() {
+        self.isLoading = true
+        Task {
+            let success = await AnkiConnectClient.shared.sync()
+            self.isLoading = false
+            if success {
+                self.connectionError = ""
+                fetchDecks()
+                await loadCurrentCard()
+            } else {
+                self.connectionError = "Gagal melakukan sinkronisasi dengan AnkiWeb"
+            }
+        }
+    }
+    
     // MARK: - Touch Bar Refresh
     
-    private func refreshTouchBar() {
+    public func refreshTouchBar() {
         let presenterClass: AnyClass? = NSClassFromString("touchbar.TouchBarPresenter")
         let refreshSelector = NSSelectorFromString("refreshTouchBar")
         if let presenter = presenterClass as? NSObject.Type {

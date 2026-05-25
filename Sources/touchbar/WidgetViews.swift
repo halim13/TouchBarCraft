@@ -387,19 +387,18 @@ public struct WidgetAnkiView: View {
                 
                 HStack(spacing: 4) {
                     let count = anki.currentCard?.buttonCount ?? 4
-                    let labels = ["Again", "Hard", "Good", "Easy"]
-                    let colors: [Color] = [.red, .orange, .green, .blue]
+                    let buttons = getRatingButtons(for: widget, buttonCount: count)
                     
-                    ForEach(0..<min(count, 4), id: \.self) { i in
+                    ForEach(buttons, id: \.rating) { btn in
                         Button(action: {
-                            anki.submitRating(ease: i + 1)
+                            anki.submitRating(ease: btn.rating)
                         }) {
-                            Text(labels[i])
+                            Text(btn.title)
                                 .font(.system(size: isSimulator ? 9 : 11, weight: .bold))
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 3)
-                                .background(colors[i])
+                                .background(btn.color)
                                 .cornerRadius(4)
                         }
                         .buttonStyle(.plain)
@@ -411,6 +410,44 @@ public struct WidgetAnkiView: View {
         .padding(.vertical, isSimulator ? 5 : 6)
         .background(Color(hex: widget.backgroundColorHex).opacity(0.15))
         .cornerRadius(6)
+    }
+    
+    private func getRatingButtons(for widget: TouchBarWidget, buttonCount: Int) -> [(title: String, rating: Int, color: Color)] {
+        var result: [(title: String, rating: Int, color: Color)] = []
+        
+        if buttonCount == 2 {
+            if widget.ankiShowAgain {
+                result.append((title: "Again", rating: 1, color: .red))
+            }
+            if widget.ankiShowGood {
+                result.append((title: "Good", rating: 2, color: .green))
+            }
+        } else if buttonCount == 3 {
+            if widget.ankiShowAgain {
+                result.append((title: "Again", rating: 1, color: .red))
+            }
+            if widget.ankiShowGood {
+                result.append((title: "Good", rating: 2, color: .green))
+            }
+            if widget.ankiShowEasy {
+                result.append((title: "Easy", rating: 3, color: .blue))
+            }
+        } else {
+            if widget.ankiShowAgain {
+                result.append((title: "Again", rating: 1, color: .red))
+            }
+            if widget.ankiShowHard {
+                result.append((title: "Hard", rating: 2, color: .orange))
+            }
+            if widget.ankiShowGood {
+                result.append((title: "Good", rating: 3, color: .green))
+            }
+            if widget.ankiShowEasy {
+                result.append((title: "Easy", rating: 4, color: .blue))
+            }
+        }
+        
+        return result
     }
 }
 

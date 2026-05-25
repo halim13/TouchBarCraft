@@ -652,7 +652,7 @@ struct AnkiConfigView: View {
     let state: AppState
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Connection Status:")
                     .font(.system(size: 11, weight: .bold))
@@ -688,29 +688,147 @@ struct AnkiConfigView: View {
                 .buttonStyle(.bordered)
                 .controlSize(.small)
             } else {
-                Picker("Deck Name:", selection: Binding(
-                    get: { widget.ankiDeckName },
-                    set: { deck in
-                        state.widgets[index].ankiDeckName = deck
-                        state.saveConfig()
-                        state.ankiState.startReview(deck: deck)
+                // Deck Selection
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Deck Selection")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.gray)
+                    
+                    Picker("Deck Name:", selection: Binding(
+                        get: { widget.ankiDeckName },
+                        set: { deck in
+                            state.widgets[index].ankiDeckName = deck
+                            state.saveConfig()
+                            state.ankiState.startReview(deck: deck)
+                        }
+                    )) {
+                        Text("Select a deck...").tag("")
+                        ForEach(state.ankiState.deckNames, id: \.self) { deck in
+                            Text(deck).tag(deck)
+                        }
                     }
-                )) {
-                    Text("Select a deck...").tag("")
-                    ForEach(state.ankiState.deckNames, id: \.self) { deck in
-                        Text(deck).tag(deck)
+                    .pickerStyle(.menu)
+                    .onAppear {
+                        state.ankiState.fetchDecks()
                     }
-                }
-                .pickerStyle(.menu)
-                .onAppear {
-                    state.ankiState.fetchDecks()
+                    
+                    HStack(spacing: 8) {
+                        Button("🔄 Refresh Decks") {
+                            state.ankiState.fetchDecks()
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        
+                        Button("📤 Sync AnkiWeb") {
+                            state.ankiState.syncDecks()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.blue)
+                        .controlSize(.small)
+                    }
                 }
                 
-                Button("🔄 Refresh Decks") {
-                    state.ankiState.fetchDecks()
+                Divider()
+                
+                // Custom Fields mapping
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Card Fields Mapping")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.gray)
+                    
+                    HStack {
+                        Text("Question Field:")
+                            .font(.system(size: 11))
+                            .frame(width: 95, alignment: .leading)
+                        TextField("e.g. Front", text: Binding(
+                            get: { widget.ankiQuestionField },
+                            set: { val in
+                                state.widgets[index].ankiQuestionField = val
+                                state.saveConfig()
+                                Task {
+                                    await state.ankiState.loadCurrentCard()
+                                }
+                            }
+                        ))
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 11))
+                    }
+                    
+                    HStack {
+                        Text("Answer Field:")
+                            .font(.system(size: 11))
+                            .frame(width: 95, alignment: .leading)
+                        TextField("e.g. Back", text: Binding(
+                            get: { widget.ankiAnswerField },
+                            set: { val in
+                                state.widgets[index].ankiAnswerField = val
+                                state.saveConfig()
+                                Task {
+                                    await state.ankiState.loadCurrentCard()
+                                }
+                            }
+                        ))
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 11))
+                    }
+                    
+                    Text("Falls back to standard 'Front'/'Back' if fields aren't found on the card.")
+                        .font(.system(size: 9))
+                        .foregroundColor(.gray)
+                        .italic()
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+                
+                Divider()
+                
+                // Selectable Answers/Buttons
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Enabled Touch Bar Answer Buttons")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.gray)
+                    
+                    VStack(alignment: .leading, spacing: 6) {
+                        Toggle("Again (1)", isOn: Binding(
+                            get: { widget.ankiShowAgain },
+                            set: { val in
+                                state.widgets[index].ankiShowAgain = val
+                                state.saveConfig()
+                                state.ankiState.refreshTouchBar()
+                            }
+                        ))
+                        .toggleStyle(.checkbox)
+                        
+                        Toggle("Hard (2)", isOn: Binding(
+                            get: { widget.ankiShowHard },
+                            set: { val in
+                                state.widgets[index].ankiShowHard = val
+                                state.saveConfig()
+                                state.ankiState.refreshTouchBar()
+                            }
+                        ))
+                        .toggleStyle(.checkbox)
+                        
+                        Toggle("Good (3)", isOn: Binding(
+                            get: { widget.ankiShowGood },
+                            set: { val in
+                                state.widgets[index].ankiShowGood = val
+                                state.saveConfig()
+                                state.ankiState.refreshTouchBar()
+                            }
+                        ))
+                        .toggleStyle(.checkbox)
+                        
+                        Toggle("Easy (4)", isOn: Binding(
+                            get: { widget.ankiShowEasy },
+                            set: { val in
+                                state.widgets[index].ankiShowEasy = val
+                                state.saveConfig()
+                                state.ankiState.refreshTouchBar()
+                            }
+                        ))
+                        .toggleStyle(.checkbox)
+                    }
+                    .font(.system(size: 11))
+                }
                 
                 Divider()
                 
