@@ -11,7 +11,10 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "touchbar",
-            dependencies: []
+            dependencies: [],
+            linkerSettings: [
+                .linkedFramework("IOKit")
+            ]
         ),
     ]
 )

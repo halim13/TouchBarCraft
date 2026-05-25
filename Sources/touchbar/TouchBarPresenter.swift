@@ -154,9 +154,8 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     // MARK: - Button Action Dispatch (called by native NSButton targets)
     
     @objc private func touchBarButtonTapped(_ sender: NSButton) {
-        let widgetID = String(sender.tag)
         // Tag stores hash; find the widget via identifier stored in accessibilityIdentifier
-        let identifier = sender.accessibilityIdentifier() ?? ""
+        let identifier = sender.accessibilityIdentifier()
         guard let widget = widgetMap[identifier] else { return }
         guard let state = AppState.shared else { return }
         state.executeAction(for: widget)
@@ -428,7 +427,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             // Cap label width so Reveal button is always visible
             label.translatesAutoresizingMaskIntoConstraints = false
             label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-            label.widthAnchor.constraint(lessThanOrEqualToConstant: 280).isActive = true
+            label.widthAnchor.constraint(lessThanOrEqualToConstant: CGFloat(widget.ankiTextMaxWidth)).isActive = true
             
             let btn = NSButton(title: "Reveal ▶", target: self, action: #selector(ankiRevealTapped(_:)))
             btn.bezelStyle = .rounded
@@ -450,7 +449,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             // Cap label width so rating buttons are always visible
             label.translatesAutoresizingMaskIntoConstraints = false
             label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-            label.widthAnchor.constraint(lessThanOrEqualToConstant: 200).isActive = true
+            label.widthAnchor.constraint(lessThanOrEqualToConstant: CGFloat(widget.ankiTextMaxWidth * 0.8)).isActive = true
             stack.addArrangedSubview(label)
             
             let count = card.buttonCount
@@ -580,7 +579,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         let view = NSImageView()
         view.imageScaling = .scaleProportionallyUpOrDown
         
-        let frames = SystemUtils.extractGifFrames(from: widget.customGifPath)
+        let frames = touchbar.SystemUtils.extractGifFrames(from: widget.customGifPath)
         if !frames.isEmpty {
             // Render custom GIF frames using native NSImageView animation
             view.image = frames.first
@@ -671,7 +670,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         DispatchQueue.global(qos: .userInitiated).async {
             // NX_KEYTYPE_BRIGHTNESS_UP = 2, NX_KEYTYPE_BRIGHTNESS_DOWN = 3
             let keyType: Int32 = up ? 2 : 3
-            SystemUtils.postAuxiliaryKey(keyType)
+            touchbar.SystemUtils.postAuxiliaryKeyIOHID(keyType)
         }
     }
 }

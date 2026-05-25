@@ -22,13 +22,12 @@ public final class AppState {
     
     private var statsTimer: Timer?
     private let configPath: URL
-    
+
     public init() {
         // Setup config path in user's home directory
         let homeDir = FileManager.default.homeDirectoryForCurrentUser
         self.configPath = homeDir.appendingPathComponent(".touchbarcraft.json")
         self.ankiState = AnkiState()
-        
         Self.shared = self
         loadConfig()
         startSystemTimers()

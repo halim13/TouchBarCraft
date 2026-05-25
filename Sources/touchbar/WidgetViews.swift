@@ -423,7 +423,7 @@ public struct WidgetAnkiView: View {
                         .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
                         .lineLimit(1)
                         .truncationMode(.tail)
-                        .frame(maxWidth: isSimulator ? 120 : 250, alignment: .leading)
+                        .frame(maxWidth: isSimulator ? widget.ankiTextMaxWidth * 0.48 : widget.ankiTextMaxWidth, alignment: .leading)
                     
                     Button(action: {
                         anki.revealAnswer()
@@ -442,7 +442,7 @@ public struct WidgetAnkiView: View {
                         .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
                         .lineLimit(1)
                         .truncationMode(.tail)
-                        .frame(maxWidth: isSimulator ? 100 : 200, alignment: .leading)
+                        .frame(maxWidth: isSimulator ? widget.ankiTextMaxWidth * 0.48 : widget.ankiTextMaxWidth, alignment: .leading)
                         .lineLimit(1)
                     
                     HStack(spacing: 4) {
@@ -602,8 +602,9 @@ public struct WidgetBrightnessButtonsView: View {
     
     private func executeBrightnessChange(up: Bool) {
         DispatchQueue.global(qos: .userInitiated).async {
+            // Use IOHID for reliable brightness control (MTMR style)
             let keyType: Int32 = up ? 2 : 3
-            SystemUtils.postAuxiliaryKey(keyType)
+            SystemUtils.postAuxiliaryKeyIOHID(keyType)
         }
     }
 }

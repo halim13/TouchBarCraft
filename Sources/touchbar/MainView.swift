@@ -800,6 +800,35 @@ struct AnkiConfigView: View {
                 
                 Divider()
                 
+                // Custom Width Setting
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Widget Custom Width")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.gray)
+                    
+                    HStack(spacing: 8) {
+                        Text("Max Text Width:")
+                            .font(.system(size: 11))
+                            .frame(width: 95, alignment: .leading)
+                        
+                        Slider(value: Binding(
+                            get: { widget.ankiTextMaxWidth },
+                            set: { val in
+                                state.widgets[index].ankiTextMaxWidth = val
+                                state.saveConfig()
+                                state.ankiState.refreshTouchBar()
+                            }
+                        ), in: 100...600, step: 10)
+                        
+                        Text("\(Int(widget.ankiTextMaxWidth))px")
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundColor(.gray)
+                            .frame(width: 40, alignment: .trailing)
+                    }
+                }
+                
+                Divider()
+                
                 // Selectable Answers/Buttons
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Enabled Touch Bar Answer Buttons")
