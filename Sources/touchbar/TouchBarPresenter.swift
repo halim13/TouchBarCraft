@@ -31,6 +31,23 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     
     private override init() {
         super.init()
+        setupWorkspaceNotifications()
+    }
+    
+    private func setupWorkspaceNotifications() {
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(workspaceDidActivateApplication),
+            name: NSWorkspace.didActivateApplicationNotification,
+            object: nil
+        )
+    }
+    
+    @objc private func workspaceDidActivateApplication() {
+        // Jika Touch Bar kustom kita sedang aktif, tampilkan kembali saat berpindah aplikasi
+        if globalTouchBar != nil {
+            presentGlobalTouchBar()
+        }
     }
     
     // MARK: - Setup System Tray Item
@@ -278,7 +295,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         button.bezelStyle = .rounded
         button.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
         button.contentTintColor = NSColor(Color(hex: widget.textColorHex))
-        button.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        button.font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
         
         return button
     }
@@ -339,8 +356,26 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             return stack
         }
         
-        // Add Sync Button or Spinner first
+        // Add Sync Button (selalu tampil) dan progress spinner di sebelahnya jika sedang syncing
+        let syncButton = NSButton(title: "", target: self, action: #selector(ankiSyncTapped(_:)))
+        syncButton.bezelStyle = .rounded
+        syncButton.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
+        syncButton.contentTintColor = NSColor(Color(hex: widget.textColorHex))
+        
+        if let syncImage = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: "Sync") {
+            syncButton.image = syncImage
+            syncButton.imagePosition = .imageOnly
+        } else {
+            syncButton.title = "Sync"
+        }
+        
+        syncButton.translatesAutoresizingMaskIntoConstraints = false
+        syncButton.widthAnchor.constraint(equalToConstant: 30).isActive = true
+        
         if anki.isSyncing {
+            syncButton.isEnabled = false
+            stack.addArrangedSubview(syncButton)
+            
             let spinner = NSProgressIndicator()
             spinner.style = .spinning
             spinner.controlSize = .small
@@ -355,21 +390,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             
             stack.addArrangedSubview(spinner)
         } else {
-            let syncButton = NSButton(title: "", target: self, action: #selector(ankiSyncTapped(_:)))
-            syncButton.bezelStyle = .rounded
-            syncButton.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
-            syncButton.contentTintColor = NSColor(Color(hex: widget.textColorHex))
-            
-            if let syncImage = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: "Sync") {
-                syncButton.image = syncImage
-                syncButton.imagePosition = .imageOnly
-            } else {
-                syncButton.title = "Sync"
-            }
-            
-            syncButton.translatesAutoresizingMaskIntoConstraints = false
-            syncButton.widthAnchor.constraint(equalToConstant: 30).isActive = true
-            
+            syncButton.isEnabled = true
             stack.addArrangedSubview(syncButton)
         }
         
@@ -384,7 +405,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         
         if !anki.isShowingAnswer {
             let label = NSTextField(labelWithString: "Q: \(card.question)")
-            label.font = NSFont.systemFont(ofSize: 12, weight: .medium)
+            label.font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
             label.textColor = NSColor(Color(hex: widget.textColorHex))
             label.lineBreakMode = .byTruncatingTail
             
@@ -392,12 +413,13 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             btn.bezelStyle = .rounded
             btn.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
             btn.contentTintColor = NSColor(Color(hex: widget.textColorHex))
+            btn.font = NSFont.systemFont(ofSize: CGFloat(max(9, widget.fontSize - 1)), weight: .semibold)
             
             stack.addArrangedSubview(label)
             stack.addArrangedSubview(btn)
         } else {
             let label = NSTextField(labelWithString: "A: \(card.answer)")
-            label.font = NSFont.systemFont(ofSize: 12, weight: .medium)
+            label.font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
             label.textColor = NSColor(Color(hex: widget.textColorHex))
             label.lineBreakMode = .byTruncatingTail
             stack.addArrangedSubview(label)
@@ -411,7 +433,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                 btn.bezelStyle = .rounded
                 btn.bezelColor = btnSpec.color
                 btn.contentTintColor = .white
-                btn.font = NSFont.systemFont(ofSize: 11, weight: .bold)
+                btn.font = NSFont.systemFont(ofSize: CGFloat(max(9, widget.fontSize - 2)), weight: .bold)
                 stack.addArrangedSubview(btn)
             }
         }

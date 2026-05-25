@@ -75,11 +75,11 @@ public struct WidgetButtonView: View {
             HStack(spacing: 6) {
                 if !widget.iconName.isEmpty {
                     Image(systemName: widget.iconName)
-                        .font(.system(size: isSimulator ? 12 : 14))
+                        .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize))
                 }
                 if !widget.title.isEmpty {
                     Text(parseTemplate(title: widget.title, widget: widget, state: state))
-                        .font(.system(size: isSimulator ? 11 : 13, weight: .medium))
+                        .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
                 }
             }
             .padding(.horizontal, isSimulator ? 8 : 12)
@@ -105,11 +105,11 @@ public struct WidgetLabelView: View {
         HStack(spacing: 6) {
             if !widget.iconName.isEmpty {
                 Image(systemName: widget.iconName)
-                    .font(.system(size: isSimulator ? 12 : 14))
+                    .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize))
                     .foregroundColor(Color(hex: widget.textColorHex))
             }
             Text(parseTemplate(title: widget.title, widget: widget, state: state))
-                .font(.system(size: isSimulator ? 11 : 13, weight: .medium))
+                .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
                 .foregroundColor(Color(hex: widget.textColorHex))
         }
         .padding(.horizontal, isSimulator ? 8 : 12)
@@ -151,12 +151,12 @@ public struct WidgetSystemMonitorView: View {
     public var body: some View {
         HStack(spacing: 6) {
             Image(systemName: widget.iconName)
-                .font(.system(size: isSimulator ? 11 : 13))
+                .font(.system(size: isSimulator ? widget.fontSize - 2 : widget.fontSize))
                 .foregroundColor(Color(hex: widget.textColorHex))
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(String(format: "%.0f%% %@", value, suffix))
-                    .font(.system(size: isSimulator ? 9 : 11, design: .monospaced))
+                    .font(.system(size: isSimulator ? widget.fontSize - 3 : widget.fontSize - 2, design: .monospaced))
                     .foregroundColor(Color(hex: widget.textColorHex))
                 
                 // Value progress bar
@@ -191,11 +191,11 @@ public struct WidgetAnimationView: View {
     public var body: some View {
         HStack(spacing: 6) {
             Image(systemName: widget.iconName)
-                .font(.system(size: isSimulator ? 11 : 13))
+                .font(.system(size: isSimulator ? widget.fontSize - 2 : widget.fontSize))
                 .foregroundColor(Color(hex: widget.textColorHex))
             
             Text(currentFrame)
-                .font(.system(size: isSimulator ? 11 : 13, design: .monospaced))
+                .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, design: .monospaced))
                 .foregroundColor(Color(hex: widget.textColorHex))
         }
         .padding(.horizontal, isSimulator ? 8 : 12)
@@ -365,36 +365,39 @@ public struct WidgetAnkiView: View {
                     .cornerRadius(4)
                 }
             } else {
-                // Sync status indicator/button
-                if anki.isSyncing {
-                    ProgressView()
-                        .progressViewStyle(.circular)
-                        .scaleEffect(0.7)
-                        .frame(width: 18, height: 18)
-                } else {
+                // Sync status indicator/button (tombol tetap ada, spinner di sebelah jika syncing)
+                HStack(spacing: 4) {
                     Button(action: {
                         anki.syncDecks()
                     }) {
                         Image(systemName: "arrow.triangle.2.circlepath")
                             .font(.system(size: isSimulator ? 10 : 12))
-                            .foregroundColor(Color(hex: widget.textColorHex))
+                            .foregroundColor(Color(hex: widget.textColorHex).opacity(anki.isSyncing ? 0.4 : 1.0))
                     }
                     .buttonStyle(.plain)
+                    .disabled(anki.isSyncing)
+                    
+                    if anki.isSyncing {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                            .scaleEffect(0.5)
+                            .frame(width: 12, height: 12)
+                    }
                 }
                 
                 if anki.currentCard == nil {
                     Text("Anki: Select Deck")
-                        .font(.system(size: isSimulator ? 11 : 13, weight: .medium))
+                        .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
                 } else if !anki.isShowingAnswer {
                     Text("Q: \(anki.questionPreview)")
-                        .font(.system(size: isSimulator ? 11 : 13, weight: .medium))
+                        .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
                         .lineLimit(1)
                     
                     Button(action: {
                         anki.revealAnswer()
                     }) {
                         Text("Reveal ▶")
-                            .font(.system(size: isSimulator ? 10 : 12, weight: .semibold))
+                            .font(.system(size: isSimulator ? widget.fontSize - 2 : widget.fontSize - 1, weight: .semibold))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
                             .background(Color(hex: widget.backgroundColorHex))
@@ -404,7 +407,7 @@ public struct WidgetAnkiView: View {
                     .buttonStyle(.plain)
                 } else {
                     Text("A: \(anki.answerPreview)")
-                        .font(.system(size: isSimulator ? 11 : 13, weight: .medium))
+                        .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
                         .lineLimit(1)
                     
                     HStack(spacing: 4) {
@@ -416,7 +419,7 @@ public struct WidgetAnkiView: View {
                                 anki.submitRating(ease: btn.rating)
                             }) {
                                 Text(btn.title)
-                                    .font(.system(size: isSimulator ? 9 : 11, weight: .bold))
+                                    .font(.system(size: isSimulator ? widget.fontSize - 3 : widget.fontSize - 1, weight: .bold))
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 3)

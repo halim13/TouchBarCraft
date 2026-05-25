@@ -50,6 +50,12 @@ public final class AnkiState {
             self.isConnected = connected
             if connected {
                 self.connectionError = ""
+                fetchDecks()
+                let widget = getActiveAnkiWidget()
+                if let deckName = widget?.ankiDeckName, !deckName.isEmpty {
+                    self.selectedDeck = deckName
+                    startReview(deck: deckName)
+                }
             } else {
                 self.connectionError = "Anki tidak terbuka atau AnkiConnect belum terinstal"
             }

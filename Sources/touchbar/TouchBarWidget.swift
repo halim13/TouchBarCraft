@@ -62,6 +62,9 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     // Clock properties
     public var showSeconds: Bool
     
+    // Aesthetic properties
+    public var fontSize: Double
+    
     public init(
         id: UUID = UUID(),
         type: WidgetType = .label,
@@ -81,7 +84,8 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         ankiShowEasy: Bool = true,
         ankiQuestionField: String = "Front",
         ankiAnswerField: String = "Back",
-        showSeconds: Bool = true
+        showSeconds: Bool = true,
+        fontSize: Double = 12.0
     ) {
         self.id = id
         self.type = type
@@ -102,6 +106,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiQuestionField = ankiQuestionField
         self.ankiAnswerField = ankiAnswerField
         self.showSeconds = showSeconds
+        self.fontSize = fontSize
     }
     
     enum CodingKeys: String, CodingKey {
@@ -109,6 +114,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         case actionType, actionValue, monitorType, animationType, animationSpeed
         case ankiDeckName, ankiShowAgain, ankiShowHard, ankiShowGood, ankiShowEasy, ankiQuestionField, ankiAnswerField
         case showSeconds
+        case fontSize
     }
 
     public init(from decoder: Decoder) throws {
@@ -135,5 +141,6 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiAnswerField = try container.decodeIfPresent(String.self, forKey: .ankiAnswerField) ?? "Back"
         
         self.showSeconds = try container.decodeIfPresent(Bool.self, forKey: .showSeconds) ?? true
+        self.fontSize = try container.decodeIfPresent(Double.self, forKey: .fontSize) ?? 12.0
     }
 }

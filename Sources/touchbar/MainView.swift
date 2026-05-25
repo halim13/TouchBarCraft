@@ -348,7 +348,7 @@ public struct MainView: View {
                                     ))
                                 }
                                 
-                                HStack(spacing: 8) {
+                                 HStack(spacing: 8) {
                                     Text("Text HEX:")
                                         .font(.system(size: 11))
                                         .frame(width: 100, alignment: .leading)
@@ -367,6 +367,22 @@ public struct MainView: View {
                                             }
                                         }
                                     ))
+                                }
+                                
+                                HStack(spacing: 8) {
+                                    Text("Font Size:")
+                                        .font(.system(size: 11))
+                                        .frame(width: 100, alignment: .leading)
+                                    
+                                    Slider(value: Binding(
+                                        get: { widget.fontSize },
+                                        set: { state.widgets[index].fontSize = $0; state.saveConfig() }
+                                    ), in: 8...20, step: 1)
+                                    
+                                    Text("\(Int(widget.fontSize))px")
+                                        .font(.system(size: 10, design: .monospaced))
+                                        .foregroundColor(.gray)
+                                        .frame(width: 35, alignment: .trailing)
                                 }
                                 
                                 // Color Presets Grid
