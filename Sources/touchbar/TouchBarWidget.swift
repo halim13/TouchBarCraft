@@ -59,6 +59,9 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     public var ankiQuestionField: String
     public var ankiAnswerField: String
     
+    // Clock properties
+    public var showSeconds: Bool
+    
     public init(
         id: UUID = UUID(),
         type: WidgetType = .label,
@@ -77,7 +80,8 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         ankiShowGood: Bool = true,
         ankiShowEasy: Bool = true,
         ankiQuestionField: String = "Front",
-        ankiAnswerField: String = "Back"
+        ankiAnswerField: String = "Back",
+        showSeconds: Bool = true
     ) {
         self.id = id
         self.type = type
@@ -97,12 +101,14 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiShowEasy = ankiShowEasy
         self.ankiQuestionField = ankiQuestionField
         self.ankiAnswerField = ankiAnswerField
+        self.showSeconds = showSeconds
     }
     
     enum CodingKeys: String, CodingKey {
         case id, type, title, iconName, backgroundColorHex, textColorHex
         case actionType, actionValue, monitorType, animationType, animationSpeed
         case ankiDeckName, ankiShowAgain, ankiShowHard, ankiShowGood, ankiShowEasy, ankiQuestionField, ankiAnswerField
+        case showSeconds
     }
 
     public init(from decoder: Decoder) throws {
@@ -127,5 +133,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiShowEasy = try container.decodeIfPresent(Bool.self, forKey: .ankiShowEasy) ?? true
         self.ankiQuestionField = try container.decodeIfPresent(String.self, forKey: .ankiQuestionField) ?? "Front"
         self.ankiAnswerField = try container.decodeIfPresent(String.self, forKey: .ankiAnswerField) ?? "Back"
+        
+        self.showSeconds = try container.decodeIfPresent(Bool.self, forKey: .showSeconds) ?? true
     }
 }

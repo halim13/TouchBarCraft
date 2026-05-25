@@ -407,133 +407,7 @@ public struct MainView: View {
                                     .font(.system(size: 12, weight: .bold))
                                     .foregroundColor(.pink)
                                 
-                                switch widget.type {
-                                case .label:
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        Text("💡 Placeholder Guide:")
-                                            .font(.system(size: 10, weight: .bold))
-                                            .foregroundColor(.purple)
-                                        
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            PlaceholderTip(code: "{time}", desc: "Local 24h Clock (e.g. 14:35:02)")
-                                            PlaceholderTip(code: "{date}", desc: "Current Calendar Date (e.g. Mon, 25 May)")
-                                            PlaceholderTip(code: "{cpu}", desc: "Live active CPU percentage")
-                                            PlaceholderTip(code: "{ram}", desc: "Physical RAM utilization percentage")
-                                            PlaceholderTip(code: "{battery}", desc: "MacBook battery charge percentage")
-                                        }
-                                    }
-                                    
-                                case .button:
-                                    VStack(alignment: .leading, spacing: 10) {
-                                        Picker("Button Action:", selection: Binding(
-                                            get: { widget.actionType },
-                                            set: { state.widgets[index].actionType = $0; state.saveConfig() }
-                                        )) {
-                                            ForEach(ActionType.allCases, id: \.self) { type in
-                                                Text(type.rawValue).tag(type)
-                                            }
-                                        }
-                                        .pickerStyle(.menu)
-                                        
-                                        if widget.actionType == .shellCommand {
-                                            VStack(alignment: .leading, spacing: 4) {
-                                                Text("Shell command to run:")
-                                                    .font(.system(size: 10))
-                                                    .foregroundColor(.gray)
-                                                
-                                                TextEditor(text: Binding(
-                                                    get: { widget.actionValue },
-                                                    set: { state.widgets[index].actionValue = $0; state.saveConfig() }
-                                                ))
-                                                .font(.system(size: 10, design: .monospaced))
-                                                .frame(height: 50)
-                                                .padding(4)
-                                                .background(Color.black.opacity(0.3))
-                                                .cornerRadius(4)
-                                                
-                                                Text("e.g. 'open -a Safari', 'say Done', or a path to a script")
-                                                    .font(.system(size: 9))
-                                                    .foregroundColor(.gray)
-                                            }
-                                        } else if widget.actionType == .playSound {
-                                            VStack(alignment: .leading, spacing: 4) {
-                                                Text("Sound Effect Name:")
-                                                    .font(.system(size: 10))
-                                                    .foregroundColor(.gray)
-                                                
-                                                Picker("Select Sound", selection: Binding(
-                                                    get: { soundPresets.contains(widget.actionValue) ? widget.actionValue : "Glass" },
-                                                    set: { state.widgets[index].actionValue = $0; state.saveConfig() }
-                                                )) {
-                                                    ForEach(soundPresets, id: \.self) { sound in
-                                                        Text(sound).tag(sound)
-                                                    }
-                                                }
-                                                .pickerStyle(.menu)
-                                                
-                                                Button("🎵 Test Sound Now") {
-                                                    NSSound(named: widget.actionValue)?.play()
-                                                }
-                                                .buttonStyle(.bordered)
-                                                .controlSize(.small)
-                                                .padding(.top, 4)
-                                            }
-                                        } else {
-                                            Text("No additional arguments needed.")
-                                                .font(.system(size: 10))
-                                                .foregroundColor(.gray)
-                                        }
-                                    }
-                                    
-                                case .systemMonitor:
-                                    Picker("System Resource:", selection: Binding(
-                                        get: { widget.monitorType },
-                                        set: { state.widgets[index].monitorType = $0; state.saveConfig() }
-                                    )) {
-                                        ForEach(MonitorType.allCases, id: \.self) { monitor in
-                                            Text(monitor.rawValue).tag(monitor)
-                                        }
-                                    }
-                                    .pickerStyle(.radioGroup)
-                                    
-                                case .media:
-                                    Text("Fully automatic system widget. Renders interactive Backward, Play/Pause, and Forward keys that communicate directly with Apple Music, Spotify, or default macOS media listeners.")
-                                        .font(.system(size: 11))
-                                        .foregroundColor(.gray)
-                                        .lineSpacing(4)
-                                    
-                                case .animation:
-                                    VStack(alignment: .leading, spacing: 10) {
-                                        Picker("Animation Preset:", selection: Binding(
-                                            get: { widget.animationType },
-                                            set: { state.widgets[index].animationType = $0; state.saveConfig() }
-                                        )) {
-                                            ForEach(AnimationPreset.allCases, id: \.self) { anim in
-                                                Text(anim.rawValue).tag(anim)
-                                            }
-                                        }
-                                        .pickerStyle(.menu)
-                                        
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            HStack {
-                                                Text("Frame Interval Speed:")
-                                                    .font(.system(size: 10))
-                                                    .foregroundColor(.gray)
-                                                Spacer()
-                                                Text(String(format: "%.2fs", widget.animationSpeed))
-                                                    .font(.system(size: 10, design: .monospaced))
-                                                    .foregroundColor(.white)
-                                            }
-                                            
-                                            Slider(value: Binding(
-                                                get: { widget.animationSpeed },
-                                                set: { state.widgets[index].animationSpeed = $0; state.saveConfig() }
-                                            ), in: 0.05...1.0, step: 0.05)
-                                        }
-                                    }
-                                case .anki:
-                                    AnkiConfigView(widget: widget, index: index, state: state)
-                                }
+                                WidgetOptionsView(widget: widget, index: index, state: state)
                             }
                             .padding(14)
                             .background(Color.white.opacity(0.03))
@@ -850,6 +724,202 @@ struct AnkiConfigView: View {
                 }
                 .font(.system(size: 11))
                 .foregroundColor(.gray)
+            }
+        }
+    }
+}
+
+// MARK: - Widget Specific Options Subviews
+
+struct WidgetOptionsView: View {
+    let widget: TouchBarWidget
+    let index: Int
+    let state: AppState
+    
+    private let soundPresets = [
+        "Basso", "Blow", "Bottle", "Frog", "Funk", "Glass", "Hero", "Morse",
+        "Ping", "Pop", "Purr", "Sosumi", "Submarine", "Tink"
+    ]
+    
+    var body: some View {
+        switch widget.type {
+        case .label:
+            LabelOptionsView(widget: widget, index: index, state: state)
+        case .button:
+            ButtonOptionsView(widget: widget, index: index, state: state, soundPresets: soundPresets)
+        case .systemMonitor:
+            SystemMonitorOptionsView(widget: widget, index: index, state: state)
+        case .media:
+            Text("Fully automatic system widget. Renders interactive Backward, Play/Pause, and Forward keys that communicate directly with Apple Music, Spotify, or default macOS media listeners.")
+                .font(.system(size: 11))
+                .foregroundColor(.gray)
+                .lineSpacing(4)
+        case .animation:
+            AnimationOptionsView(widget: widget, index: index, state: state)
+        case .anki:
+            AnkiConfigView(widget: widget, index: index, state: state)
+        }
+    }
+}
+
+struct LabelOptionsView: View {
+    let widget: TouchBarWidget
+    let index: Int
+    let state: AppState
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle("Show Seconds in {time}", isOn: Binding(
+                get: { widget.showSeconds },
+                set: { state.widgets[index].showSeconds = $0; state.saveConfig() }
+            ))
+            .toggleStyle(.checkbox)
+            .font(.system(size: 11))
+            
+            Divider()
+            
+            Text("💡 Placeholder Guide:")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.purple)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                PlaceholderTip(code: "{time}", desc: "Local 24h Clock (e.g. 14:35:02)")
+                PlaceholderTip(code: "{date}", desc: "Current Calendar Date (e.g. Mon, 25 May)")
+                PlaceholderTip(code: "{cpu}", desc: "Live active CPU percentage")
+                PlaceholderTip(code: "{ram}", desc: "Physical RAM utilization percentage")
+                PlaceholderTip(code: "{battery}", desc: "MacBook battery charge percentage")
+            }
+        }
+    }
+}
+
+struct ButtonOptionsView: View {
+    let widget: TouchBarWidget
+    let index: Int
+    let state: AppState
+    let soundPresets: [String]
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Toggle("Show Seconds in {time}", isOn: Binding(
+                get: { widget.showSeconds },
+                set: { state.widgets[index].showSeconds = $0; state.saveConfig() }
+            ))
+            .toggleStyle(.checkbox)
+            .font(.system(size: 11))
+            
+            Picker("Button Action:", selection: Binding(
+                get: { widget.actionType },
+                set: { state.widgets[index].actionType = $0; state.saveConfig() }
+            )) {
+                ForEach(ActionType.allCases, id: \.self) { type in
+                    Text(type.rawValue).tag(type)
+                }
+            }
+            .pickerStyle(.menu)
+            
+            if widget.actionType == .shellCommand {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Shell command to run:")
+                        .font(.system(size: 10))
+                        .foregroundColor(.gray)
+                    
+                    TextEditor(text: Binding(
+                        get: { widget.actionValue },
+                        set: { state.widgets[index].actionValue = $0; state.saveConfig() }
+                    ))
+                    .font(.system(size: 10, design: .monospaced))
+                    .frame(height: 50)
+                    .padding(4)
+                    .background(Color.black.opacity(0.3))
+                    .cornerRadius(4)
+                    
+                    Text("e.g. 'open -a Safari', 'say Done', or a path to a script")
+                        .font(.system(size: 9))
+                        .foregroundColor(.gray)
+                }
+            } else if widget.actionType == .playSound {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Sound Effect Name:")
+                        .font(.system(size: 10))
+                        .foregroundColor(.gray)
+                    
+                    Picker("Select Sound", selection: Binding(
+                        get: { soundPresets.contains(widget.actionValue) ? widget.actionValue : "Glass" },
+                        set: { state.widgets[index].actionValue = $0; state.saveConfig() }
+                    )) {
+                        ForEach(soundPresets, id: \.self) { sound in
+                            Text(sound).tag(sound)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    
+                    Button("🎵 Test Sound Now") {
+                        NSSound(named: widget.actionValue)?.play()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .padding(.top, 4)
+                }
+            } else {
+                Text("No additional arguments needed.")
+                    .font(.system(size: 10))
+                    .foregroundColor(.gray)
+            }
+        }
+    }
+}
+
+struct SystemMonitorOptionsView: View {
+    let widget: TouchBarWidget
+    let index: Int
+    let state: AppState
+    
+    var body: some View {
+        Picker("System Resource:", selection: Binding(
+            get: { widget.monitorType },
+            set: { state.widgets[index].monitorType = $0; state.saveConfig() }
+        )) {
+            ForEach(MonitorType.allCases, id: \.self) { monitor in
+                Text(monitor.rawValue).tag(monitor)
+            }
+        }
+        .pickerStyle(.radioGroup)
+    }
+}
+
+struct AnimationOptionsView: View {
+    let widget: TouchBarWidget
+    let index: Int
+    let state: AppState
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Picker("Animation Preset:", selection: Binding(
+                get: { widget.animationType },
+                set: { state.widgets[index].animationType = $0; state.saveConfig() }
+            )) {
+                ForEach(AnimationPreset.allCases, id: \.self) { anim in
+                    Text(anim.rawValue).tag(anim)
+                }
+            }
+            .pickerStyle(.menu)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text("Frame Interval Speed:")
+                        .font(.system(size: 10))
+                        .foregroundColor(.gray)
+                    Spacer()
+                    Text(String(format: "%.2fs", widget.animationSpeed))
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.white)
+                }
+                
+                Slider(value: Binding(
+                    get: { widget.animationSpeed },
+                    set: { state.widgets[index].animationSpeed = $0; state.saveConfig() }
+                ), in: 0.05...1.0, step: 0.05)
             }
         }
     }

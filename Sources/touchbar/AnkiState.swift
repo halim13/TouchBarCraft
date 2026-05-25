@@ -19,6 +19,7 @@ public final class AnkiState {
     public var currentCard: AnkiCard? = nil
     public var isShowingAnswer: Bool = false
     public var isLoading: Bool = false
+    public var isSyncing: Bool = false
     
     // Stats
     public var cardsReviewed: Int = 0
@@ -153,9 +154,13 @@ public final class AnkiState {
     
     /// Sync deck updates with AnkiWeb
     public func syncDecks() {
+        self.isSyncing = true
         self.isLoading = true
+        refreshTouchBar()
+        
         Task {
             let success = await AnkiConnectClient.shared.sync()
+            self.isSyncing = false
             self.isLoading = false
             if success {
                 self.connectionError = ""
@@ -163,6 +168,7 @@ public final class AnkiState {
                 await loadCurrentCard()
             } else {
                 self.connectionError = "Gagal melakukan sinkronisasi dengan AnkiWeb"
+                refreshTouchBar()
             }
         }
     }

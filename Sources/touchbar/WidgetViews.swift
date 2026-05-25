@@ -29,9 +29,13 @@ public extension Color {
 
 // MARK: - Template Parser Helper
 @MainActor
-public func parseTemplate(title: String, state: AppState) -> String {
+public func parseTemplate(title: String, widget: TouchBarWidget, state: AppState) -> String {
     var result = title
-    result = result.replacingOccurrences(of: "{time}", with: state.currentTime)
+    var timeString = state.currentTime
+    if !widget.showSeconds && timeString.count == 8 {
+        timeString = String(timeString.prefix(5))
+    }
+    result = result.replacingOccurrences(of: "{time}", with: timeString)
     result = result.replacingOccurrences(of: "{date}", with: state.currentDate)
     result = result.replacingOccurrences(of: "{battery}", with: "\(state.batteryLevel)%")
     result = result.replacingOccurrences(of: "{cpu}", with: String(format: "%.0f%%", state.cpuUsage))
@@ -74,7 +78,7 @@ public struct WidgetButtonView: View {
                         .font(.system(size: isSimulator ? 12 : 14))
                 }
                 if !widget.title.isEmpty {
-                    Text(parseTemplate(title: widget.title, state: state))
+                    Text(parseTemplate(title: widget.title, widget: widget, state: state))
                         .font(.system(size: isSimulator ? 11 : 13, weight: .medium))
                 }
             }
@@ -104,7 +108,7 @@ public struct WidgetLabelView: View {
                     .font(.system(size: isSimulator ? 12 : 14))
                     .foregroundColor(Color(hex: widget.textColorHex))
             }
-            Text(parseTemplate(title: widget.title, state: state))
+            Text(parseTemplate(title: widget.title, widget: widget, state: state))
                 .font(.system(size: isSimulator ? 11 : 13, weight: .medium))
                 .foregroundColor(Color(hex: widget.textColorHex))
         }
@@ -360,48 +364,67 @@ public struct WidgetAnkiView: View {
                     .background(Color(hex: widget.backgroundColorHex))
                     .cornerRadius(4)
                 }
-            } else if anki.currentCard == nil {
-                Text("Anki: Select Deck")
-                    .font(.system(size: isSimulator ? 11 : 13, weight: .medium))
-            } else if !anki.isShowingAnswer {
-                Text("Q: \(anki.questionPreview)")
-                    .font(.system(size: isSimulator ? 11 : 13, weight: .medium))
-                    .lineLimit(1)
-                
-                Button(action: {
-                    anki.revealAnswer()
-                }) {
-                    Text("Reveal ▶")
-                        .font(.system(size: isSimulator ? 10 : 12, weight: .semibold))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color(hex: widget.backgroundColorHex))
-                        .foregroundColor(Color(hex: widget.textColorHex))
-                        .cornerRadius(6)
-                }
-                .buttonStyle(.plain)
             } else {
-                Text("A: \(anki.answerPreview)")
-                    .font(.system(size: isSimulator ? 11 : 13, weight: .medium))
-                    .lineLimit(1)
+                // Sync status indicator/button
+                if anki.isSyncing {
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                        .scaleEffect(0.7)
+                        .frame(width: 18, height: 18)
+                } else {
+                    Button(action: {
+                        anki.syncDecks()
+                    }) {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.system(size: isSimulator ? 10 : 12))
+                            .foregroundColor(Color(hex: widget.textColorHex))
+                    }
+                    .buttonStyle(.plain)
+                }
                 
-                HStack(spacing: 4) {
-                    let count = anki.currentCard?.buttonCount ?? 4
-                    let buttons = getRatingButtons(for: widget, buttonCount: count)
+                if anki.currentCard == nil {
+                    Text("Anki: Select Deck")
+                        .font(.system(size: isSimulator ? 11 : 13, weight: .medium))
+                } else if !anki.isShowingAnswer {
+                    Text("Q: \(anki.questionPreview)")
+                        .font(.system(size: isSimulator ? 11 : 13, weight: .medium))
+                        .lineLimit(1)
                     
-                    ForEach(buttons, id: \.rating) { btn in
-                        Button(action: {
-                            anki.submitRating(ease: btn.rating)
-                        }) {
-                            Text(btn.title)
-                                .font(.system(size: isSimulator ? 9 : 11, weight: .bold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 3)
-                                .background(btn.color)
-                                .cornerRadius(4)
+                    Button(action: {
+                        anki.revealAnswer()
+                    }) {
+                        Text("Reveal ▶")
+                            .font(.system(size: isSimulator ? 10 : 12, weight: .semibold))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color(hex: widget.backgroundColorHex))
+                            .foregroundColor(Color(hex: widget.textColorHex))
+                            .cornerRadius(6)
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    Text("A: \(anki.answerPreview)")
+                        .font(.system(size: isSimulator ? 11 : 13, weight: .medium))
+                        .lineLimit(1)
+                    
+                    HStack(spacing: 4) {
+                        let count = anki.currentCard?.buttonCount ?? 4
+                        let buttons = getRatingButtons(for: widget, buttonCount: count)
+                        
+                        ForEach(buttons, id: \.rating) { btn in
+                            Button(action: {
+                                anki.submitRating(ease: btn.rating)
+                            }) {
+                                Text(btn.title)
+                                    .font(.system(size: isSimulator ? 9 : 11, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 3)
+                                    .background(btn.color)
+                                    .cornerRadius(4)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
                 }
             }

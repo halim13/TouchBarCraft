@@ -108,12 +108,33 @@ public actor AnkiConnectClient {
             var questionText = ""
             var answerText = ""
             
-            // Try custom user-defined fields first
-            if let customFront = fieldsDict[questionField]?["value"] as? String {
-                questionText = stripHTML(customFront)
+            // Try custom user-defined fields first (supports comma-separated fields, e.g. "Word, Furigana")
+            let qFields = questionField.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            var qValues: [String] = []
+            for field in qFields {
+                if let val = fieldsDict[field]?["value"] as? String {
+                    let stripped = stripHTML(val)
+                    if !stripped.isEmpty {
+                        qValues.append(stripped)
+                    }
+                }
             }
-            if let customBack = fieldsDict[answerField]?["value"] as? String {
-                answerText = stripHTML(customBack)
+            if !qValues.isEmpty {
+                questionText = qValues.joined(separator: " / ")
+            }
+            
+            let aFields = answerField.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            var aValues: [String] = []
+            for field in aFields {
+                if let val = fieldsDict[field]?["value"] as? String {
+                    let stripped = stripHTML(val)
+                    if !stripped.isEmpty {
+                        aValues.append(stripped)
+                    }
+                }
+            }
+            if !aValues.isEmpty {
+                answerText = aValues.joined(separator: " / ")
             }
             
             // Fallback: Try common field names if empty

@@ -162,6 +162,11 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         state.ankiState.submitRating(ease: rating)
     }
     
+    @objc private func ankiSyncTapped(_ sender: NSButton) {
+        guard let state = AppState.shared else { return }
+        state.ankiState.syncDecks()
+    }
+    
     private func executeMediaCommand(_ action: String) {
         DispatchQueue.global(qos: .userInitiated).async {
             var scriptString = ""
@@ -252,7 +257,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     // MARK: - Native Button Factories
     
     private func makeNativeButton(for widget: TouchBarWidget, state: AppState) -> NSButton {
-        let title = parseTemplate(title: widget.title, state: state)
+        let title = parseTemplate(title: widget.title, widget: widget, state: state)
         
         let button: NSButton
         if let img = NSImage(systemSymbolName: widget.iconName, accessibilityDescription: widget.title), !widget.iconName.isEmpty {
@@ -332,6 +337,40 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             stack.addArrangedSubview(label)
             stack.addArrangedSubview(btn)
             return stack
+        }
+        
+        // Add Sync Button or Spinner first
+        if anki.isSyncing {
+            let spinner = NSProgressIndicator()
+            spinner.style = .spinning
+            spinner.controlSize = .small
+            spinner.isIndeterminate = true
+            spinner.startAnimation(nil)
+            
+            spinner.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                spinner.widthAnchor.constraint(equalToConstant: 18),
+                spinner.heightAnchor.constraint(equalToConstant: 18)
+            ])
+            
+            stack.addArrangedSubview(spinner)
+        } else {
+            let syncButton = NSButton(title: "", target: self, action: #selector(ankiSyncTapped(_:)))
+            syncButton.bezelStyle = .rounded
+            syncButton.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
+            syncButton.contentTintColor = NSColor(Color(hex: widget.textColorHex))
+            
+            if let syncImage = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: "Sync") {
+                syncButton.image = syncImage
+                syncButton.imagePosition = .imageOnly
+            } else {
+                syncButton.title = "Sync"
+            }
+            
+            syncButton.translatesAutoresizingMaskIntoConstraints = false
+            syncButton.widthAnchor.constraint(equalToConstant: 30).isActive = true
+            
+            stack.addArrangedSubview(syncButton)
         }
         
         guard let card = anki.currentCard else {
