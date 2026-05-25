@@ -240,6 +240,31 @@ public struct MainView: View {
                         }
                         .listStyle(.plain)
                     }
+                    
+                    Divider()
+                    
+                    Button(action: {
+                        state.selectedWidgetID = nil
+                    }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "gearshape.fill")
+                                .font(.system(size: 12))
+                            Text("App Settings & Autostart")
+                                .font(.system(size: 11, weight: .bold))
+                            Spacer()
+                            if state.selectedWidgetID == nil {
+                                Circle()
+                                    .fill(Color.purple)
+                                    .frame(width: 6, height: 6)
+                            }
+                        }
+                        .padding(.vertical, 10)
+                        .padding(.horizontal, 16)
+                        .contentShape(Rectangle())
+                        .foregroundColor(state.selectedWidgetID == nil ? .purple : .white)
+                        .background(state.selectedWidgetID == nil ? Color.purple.opacity(0.12) : Color.clear)
+                    }
+                    .buttonStyle(.plain)
                 }
                 .frame(width: 250)
                 .background(Color.black.opacity(0.1))
@@ -434,19 +459,109 @@ public struct MainView: View {
                         }
                         .padding(20)
                     } else {
-                        VStack(spacing: 8) {
-                            Image(systemName: "slider.horizontal.3")
-                                .font(.system(size: 28))
-                                .foregroundColor(.gray.opacity(0.5))
-                            
-                            Text("Select a widget in the sidebar or simulator to configure properties.")
-                                .font(.system(size: 12))
+                        VStack(alignment: .leading, spacing: 18) {
+                            Text("⚙️ APP PREFERENCES & RUNNING")
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
                                 .foregroundColor(.gray)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, 40)
+                            
+                            // Autostart Card
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Autostart / Launch at Login")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(.purple)
+                                
+                                Text("Automate starting TouchBarCraft when you log in or restart your MacBook.")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.gray)
+                                    .lineLimit(nil)
+                                
+                                Toggle("Start TouchBarCraft automatically at Login", isOn: Binding(
+                                    get: { state.isLaunchAtLoginEnabled },
+                                    set: { state.isLaunchAtLoginEnabled = $0 }
+                                ))
+                                .toggleStyle(.checkbox)
+                                .font(.system(size: 11))
+                            }
+                            .padding(14)
+                            .background(Color.white.opacity(0.03))
+                            .cornerRadius(8)
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.05), lineWidth: 1))
+                            
+                            // Background Running Mode Info Card
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Running in Background & Tray")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(.teal)
+                                
+                                Text("TouchBarCraft is designed to stay alive in the background and control strip tray even when you close the main dashboard window.")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.gray)
+                                    .lineLimit(nil)
+                                
+                                VStack(alignment: .leading, spacing: 6) {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(.emerald)
+                                            .font(.system(size: 11))
+                                        Text("Closing the window will hide the UI but keeps the Touch Bar active.")
+                                            .font(.system(size: 10))
+                                            .foregroundColor(.white)
+                                    }
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(.emerald)
+                                            .font(.system(size: 11))
+                                        Text("Click the Dock icon or status bar tray icon to bring back this window.")
+                                            .font(.system(size: 10))
+                                            .foregroundColor(.white)
+                                    }
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(.emerald)
+                                            .font(.system(size: 11))
+                                        Text("No terminal or 'swift run' needed when using the packaged application!")
+                                            .font(.system(size: 10))
+                                            .foregroundColor(.white)
+                                    }
+                                }
+                                .padding(.top, 4)
+                            }
+                            .padding(14)
+                            .background(Color.white.opacity(0.03))
+                            .cornerRadius(8)
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.05), lineWidth: 1))
+                            
+                            // Manual Actions Card
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Manual Diagnostics")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(.pink)
+                                
+                                Button(action: {
+                                    let presenterClass: AnyClass? = NSClassFromString("touchbar.TouchBarPresenter")
+                                    let refreshSelector = NSSelectorFromString("refreshTouchBar")
+                                    if let presenter = presenterClass as? NSObject.Type {
+                                        presenter.perform(refreshSelector)
+                                    }
+                                }) {
+                                    HStack {
+                                        Image(systemName: "arrow.clockwise")
+                                        Text("Force Re-present System Touch Bar")
+                                    }
+                                    .padding(.vertical, 6)
+                                    .padding(.horizontal, 12)
+                                    .background(Color.pink.opacity(0.2))
+                                    .foregroundColor(.pink)
+                                    .cornerRadius(6)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(14)
+                            .background(Color.white.opacity(0.03))
+                            .cornerRadius(8)
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.05), lineWidth: 1))
                         }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .padding(.top, 100)
+                        .padding(20)
                     }
                 }
                 .frame(maxWidth: .infinity)

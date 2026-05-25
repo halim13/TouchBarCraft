@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import Observation
 import AppKit
+import ServiceManagement
 
 @Observable
 @MainActor
@@ -297,5 +298,32 @@ public final class AppState {
         self.batteryLevel = SystemMonitorHelper.shared.getBatteryPercentage()
         self.cpuUsage = SystemMonitorHelper.shared.getCPUUsage()
         self.ramUsage = SystemMonitorHelper.shared.getRAMUsage()
+    }
+    
+    // MARK: - Autostart / Launch at Login
+    
+    public var isLaunchAtLoginEnabled: Bool {
+        get {
+            if #available(macOS 13.0, *) {
+                let status = SMAppService.mainApp.status
+                return status == .enabled
+            }
+            return false
+        }
+        set {
+            if #available(macOS 13.0, *) {
+                do {
+                    if newValue {
+                        try SMAppService.mainApp.register()
+                        print("SMAppService successfully registered main app for autostart.")
+                    } else {
+                        try SMAppService.mainApp.unregister()
+                        print("SMAppService successfully unregistered main app for autostart.")
+                    }
+                } catch {
+                    print("Failed to toggle autostart: \(error.localizedDescription)")
+                }
+            }
+        }
     }
 }

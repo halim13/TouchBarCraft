@@ -46,7 +46,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     @objc private func workspaceDidActivateApplication() {
         // Jika Touch Bar kustom kita sedang aktif, tampilkan kembali saat berpindah aplikasi
         if globalTouchBar != nil {
-            presentGlobalTouchBar()
+            presentGlobalTouchBar(rebuild: false)
         }
     }
     
@@ -88,12 +88,16 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     }
     
     @objc private func systemTrayButtonTapped() {
-        presentGlobalTouchBar()
+        presentGlobalTouchBar(rebuild: true)
     }
     
     // MARK: - Present / Dismiss System-Wide Touch Bar
     
     @objc public func presentGlobalTouchBar() {
+        presentGlobalTouchBar(rebuild: true)
+    }
+    
+    public func presentGlobalTouchBar(rebuild: Bool) {
         guard let state = AppState.shared else { return }
         
         // Build widget lookup map
@@ -102,18 +106,22 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             widgetMap[widget.id.uuidString] = widget
         }
         
-        let touchBar = NSTouchBar()
-        touchBar.delegate = self
-        touchBar.defaultItemIdentifiers = state.widgets.map { NSTouchBarItem.Identifier($0.id.uuidString) }
-        
-        self.globalTouchBar = touchBar
+        let touchBar: NSTouchBar
+        if !rebuild, let existing = self.globalTouchBar {
+            touchBar = existing
+        } else {
+            touchBar = NSTouchBar()
+            touchBar.delegate = self
+            touchBar.defaultItemIdentifiers = state.widgets.map { NSTouchBarItem.Identifier($0.id.uuidString) }
+            self.globalTouchBar = touchBar
+        }
         
         dfrSystemModalShowsCloseBoxWhenFrontMost?(true)
         
         let presentSelector = NSSelectorFromString("presentSystemModalTouchBar:systemTrayItemIdentifier:")
         if NSTouchBar.responds(to: presentSelector) {
             NSTouchBar.perform(presentSelector, with: touchBar, with: trayIdentifier)
-            print("System-wide Touch Bar successfully presented!")
+            print("System-wide Touch Bar successfully presented (rebuild: \(rebuild))!")
         } else {
             print("Failed to resolve presentSystemModalTouchBar selector.")
         }

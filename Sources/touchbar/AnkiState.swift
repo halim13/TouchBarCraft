@@ -26,6 +26,8 @@ public final class AnkiState {
     public var sessionStartTime: Date? = nil
     
     private var connectionCheckTimer: Timer?
+    private var wasConnectedBefore: Bool = false
+    private var hasRestoredDeck: Bool = false
     
     public init() {
         Self.shared = self
@@ -35,25 +37,55 @@ public final class AnkiState {
     // MARK: - Connection
     
     private func startConnectionMonitor() {
-        // Check connection every 5 seconds
-        checkConnection()
-        connectionCheckTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+        // Check connection every 10 seconds (reduced from 5 to avoid flickering)
+        checkConnectionSilent()
+        connectionCheckTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                self?.checkConnection()
+                self?.checkConnectionSilent()
             }
         }
     }
     
+    /// Silent connection check — only updates status, does NOT restart review
+    private func checkConnectionSilent() {
+        Task {
+            let connected = await AnkiConnectClient.shared.isConnected()
+            let justConnected = connected && !wasConnectedBefore
+            self.isConnected = connected
+            self.wasConnectedBefore = connected
+            
+            if connected {
+                self.connectionError = ""
+                // Only restore deck on first connection, not every poll
+                if justConnected && !hasRestoredDeck {
+                    hasRestoredDeck = true
+                    fetchDecks()
+                    let widget = getActiveAnkiWidget()
+                    if let deckName = widget?.ankiDeckName, !deckName.isEmpty {
+                        self.selectedDeck = deckName
+                        startReview(deck: deckName)
+                    }
+                }
+            } else {
+                self.connectionError = "Anki tidak terbuka atau AnkiConnect belum terinstal"
+                self.hasRestoredDeck = false // Reset so we restore next time we connect
+            }
+        }
+    }
+    
+    /// Manual connect button — always tries to restore deck
     public func checkConnection() {
         Task {
             let connected = await AnkiConnectClient.shared.isConnected()
             self.isConnected = connected
+            self.wasConnectedBefore = connected
             if connected {
                 self.connectionError = ""
                 fetchDecks()
                 let widget = getActiveAnkiWidget()
                 if let deckName = widget?.ankiDeckName, !deckName.isEmpty {
                     self.selectedDeck = deckName
+                    hasRestoredDeck = true
                     startReview(deck: deckName)
                 }
             } else {
