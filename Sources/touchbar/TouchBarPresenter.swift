@@ -48,6 +48,8 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         if globalTouchBar != nil {
             presentGlobalTouchBar(rebuild: false)
         }
+        // Selalu pastikan tombol close (X) tidak muncul ketika Touch Bar aktif
+        dfrSystemModalShowsCloseBoxWhenFrontMost?(false)
     }
     
     // MARK: - Setup System Tray Item
@@ -148,6 +150,8 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             if presenter.globalTouchBar != nil {
                 presenter.presentGlobalTouchBar()
             }
+            // Pastikan tombol close tetap tersembunyi
+            presenter.dfrSystemModalShowsCloseBoxWhenFrontMost?(false)
         }
     }
     
@@ -675,13 +679,23 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                 key code \(up ? "144" : "145") using {command down}
             end tell
             """
+            var usedFallback = false
             if let script = NSAppleScript(source: scriptString) {
                 var error: NSDictionary?
-                if script.executeAndReturnError(&error) != nil {
-                    // Fallback to IOHID if AppleScript fails
-                    let keyType: Int32 = up ? 2 : 3
-                    touchbar.SystemUtils.postAuxiliaryKeyIOHID(keyType)
+                script.executeAndReturnError(&error)
+                // If AppleScript succeeded (no error), we're done
+                // If AppleScript failed, use fallback
+                if error != nil {
+                    usedFallback = true
                 }
+            } else {
+                usedFallback = true
+            }
+            
+            if usedFallback {
+                // Fallback to IOHID if AppleScript fails
+                let keyType: Int32 = up ? 2 : 3
+                touchbar.SystemUtils.postAuxiliaryKeyIOHID(keyType)
             }
         }
     }
