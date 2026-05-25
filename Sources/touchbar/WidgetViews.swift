@@ -334,3 +334,83 @@ private extension Color {
     static let cyan = Color(red: 6/255, green: 182/255, blue: 212/255)
     static let rose = Color(red: 244/255, green: 63/255, blue: 94/255)
 }
+
+public struct WidgetAnkiView: View {
+    let widget: TouchBarWidget
+    let state: AppState
+    let isSimulator: Bool
+    
+    public var body: some View {
+        let anki = state.ankiState
+        
+        HStack(spacing: 8) {
+            if !anki.isConnected {
+                HStack(spacing: 6) {
+                    Image(systemName: "rectangle.stack.fill.badge.person.crop")
+                        .font(.system(size: isSimulator ? 11 : 13))
+                    Text("Anki Offline")
+                        .font(.system(size: isSimulator ? 11 : 13, weight: .medium))
+                    Button("Connect") {
+                        anki.checkConnection()
+                    }
+                    .buttonStyle(.plain)
+                    .font(.system(size: isSimulator ? 9 : 11))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color(hex: widget.backgroundColorHex))
+                    .cornerRadius(4)
+                }
+            } else if anki.currentCard == nil {
+                Text("Anki: Select Deck")
+                    .font(.system(size: isSimulator ? 11 : 13, weight: .medium))
+            } else if !anki.isShowingAnswer {
+                Text("Q: \(anki.questionPreview)")
+                    .font(.system(size: isSimulator ? 11 : 13, weight: .medium))
+                    .lineLimit(1)
+                
+                Button(action: {
+                    anki.revealAnswer()
+                }) {
+                    Text("Reveal ▶")
+                        .font(.system(size: isSimulator ? 10 : 12, weight: .semibold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color(hex: widget.backgroundColorHex))
+                        .foregroundColor(Color(hex: widget.textColorHex))
+                        .cornerRadius(6)
+                }
+                .buttonStyle(.plain)
+            } else {
+                Text("A: \(anki.answerPreview)")
+                    .font(.system(size: isSimulator ? 11 : 13, weight: .medium))
+                    .lineLimit(1)
+                
+                HStack(spacing: 4) {
+                    let count = anki.currentCard?.buttonCount ?? 4
+                    let labels = ["Again", "Hard", "Good", "Easy"]
+                    let colors: [Color] = [.red, .orange, .green, .blue]
+                    
+                    ForEach(0..<min(count, 4), id: \.self) { i in
+                        Button(action: {
+                            anki.submitRating(ease: i + 1)
+                        }) {
+                            Text(labels[i])
+                                .font(.system(size: isSimulator ? 9 : 11, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 3)
+                                .background(colors[i])
+                                .cornerRadius(4)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, isSimulator ? 8 : 12)
+        .padding(.vertical, isSimulator ? 5 : 6)
+        .background(Color(hex: widget.backgroundColorHex).opacity(0.15))
+        .cornerRadius(6)
+    }
+}
+

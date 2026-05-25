@@ -104,6 +104,8 @@ public struct MainView: View {
                                     WidgetMediaView(widget: widget, state: state, isSimulator: true)
                                 case .animation:
                                     WidgetAnimationView(widget: widget, state: state, isSimulator: true)
+                                case .anki:
+                                    WidgetAnkiView(widget: widget, state: state, isSimulator: true)
                                 }
                             }
                             .shadow(color: Color(hex: widget.backgroundColorHex).opacity(0.3), radius: 4)
@@ -147,6 +149,7 @@ public struct MainView: View {
                             Button("System Monitor") { state.addWidget(.systemMonitor) }
                             Button("Media Controls") { state.addWidget(.media) }
                             Button("Animation Presets") { state.addWidget(.animation) }
+                            Button("Anki Review") { state.addWidget(.anki) }
                         } label: {
                             Image(systemName: "plus.circle.fill")
                                 .font(.system(size: 14))
@@ -528,6 +531,8 @@ public struct MainView: View {
                                             ), in: 0.05...1.0, step: 0.05)
                                         }
                                     }
+                                case .anki:
+                                    AnkiConfigView(widget: widget, index: index, state: state)
                                 }
                             }
                             .padding(14)
@@ -639,4 +644,95 @@ private extension Color {
     static let emerald = Color(red: 16/255, green: 185/255, blue: 129/255)
     static let amber = Color(red: 245/255, green: 158/255, blue: 11/255)
     static let cyan = Color(red: 6/255, green: 182/255, blue: 212/255)
+}
+
+struct AnkiConfigView: View {
+    let widget: TouchBarWidget
+    let index: Int
+    let state: AppState
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Connection Status:")
+                    .font(.system(size: 11, weight: .bold))
+                Spacer()
+                if state.ankiState.isConnected {
+                    Text("Connected")
+                        .font(.system(size: 10, weight: .semibold))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.green.opacity(0.2))
+                        .foregroundColor(.green)
+                        .cornerRadius(4)
+                } else {
+                    Text("Disconnected")
+                        .font(.system(size: 10, weight: .semibold))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.red.opacity(0.2))
+                        .foregroundColor(.red)
+                        .cornerRadius(4)
+                }
+            }
+            
+            if !state.ankiState.isConnected {
+                Text("Ensure Anki is open and AnkiConnect add-on is installed.")
+                    .font(.system(size: 10))
+                    .foregroundColor(.orange)
+                
+                Button("Reconnect") {
+                    state.ankiState.checkConnection()
+                    state.ankiState.fetchDecks()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            } else {
+                Picker("Deck Name:", selection: Binding(
+                    get: { widget.ankiDeckName },
+                    set: { deck in
+                        state.widgets[index].ankiDeckName = deck
+                        state.saveConfig()
+                        state.ankiState.startReview(deck: deck)
+                    }
+                )) {
+                    Text("Select a deck...").tag("")
+                    ForEach(state.ankiState.deckNames, id: \.self) { deck in
+                        Text(deck).tag(deck)
+                    }
+                }
+                .pickerStyle(.menu)
+                .onAppear {
+                    state.ankiState.fetchDecks()
+                }
+                
+                Button("🔄 Refresh Decks") {
+                    state.ankiState.fetchDecks()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                
+                Divider()
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Review Stats:")
+                        .font(.system(size: 11, weight: .bold))
+                    HStack {
+                        Text("Cards Reviewed:")
+                        Spacer()
+                        Text("\(state.ankiState.cardsReviewed)")
+                            .fontWeight(.bold)
+                    }
+                    HStack {
+                        Text("Time Elapsed:")
+                        Spacer()
+                        Text(state.ankiState.sessionDuration)
+                            .fontWeight(.bold)
+                    }
+                }
+                .font(.system(size: 11))
+                .foregroundColor(.gray)
+            }
+        }
+    }
 }

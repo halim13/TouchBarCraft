@@ -10,6 +10,7 @@ public final class AppState {
     
     public var widgets: [TouchBarWidget] = []
     public var selectedWidgetID: UUID?
+    public var ankiState: AnkiState
     
     // Live system stats
     public var batteryLevel: Int = 100
@@ -25,6 +26,7 @@ public final class AppState {
         // Setup config path in user's home directory
         let homeDir = FileManager.default.homeDirectoryForCurrentUser
         self.configPath = homeDir.appendingPathComponent(".touchbarcraft.json")
+        self.ankiState = AnkiState()
         
         Self.shared = self
         loadConfig()
@@ -239,6 +241,14 @@ public final class AppState {
                 backgroundColorHex: "#6B7280",
                 animationType: .cat,
                 animationSpeed: 0.15
+            )
+        case .anki:
+            newWidget = TouchBarWidget(
+                type: .anki,
+                title: "Anki Review",
+                iconName: "rectangle.stack.fill",
+                backgroundColorHex: "#2563EB",
+                textColorHex: "#FFFFFF"
             )
         }
         

@@ -146,6 +146,22 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         executeMediaCommand("previous")
     }
     
+    @objc private func ankiConnectTapped(_ sender: NSButton) {
+        guard let state = AppState.shared else { return }
+        state.ankiState.checkConnection()
+    }
+    
+    @objc private func ankiRevealTapped(_ sender: NSButton) {
+        guard let state = AppState.shared else { return }
+        state.ankiState.revealAnswer()
+    }
+    
+    @objc private func ankiRatingTapped(_ sender: NSButton) {
+        guard let state = AppState.shared else { return }
+        let rating = sender.tag
+        state.ankiState.submitRating(ease: rating)
+    }
+    
     private func executeMediaCommand(_ action: String) {
         DispatchQueue.global(qos: .userInitiated).async {
             var scriptString = ""
@@ -224,6 +240,10 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                     .frame(height: 30)
             )
             item.view = hostView
+            
+        case .anki:
+            let ankiView = makeNativeAnkiView(for: widget, state: state)
+            item.view = ankiView
         }
         
         return item
@@ -287,6 +307,83 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         let stack = NSStackView(views: [prevBtn, playBtn, nextBtn])
         stack.orientation = .horizontal
         stack.spacing = 4
+        
+        return stack
+    }
+    
+    private func makeNativeAnkiView(for widget: TouchBarWidget, state: AppState) -> NSView {
+        let stack = NSStackView()
+        stack.orientation = .horizontal
+        stack.spacing = 8
+        stack.alignment = .centerY
+        
+        let anki = state.ankiState
+        
+        if !anki.isConnected {
+            let label = NSTextField(labelWithString: "Anki Offline")
+            label.font = NSFont.systemFont(ofSize: 12, weight: .medium)
+            label.textColor = NSColor(Color(hex: widget.textColorHex))
+            
+            let btn = NSButton(title: "Connect", target: self, action: #selector(ankiConnectTapped(_:)))
+            btn.bezelStyle = .rounded
+            btn.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
+            btn.contentTintColor = NSColor(Color(hex: widget.textColorHex))
+            
+            stack.addArrangedSubview(label)
+            stack.addArrangedSubview(btn)
+            return stack
+        }
+        
+        guard let card = anki.currentCard else {
+            let label = NSTextField(labelWithString: "Anki: Select Deck")
+            label.font = NSFont.systemFont(ofSize: 12, weight: .medium)
+            label.textColor = NSColor(Color(hex: widget.textColorHex))
+            
+            stack.addArrangedSubview(label)
+            return stack
+        }
+        
+        if !anki.isShowingAnswer {
+            let label = NSTextField(labelWithString: "Q: \(card.question)")
+            label.font = NSFont.systemFont(ofSize: 12, weight: .medium)
+            label.textColor = NSColor(Color(hex: widget.textColorHex))
+            label.lineBreakMode = .byTruncatingTail
+            
+            let btn = NSButton(title: "Reveal ▶", target: self, action: #selector(ankiRevealTapped(_:)))
+            btn.bezelStyle = .rounded
+            btn.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
+            btn.contentTintColor = NSColor(Color(hex: widget.textColorHex))
+            
+            stack.addArrangedSubview(label)
+            stack.addArrangedSubview(btn)
+        } else {
+            let label = NSTextField(labelWithString: "A: \(card.answer)")
+            label.font = NSFont.systemFont(ofSize: 12, weight: .medium)
+            label.textColor = NSColor(Color(hex: widget.textColorHex))
+            label.lineBreakMode = .byTruncatingTail
+            stack.addArrangedSubview(label)
+            
+            let count = card.buttonCount
+            let labels = ["Again", "Hard", "Good", "Easy"]
+            let colors = [
+                NSColor(red: 0.9, green: 0.2, blue: 0.2, alpha: 1.0),
+                NSColor(red: 0.9, green: 0.5, blue: 0.1, alpha: 1.0),
+                NSColor(red: 0.1, green: 0.7, blue: 0.3, alpha: 1.0),
+                NSColor(red: 0.2, green: 0.5, blue: 0.9, alpha: 1.0)
+            ]
+            
+            for i in 0..<min(count, 4) {
+                let rating = i + 1
+                let title = labels[i]
+                let btn = NSButton(title: title, target: self, action: #selector(ankiRatingTapped(_:)))
+                btn.tag = rating
+                btn.bezelStyle = .rounded
+                btn.bezelColor = colors[i]
+                btn.contentTintColor = .white
+                btn.font = NSFont.systemFont(ofSize: 11, weight: .bold)
+                stack.addArrangedSubview(btn)
+            }
+        }
         
         return stack
     }

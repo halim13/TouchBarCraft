@@ -47,6 +47,8 @@ struct TouchBarCraftApp: App {
                                 WidgetMediaView(widget: widget, state: state, isSimulator: false)
                             case .animation:
                                 WidgetAnimationView(widget: widget, state: state, isSimulator: false)
+                            case .anki:
+                                WidgetAnkiView(widget: widget, state: state, isSimulator: false)
                             }
                         }
                     }

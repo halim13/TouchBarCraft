@@ -6,6 +6,7 @@ public enum WidgetType: String, Codable, CaseIterable, Sendable {
     case systemMonitor = "System Monitor"
     case media = "Media Controls"
     case animation = "Animation"
+    case anki = "Anki Review"
 }
 
 public enum ActionType: String, Codable, CaseIterable, Sendable {
@@ -49,6 +50,9 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     public var animationType: AnimationPreset
     public var animationSpeed: Double // in seconds per frame
     
+    // Anki properties
+    public var ankiDeckName: String
+    
     public init(
         id: UUID = UUID(),
         type: WidgetType = .label,
@@ -60,7 +64,8 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         actionValue: String = "",
         monitorType: MonitorType = .cpu,
         animationType: AnimationPreset = .cat,
-        animationSpeed: Double = 0.2
+        animationSpeed: Double = 0.2,
+        ankiDeckName: String = ""
     ) {
         self.id = id
         self.type = type
@@ -73,5 +78,6 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.monitorType = monitorType
         self.animationType = animationType
         self.animationSpeed = animationSpeed
+        self.ankiDeckName = ankiDeckName
     }
 }
