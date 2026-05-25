@@ -6,6 +6,8 @@ import AppKit
 @Observable
 @MainActor
 public final class AppState {
+    public static var shared: AppState? = nil
+    
     public var widgets: [TouchBarWidget] = []
     public var selectedWidgetID: UUID?
     
@@ -24,6 +26,7 @@ public final class AppState {
         let homeDir = FileManager.default.homeDirectoryForCurrentUser
         self.configPath = homeDir.appendingPathComponent(".touchbarcraft.json")
         
+        Self.shared = self
         loadConfig()
         startSystemTimers()
     }
@@ -35,6 +38,14 @@ public final class AppState {
             let data = try JSONEncoder().encode(widgets)
             try data.write(to: configPath)
             print("Successfully saved configurations to \(configPath.path)")
+            
+            // Notify system presenter to refresh the physical Touch Bar layout!
+            // We use NSSelectorFromString to avoid compile issues if presenter is not yet resolved
+            let presenterClass: AnyClass? = NSClassFromString("touchbar.TouchBarPresenter")
+            let refreshSelector = NSSelectorFromString("refreshTouchBar")
+            if let presenter = presenterClass as? NSObject.Type {
+                presenter.perform(refreshSelector)
+            }
         } catch {
             print("Failed to save configurations: \(error.localizedDescription)")
         }
