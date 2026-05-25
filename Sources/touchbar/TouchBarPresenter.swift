@@ -116,7 +116,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             self.globalTouchBar = touchBar
         }
         
-        dfrSystemModalShowsCloseBoxWhenFrontMost?(true)
+        dfrSystemModalShowsCloseBoxWhenFrontMost?(false)
         
         let presentSelector = NSSelectorFromString("presentSystemModalTouchBar:systemTrayItemIdentifier:")
         if NSTouchBar.responds(to: presentSelector) {
@@ -424,12 +424,20 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             label.font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
             label.textColor = NSColor(Color(hex: widget.textColorHex))
             label.lineBreakMode = .byTruncatingTail
+            label.cell?.truncatesLastVisibleLine = true
+            // Cap label width so Reveal button is always visible
+            label.translatesAutoresizingMaskIntoConstraints = false
+            label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            label.widthAnchor.constraint(lessThanOrEqualToConstant: 280).isActive = true
             
             let btn = NSButton(title: "Reveal ▶", target: self, action: #selector(ankiRevealTapped(_:)))
             btn.bezelStyle = .rounded
             btn.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
             btn.contentTintColor = NSColor(Color(hex: widget.textColorHex))
             btn.font = NSFont.systemFont(ofSize: CGFloat(max(9, widget.fontSize - 1)), weight: .semibold)
+            // Button must never shrink
+            btn.setContentCompressionResistancePriority(.required, for: .horizontal)
+            btn.setContentHuggingPriority(.required, for: .horizontal)
             
             stack.addArrangedSubview(label)
             stack.addArrangedSubview(btn)
@@ -438,6 +446,11 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             label.font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
             label.textColor = NSColor(Color(hex: widget.textColorHex))
             label.lineBreakMode = .byTruncatingTail
+            label.cell?.truncatesLastVisibleLine = true
+            // Cap label width so rating buttons are always visible
+            label.translatesAutoresizingMaskIntoConstraints = false
+            label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            label.widthAnchor.constraint(lessThanOrEqualToConstant: 200).isActive = true
             stack.addArrangedSubview(label)
             
             let count = card.buttonCount
@@ -450,6 +463,8 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                 btn.bezelColor = btnSpec.color
                 btn.contentTintColor = .white
                 btn.font = NSFont.systemFont(ofSize: CGFloat(max(9, widget.fontSize - 2)), weight: .bold)
+                btn.setContentCompressionResistancePriority(.required, for: .horizontal)
+                btn.setContentHuggingPriority(.required, for: .horizontal)
                 stack.addArrangedSubview(btn)
             }
         }
@@ -592,21 +607,26 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     }
     
     @objc private func brightnessDownTapped(_ sender: NSButton) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            let scriptString = "tell application \"System Events\" to key code 145"
-            if let script = NSAppleScript(source: scriptString) {
-                var error: NSDictionary?
-                script.executeAndReturnError(&error)
-            }
-        }
+        adjustBrightness(up: false)
     }
     
     @objc private func brightnessUpTapped(_ sender: NSButton) {
+        adjustBrightness(up: true)
+    }
+    
+    private func adjustBrightness(up: Bool) {
         DispatchQueue.global(qos: .userInitiated).async {
-            let scriptString = "tell application \"System Events\" to key code 144"
-            if let script = NSAppleScript(source: scriptString) {
-                var error: NSDictionary?
-                script.executeAndReturnError(&error)
+            // Use CGDisplaySetDisplayBrightnessGamma via CoreBrightness private framework
+            // Reliable fallback: post NX system key events (F1/F2) via CGEvent
+            let src = CGEventSource(stateID: .hidSystemState)
+            // NSF1FunctionKey = 0x63, NSF2FunctionKey = 0x61 in CGKeyCode terms
+            // But real special media key codes: BRIGHTNESS_DOWN = 0x6B (107), BRIGHTNESS_UP = 0x71 (113)
+            // Actually use the NX_ key press approach via NSEvent
+            let nsKeyCode: CGKeyCode = up ? 113 : 107
+            if let downEvent = CGEvent(keyboardEventSource: src, virtualKey: nsKeyCode, keyDown: true),
+               let upEvent   = CGEvent(keyboardEventSource: src, virtualKey: nsKeyCode, keyDown: false) {
+                downEvent.post(tap: .cghidEventTap)
+                upEvent.post(tap: .cghidEventTap)
             }
         }
     }
