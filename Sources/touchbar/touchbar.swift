@@ -59,6 +59,10 @@ struct TouchBarCraftApp: App {
                                 WidgetAnimationView(widget: widget, state: state, isSimulator: false)
                             case .anki:
                                 WidgetAnkiView(widget: widget, state: state, isSimulator: false)
+                            case .volumeSlider:
+                                WidgetVolumeSliderView(widget: widget, state: state, isSimulator: false)
+                            case .brightnessButtons:
+                                WidgetBrightnessButtonsView(widget: widget, state: state, isSimulator: false)
                             }
                         }
                     }

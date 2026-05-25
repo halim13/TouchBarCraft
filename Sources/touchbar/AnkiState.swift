@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Observation
+import AppKit
 
 @Observable
 @MainActor
@@ -89,7 +90,23 @@ public final class AnkiState {
                     startReview(deck: deckName)
                 }
             } else {
-                self.connectionError = "Anki tidak terbuka atau AnkiConnect belum terinstal"
+                // Try to launch Anki application!
+                if let ankiURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "net.ankiweb.dtop") ??
+                                 NSWorkspace.shared.urlForApplication(withBundleIdentifier: "net.ichi2.anki") {
+                    let config = NSWorkspace.OpenConfiguration()
+                    NSWorkspace.shared.openApplication(at: ankiURL, configuration: config) { _, error in
+                        if let error = error {
+                            print("Gagal membuka Anki: \(error.localizedDescription)")
+                        }
+                    }
+                } else {
+                    // Fallback to open -a Anki command
+                    let process = Process()
+                    process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+                    process.arguments = ["-a", "Anki"]
+                    try? process.run()
+                }
+                self.connectionError = "Membuka Anki... Klik Connect lagi setelah aplikasi Anki terbuka."
             }
         }
     }

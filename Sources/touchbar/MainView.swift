@@ -106,6 +106,10 @@ public struct MainView: View {
                                     WidgetAnimationView(widget: widget, state: state, isSimulator: true)
                                 case .anki:
                                     WidgetAnkiView(widget: widget, state: state, isSimulator: true)
+                                case .volumeSlider:
+                                    WidgetVolumeSliderView(widget: widget, state: state, isSimulator: true)
+                                case .brightnessButtons:
+                                    WidgetBrightnessButtonsView(widget: widget, state: state, isSimulator: true)
                                 }
                             }
                             .shadow(color: Color(hex: widget.backgroundColorHex).opacity(0.3), radius: 4)
@@ -150,6 +154,8 @@ public struct MainView: View {
                             Button("Media Controls") { state.addWidget(.media) }
                             Button("Animation Presets") { state.addWidget(.animation) }
                             Button("Anki Review") { state.addWidget(.anki) }
+                            Button("Volume Slider") { state.addWidget(.volumeSlider) }
+                            Button("Brightness Controls") { state.addWidget(.brightnessButtons) }
                         } label: {
                             Image(systemName: "plus.circle.fill")
                                 .font(.system(size: 14))
@@ -889,6 +895,16 @@ struct WidgetOptionsView: View {
             AnimationOptionsView(widget: widget, index: index, state: state)
         case .anki:
             AnkiConfigView(widget: widget, index: index, state: state)
+        case .volumeSlider:
+            Text("Fully automatic system widget. Renders an interactive sliding bar that changes the macOS global output volume in real-time.")
+                .font(.system(size: 11))
+                .foregroundColor(.gray)
+                .lineSpacing(4)
+        case .brightnessButtons:
+            Text("Fully automatic system widget. Renders interactive Dim and Brighten keys that adjust your MacBook display's brightness level in real-time.")
+                .font(.system(size: 11))
+                .foregroundColor(.gray)
+                .lineSpacing(4)
         }
     }
 }

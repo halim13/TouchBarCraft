@@ -7,6 +7,8 @@ public enum WidgetType: String, Codable, CaseIterable, Sendable {
     case media = "Media Controls"
     case animation = "Animation"
     case anki = "Anki Review"
+    case volumeSlider = "Volume Slider"
+    case brightnessButtons = "Brightness Controls"
 }
 
 public enum ActionType: String, Codable, CaseIterable, Sendable {

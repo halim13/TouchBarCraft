@@ -477,3 +477,103 @@ public struct WidgetAnkiView: View {
     }
 }
 
+public struct WidgetVolumeSliderView: View {
+    let widget: TouchBarWidget
+    let state: AppState
+    let isSimulator: Bool
+    
+    @State private var volume: Double = 50.0
+    
+    public var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "speaker.fill")
+                .font(.system(size: isSimulator ? widget.fontSize - 2 : widget.fontSize))
+                .foregroundColor(Color(hex: widget.textColorHex))
+            
+            Slider(value: $volume, in: 0...100, onEditingChanged: { _ in
+                setSystemVolume(Int(volume))
+            })
+            .frame(width: isSimulator ? 100 : 150)
+            
+            Image(systemName: "speaker.wave.3.fill")
+                .font(.system(size: isSimulator ? widget.fontSize - 2 : widget.fontSize))
+                .foregroundColor(Color(hex: widget.textColorHex))
+        }
+        .padding(.horizontal, isSimulator ? 8 : 12)
+        .padding(.vertical, isSimulator ? 5 : 6)
+        .background(Color(hex: widget.backgroundColorHex).opacity(0.15))
+        .cornerRadius(6)
+        .onAppear {
+            volume = getSystemVolume()
+        }
+    }
+    
+    private func getSystemVolume() -> Double {
+        var error: NSDictionary?
+        if let script = NSAppleScript(source: "output volume of (get volume settings)") {
+            let descriptor = script.executeAndReturnError(&error)
+            return Double(descriptor.int32Value)
+        }
+        return 50.0
+    }
+    
+    private func setSystemVolume(_ val: Int) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let scriptString = "set volume output volume \(val)"
+            if let script = NSAppleScript(source: scriptString) {
+                var error: NSDictionary?
+                script.executeAndReturnError(&error)
+            }
+        }
+    }
+}
+
+public struct WidgetBrightnessButtonsView: View {
+    let widget: TouchBarWidget
+    let state: AppState
+    let isSimulator: Bool
+    
+    public var body: some View {
+        HStack(spacing: 4) {
+            Button(action: {
+                executeBrightnessChange(up: false)
+            }) {
+                Image(systemName: "sun.min.fill")
+                    .font(.system(size: isSimulator ? widget.fontSize - 2 : widget.fontSize))
+                    .foregroundColor(Color(hex: widget.textColorHex))
+                    .padding(isSimulator ? 4 : 5)
+                    .background(Color.white.opacity(0.1))
+                    .cornerRadius(4)
+            }
+            .buttonStyle(.plain)
+            
+            Button(action: {
+                executeBrightnessChange(up: true)
+            }) {
+                Image(systemName: "sun.max.fill")
+                    .font(.system(size: isSimulator ? widget.fontSize - 2 : widget.fontSize))
+                    .foregroundColor(Color(hex: widget.textColorHex))
+                    .padding(isSimulator ? 4 : 5)
+                    .background(Color.white.opacity(0.1))
+                    .cornerRadius(4)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, isSimulator ? 6 : 8)
+        .padding(.vertical, isSimulator ? 4 : 5)
+        .background(Color(hex: widget.backgroundColorHex).opacity(0.15))
+        .cornerRadius(6)
+    }
+    
+    private func executeBrightnessChange(up: Bool) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let keyCode = up ? 144 : 145
+            let scriptString = "tell application \"System Events\" to key code \(keyCode)"
+            if let script = NSAppleScript(source: scriptString) {
+                var error: NSDictionary?
+                script.executeAndReturnError(&error)
+            }
+        }
+    }
+}
+

@@ -251,6 +251,22 @@ public final class AppState {
                 backgroundColorHex: "#2563EB",
                 textColorHex: "#FFFFFF"
             )
+        case .volumeSlider:
+            newWidget = TouchBarWidget(
+                type: .volumeSlider,
+                title: "Volume Slider",
+                iconName: "speaker.wave.3.fill",
+                backgroundColorHex: "#1E1E24",
+                textColorHex: "#FFFFFF"
+            )
+        case .brightnessButtons:
+            newWidget = TouchBarWidget(
+                type: .brightnessButtons,
+                title: "Brightness Controls",
+                iconName: "sun.max.fill",
+                backgroundColorHex: "#1E1E24",
+                textColorHex: "#FFFFFF"
+            )
         }
         
         widgets.append(newWidget)

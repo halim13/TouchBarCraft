@@ -274,6 +274,14 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         case .anki:
             let ankiView = makeNativeAnkiView(for: widget, state: state)
             item.view = ankiView
+            
+        case .volumeSlider:
+            let volumeView = makeNativeVolumeSlider(for: widget)
+            item.view = volumeView
+            
+        case .brightnessButtons:
+            let brightnessView = makeNativeBrightnessButtons(for: widget)
+            item.view = brightnessView
         }
         
         return item
@@ -490,6 +498,117 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         }
         
         return result
+    }
+    
+    // MARK: - Native Volume & Brightness Factories
+    
+    private func makeNativeVolumeSlider(for widget: TouchBarWidget) -> NSView {
+        let stack = NSStackView()
+        stack.orientation = .horizontal
+        stack.spacing = 6
+        stack.alignment = .centerY
+        
+        let minImg = NSImage(systemSymbolName: "speaker.fill", accessibilityDescription: "Mute")
+        let minView = NSImageView(image: minImg ?? NSImage())
+        minView.contentTintColor = NSColor(Color(hex: widget.textColorHex))
+        minView.translatesAutoresizingMaskIntoConstraints = false
+        minView.widthAnchor.constraint(equalToConstant: 14).isActive = true
+        minView.heightAnchor.constraint(equalToConstant: 14).isActive = true
+        
+        let slider = NSSlider(
+            value: getCurrentVolume(),
+            minValue: 0,
+            maxValue: 100,
+            target: self,
+            action: #selector(volumeSliderChanged(_:))
+        )
+        slider.controlSize = .small
+        slider.wantsLayer = true
+        slider.translatesAutoresizingMaskIntoConstraints = false
+        slider.widthAnchor.constraint(equalToConstant: 130).isActive = true
+        
+        let maxImg = NSImage(systemSymbolName: "speaker.wave.3.fill", accessibilityDescription: "Max Volume")
+        let maxView = NSImageView(image: maxImg ?? NSImage())
+        maxView.contentTintColor = NSColor(Color(hex: widget.textColorHex))
+        maxView.translatesAutoresizingMaskIntoConstraints = false
+        maxView.widthAnchor.constraint(equalToConstant: 16).isActive = true
+        maxView.heightAnchor.constraint(equalToConstant: 16).isActive = true
+        
+        stack.addArrangedSubview(minView)
+        stack.addArrangedSubview(slider)
+        stack.addArrangedSubview(maxView)
+        
+        return stack
+    }
+    
+    @objc private func volumeSliderChanged(_ sender: NSSlider) {
+        let value = Int(sender.doubleValue)
+        DispatchQueue.global(qos: .userInitiated).async {
+            let scriptString = "set volume output volume \(value)"
+            if let script = NSAppleScript(source: scriptString) {
+                var error: NSDictionary?
+                script.executeAndReturnError(&error)
+            }
+        }
+    }
+    
+    private func getCurrentVolume() -> Double {
+        var error: NSDictionary?
+        if let script = NSAppleScript(source: "output volume of (get volume settings)") {
+            let descriptor = script.executeAndReturnError(&error)
+            return Double(descriptor.int32Value)
+        }
+        return 50.0
+    }
+    
+    private func makeNativeBrightnessButtons(for widget: TouchBarWidget) -> NSView {
+        let stack = NSStackView()
+        stack.orientation = .horizontal
+        stack.spacing = 6
+        stack.alignment = .centerY
+        
+        let downBtn = NSButton(
+            image: NSImage(systemSymbolName: "sun.min.fill", accessibilityDescription: "Brightness Down") ?? NSImage(),
+            target: self,
+            action: #selector(brightnessDownTapped(_:))
+        )
+        downBtn.bezelStyle = .rounded
+        downBtn.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
+        downBtn.contentTintColor = NSColor(Color(hex: widget.textColorHex))
+        
+        let upBtn = NSButton(
+            image: NSImage(systemSymbolName: "sun.max.fill", accessibilityDescription: "Brightness Up") ?? NSImage(),
+            target: self,
+            action: #selector(brightnessUpTapped(_:))
+        )
+        upBtn.bezelStyle = .rounded
+        upBtn.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
+        upBtn.contentTintColor = NSColor(Color(hex: widget.textColorHex))
+        
+        stack.addArrangedSubview(downBtn)
+        stack.addArrangedSubview(upBtn)
+        
+        return stack
+    }
+    
+    @objc private func brightnessDownTapped(_ sender: NSButton) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let scriptString = "tell application \"System Events\" to key code 145"
+            if let script = NSAppleScript(source: scriptString) {
+                var error: NSDictionary?
+                script.executeAndReturnError(&error)
+            }
+        }
+    }
+    
+    @objc private func brightnessUpTapped(_ sender: NSButton) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let scriptString = "tell application \"System Events\" to key code 144"
+            if let script = NSAppleScript(source: scriptString) {
+                var error: NSDictionary?
+                script.executeAndReturnError(&error)
+            }
+        }
     }
 }
 
