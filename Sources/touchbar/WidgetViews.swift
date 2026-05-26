@@ -581,23 +581,113 @@ public struct WidgetAnkiView: View {
     }
     
     private func parseBoldTags(in text: String, defaultColor: Color, boldColor: Color, fontSize: CGFloat) -> Text {
-        var parts: [Text] = []
-        let components = text.components(separatedBy: "<b>")
-        for (index, component) in components.enumerated() {
-            if index == 0 {
-                parts.append(Text(component).foregroundColor(defaultColor).font(.system(size: fontSize)))
-            } else {
-                let subParts = component.components(separatedBy: "</b>")
-                if subParts.count > 1 {
-                    parts.append(Text(subParts[0]).bold().foregroundColor(boldColor).font(.system(size: fontSize)))
-                    let regularText = subParts.dropFirst().joined(separator: "</b>")
-                    parts.append(Text(regularText).foregroundColor(defaultColor).font(.system(size: fontSize)))
-                } else {
-                    parts.append(Text("<b>" + component).foregroundColor(defaultColor).font(.system(size: fontSize)))
+        struct StyledChunk {
+            let text: String
+            let isBold: Bool
+            let isItalic: Bool
+            let isUnderline: Bool
+        }
+        
+        var chunks: [StyledChunk] = []
+        var currentText = ""
+        var isBold = false
+        var isItalic = false
+        var isUnderline = false
+        
+        var index = text.startIndex
+        while index < text.endIndex {
+            if text[index...].hasPrefix("<b>") || text[index...].hasPrefix("<strong>") {
+                if !currentText.isEmpty {
+                    chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+                    currentText = ""
                 }
+                if text[index...].hasPrefix("<b>") {
+                    index = text.index(index, offsetBy: 3)
+                } else {
+                    index = text.index(index, offsetBy: 8)
+                }
+                isBold = true
+            } else if text[index...].hasPrefix("</b>") || text[index...].hasPrefix("</strong>") {
+                if !currentText.isEmpty {
+                    chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+                    currentText = ""
+                }
+                if text[index...].hasPrefix("</b>") {
+                    index = text.index(index, offsetBy: 4)
+                } else {
+                    index = text.index(index, offsetBy: 9)
+                }
+                isBold = false
+            } else if text[index...].hasPrefix("<i>") || text[index...].hasPrefix("<em>") {
+                if !currentText.isEmpty {
+                    chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+                    currentText = ""
+                }
+                if text[index...].hasPrefix("<i>") {
+                    index = text.index(index, offsetBy: 3)
+                } else {
+                    index = text.index(index, offsetBy: 4)
+                }
+                isItalic = true
+            } else if text[index...].hasPrefix("</i>") || text[index...].hasPrefix("</em>") {
+                let hasEmClose = text[index...].hasPrefix("</em>")
+                if !currentText.isEmpty {
+                    chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+                    currentText = ""
+                }
+                if hasEmClose {
+                    index = text.index(index, offsetBy: 5)
+                } else {
+                    index = text.index(index, offsetBy: 4) // </i>
+                }
+                isItalic = false
+            } else if text[index...].hasPrefix("<u>") {
+                if !currentText.isEmpty {
+                    chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+                    currentText = ""
+                }
+                index = text.index(index, offsetBy: 3)
+                isUnderline = true
+            } else if text[index...].hasPrefix("</u>") {
+                if !currentText.isEmpty {
+                    chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+                    currentText = ""
+                }
+                index = text.index(index, offsetBy: 4)
+                isUnderline = false
+            } else {
+                currentText.append(text[index])
+                index = text.index(after: index)
             }
         }
-        return parts.reduce(Text("")) { $0 + $1 }
+        
+        if !currentText.isEmpty {
+            chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+        }
+        
+        var resultText = Text("")
+        for chunk in chunks {
+            var t = Text(chunk.text)
+            if chunk.isBold {
+                t = t.bold()
+            }
+            if chunk.isItalic {
+                t = t.italic()
+            }
+            if chunk.isUnderline {
+                t = t.underline()
+            }
+            
+            t = t.font(.system(size: fontSize))
+            if chunk.isBold {
+                t = t.foregroundColor(boldColor)
+            } else {
+                t = t.foregroundColor(defaultColor)
+            }
+            resultText = resultText + t
+        }
+        
+        return resultText
     }
     
     private func getRatingButtons(for widget: TouchBarWidget, buttonCount: Int) -> [(title: String, rating: Int, color: Color)] {

@@ -495,41 +495,112 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     }
     
     private func parseBoldTags(in text: String, defaultFont: NSFont, defaultColor: NSColor, boldColor: NSColor) -> NSAttributedString {
-        let attributed = NSMutableAttributedString()
-        let parts = text.components(separatedBy: "<b>")
-        for (index, part) in parts.enumerated() {
-            if index == 0 {
-                let attrs: [NSAttributedString.Key: Any] = [
-                    .font: defaultFont,
-                    .foregroundColor: defaultColor
-                ]
-                attributed.append(NSAttributedString(string: part, attributes: attrs))
-            } else {
-                let subParts = part.components(separatedBy: "</b>")
-                if subParts.count > 1 {
-                    let boldText = subParts[0]
-                    let boldFont = NSFont.boldSystemFont(ofSize: defaultFont.pointSize)
-                    let boldAttrs: [NSAttributedString.Key: Any] = [
-                        .font: boldFont,
-                        .foregroundColor: boldColor
-                    ]
-                    attributed.append(NSAttributedString(string: boldText, attributes: boldAttrs))
-                    
-                    let regularText = subParts.dropFirst().joined(separator: "</b>")
-                    let regularAttrs: [NSAttributedString.Key: Any] = [
-                        .font: defaultFont,
-                        .foregroundColor: defaultColor
-                    ]
-                    attributed.append(NSAttributedString(string: regularText, attributes: regularAttrs))
-                } else {
-                    let attrs: [NSAttributedString.Key: Any] = [
-                        .font: defaultFont,
-                        .foregroundColor: defaultColor
-                    ]
-                    attributed.append(NSAttributedString(string: "<b>" + part, attributes: attrs))
+        struct StyledChunk {
+            let text: String
+            let isBold: Bool
+            let isItalic: Bool
+            let isUnderline: Bool
+        }
+        
+        var chunks: [StyledChunk] = []
+        var currentText = ""
+        var isBold = false
+        var isItalic = false
+        var isUnderline = false
+        
+        var index = text.startIndex
+        while index < text.endIndex {
+            if text[index...].hasPrefix("<b>") || text[index...].hasPrefix("<strong>") {
+                if !currentText.isEmpty {
+                    chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+                    currentText = ""
                 }
+                if text[index...].hasPrefix("<b>") {
+                    index = text.index(index, offsetBy: 3)
+                } else {
+                    index = text.index(index, offsetBy: 8)
+                }
+                isBold = true
+            } else if text[index...].hasPrefix("</b>") || text[index...].hasPrefix("</strong>") {
+                if !currentText.isEmpty {
+                    chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+                    currentText = ""
+                }
+                if text[index...].hasPrefix("</b>") {
+                    index = text.index(index, offsetBy: 4)
+                } else {
+                    index = text.index(index, offsetBy: 9)
+                }
+                isBold = false
+            } else if text[index...].hasPrefix("<i>") || text[index...].hasPrefix("<em>") {
+                if !currentText.isEmpty {
+                    chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+                    currentText = ""
+                }
+                if text[index...].hasPrefix("<i>") {
+                    index = text.index(index, offsetBy: 3)
+                } else {
+                    index = text.index(index, offsetBy: 4)
+                }
+                isItalic = true
+            } else if text[index...].hasPrefix("</i>") || text[index...].hasPrefix("</em>") {
+                let hasEmClose = text[index...].hasPrefix("</em>")
+                if !currentText.isEmpty {
+                    chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+                    currentText = ""
+                }
+                if hasEmClose {
+                    index = text.index(index, offsetBy: 5)
+                } else {
+                    index = text.index(index, offsetBy: 4) // </i>
+                }
+                isItalic = false
+            } else if text[index...].hasPrefix("<u>") {
+                if !currentText.isEmpty {
+                    chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+                    currentText = ""
+                }
+                index = text.index(index, offsetBy: 3)
+                isUnderline = true
+            } else if text[index...].hasPrefix("</u>") {
+                if !currentText.isEmpty {
+                    chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+                    currentText = ""
+                }
+                index = text.index(index, offsetBy: 4)
+                isUnderline = false
+            } else {
+                currentText.append(text[index])
+                index = text.index(after: index)
             }
         }
+        
+        if !currentText.isEmpty {
+            chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+        }
+        
+        let attributed = NSMutableAttributedString()
+        for chunk in chunks {
+            var font = defaultFont
+            if chunk.isBold {
+                font = NSFontManager.shared.convert(font, toHaveTrait: .boldFontMask)
+            }
+            if chunk.isItalic {
+                font = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask)
+            }
+            
+            var attrs: [NSAttributedString.Key: Any] = [
+                .font: font,
+                .foregroundColor: chunk.isBold ? boldColor : defaultColor
+            ]
+            
+            if chunk.isUnderline {
+                attrs[.underlineStyle] = NSUnderlineStyle.single.rawValue
+            }
+            
+            attributed.append(NSAttributedString(string: chunk.text, attributes: attrs))
+        }
+        
         return attributed
     }
     

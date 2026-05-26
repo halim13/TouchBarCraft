@@ -224,13 +224,12 @@ public actor AnkiConnectClient {
     
     // MARK: - Helpers
     
-    /// Strip HTML tags from string (Anki cards often contain HTML)
     private func stripHTML(_ html: String) -> String {
         var text = html
-        // Remove <br>, <br/>, <br /> as newlines first
+        // Remove <br>, <br/>, <br /> as spaces first
         text = text.replacingOccurrences(of: "<br\\s*/?>", with: " ", options: .regularExpression)
-        // Remove all other HTML tags
-        text = text.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+        // Remove all HTML tags EXCEPT b, strong, i, em, u
+        text = text.replacingOccurrences(of: "<(?!/?(b|strong|i|em|u)\\b)[^>]+>", with: "", options: .regularExpression)
         // Decode common HTML entities
         text = text.replacingOccurrences(of: "&nbsp;", with: " ")
         text = text.replacingOccurrences(of: "&amp;", with: "&")
