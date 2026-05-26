@@ -792,7 +792,25 @@ struct AnkiConfigView: View {
                         .font(.system(size: 11))
                     }
                     
-                    Text("Falls back to standard 'Front'/'Back' if fields aren't found on the card.")
+                    HStack {
+                        Text("Audio Field:")
+                            .font(.system(size: 11))
+                            .frame(width: 95, alignment: .leading)
+                        TextField("e.g. Audio", text: Binding(
+                            get: { widget.ankiAudioField },
+                            set: { val in
+                                state.widgets[index].ankiAudioField = val
+                                state.saveConfig()
+                                Task {
+                                    await state.ankiState.loadCurrentCard()
+                                }
+                            }
+                        ))
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 11))
+                    }
+                    
+                    Text("Falls back to standard 'Front'/'Back'/'Audio' if fields aren't found, or automatically searches other fields for audio.")
                         .font(.system(size: 9))
                         .foregroundColor(.gray)
                         .italic()

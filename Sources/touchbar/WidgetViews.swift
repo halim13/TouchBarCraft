@@ -528,7 +528,7 @@ public struct WidgetAnkiView: View {
                     )
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    .frame(maxWidth: isSimulator ? widget.ankiTextMaxWidth * 0.48 : widget.ankiTextMaxWidth, alignment: .leading)
+                    .frame(width: isSimulator ? widget.ankiTextMaxWidth * 0.48 : widget.ankiTextMaxWidth, alignment: .leading)
                     
                     Button(action: {
                         anki.revealAnswer()
@@ -550,7 +550,11 @@ public struct WidgetAnkiView: View {
                     )
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    .frame(maxWidth: isSimulator ? widget.ankiTextMaxWidth * 0.48 : widget.ankiTextMaxWidth, alignment: .leading)
+                    .frame(width: isSimulator ? widget.ankiTextMaxWidth * 0.48 : widget.ankiTextMaxWidth, alignment: .leading)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        anki.toggleAudio()
+                    }
                     
                     HStack(spacing: 4) {
                         let count = anki.currentCard?.buttonCount ?? 4
@@ -561,7 +565,7 @@ public struct WidgetAnkiView: View {
                                 anki.submitRating(ease: btn.rating)
                             }) {
                                 Text(btn.title)
-                                    .font(.system(size: isSimulator ? widget.fontSize - 3 : widget.fontSize - 1, weight: .bold))
+                                    .font(.system(size: isSimulator ? 10 : 11, weight: .bold))
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 3)
@@ -570,6 +574,21 @@ public struct WidgetAnkiView: View {
                             }
                             .buttonStyle(.plain)
                         }
+                    }
+                    
+                    if anki.currentCard?.soundFilename != nil {
+                        Button(action: {
+                            anki.toggleAudio()
+                        }) {
+                            Image(systemName: anki.isAudioPlaying ? "stop.fill" : "play.fill")
+                                .font(.system(size: isSimulator ? 10 : 12))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color(hex: widget.backgroundColorHex))
+                                .foregroundColor(Color(hex: widget.textColorHex))
+                                .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }

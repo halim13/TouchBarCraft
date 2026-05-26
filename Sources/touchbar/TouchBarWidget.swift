@@ -65,6 +65,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     public var ankiShowEasy: Bool
     public var ankiQuestionField: String
     public var ankiAnswerField: String
+    public var ankiAudioField: String
     public var ankiTextMaxWidth: Double
     
     // Clock properties
@@ -113,6 +114,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         ankiShowEasy: Bool = true,
         ankiQuestionField: String = "Front",
         ankiAnswerField: String = "Back",
+        ankiAudioField: String = "Audio",
         ankiTextMaxWidth: Double = 250.0,
         showSeconds: Bool = true,
         fontSize: Double = 12.0,
@@ -146,6 +148,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiShowEasy = ankiShowEasy
         self.ankiQuestionField = ankiQuestionField
         self.ankiAnswerField = ankiAnswerField
+        self.ankiAudioField = ankiAudioField
         self.ankiTextMaxWidth = ankiTextMaxWidth
         self.showSeconds = showSeconds
         self.fontSize = fontSize
@@ -165,7 +168,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     enum CodingKeys: String, CodingKey {
         case id, type, title, iconName, backgroundColorHex, textColorHex
         case actionType, actionValue, monitorType, animationType, animationSpeed
-        case ankiDeckName, ankiShowAgain, ankiShowHard, ankiShowGood, ankiShowEasy, ankiQuestionField, ankiAnswerField, ankiTextMaxWidth
+        case ankiDeckName, ankiShowAgain, ankiShowHard, ankiShowGood, ankiShowEasy, ankiQuestionField, ankiAnswerField, ankiAudioField, ankiTextMaxWidth
         case showSeconds
         case fontSize, brightnessButtonSize, volumeSliderWidth
         case batteryDisplayType, batteryChargingIcon, batteryFullIcon, batteryLowIcon, batteryNormalIcon, batteryLowThreshold, batteryFullThreshold
@@ -195,6 +198,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiShowEasy = try container.decodeIfPresent(Bool.self, forKey: .ankiShowEasy) ?? true
         self.ankiQuestionField = try container.decodeIfPresent(String.self, forKey: .ankiQuestionField) ?? "Front"
         self.ankiAnswerField = try container.decodeIfPresent(String.self, forKey: .ankiAnswerField) ?? "Back"
+        self.ankiAudioField = try container.decodeIfPresent(String.self, forKey: .ankiAudioField) ?? "Audio"
         self.ankiTextMaxWidth = try container.decodeIfPresent(Double.self, forKey: .ankiTextMaxWidth) ?? 250.0
         
         self.showSeconds = try container.decodeIfPresent(Bool.self, forKey: .showSeconds) ?? true

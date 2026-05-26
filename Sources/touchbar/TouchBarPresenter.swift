@@ -203,6 +203,11 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         state.ankiState.syncDecks()
     }
     
+    @objc private func ankiAudioToggleTapped(_ sender: Any) {
+        guard let state = AppState.shared else { return }
+        state.ankiState.toggleAudio()
+    }
+    
     private func executeMediaCommand(_ action: String) {
         DispatchQueue.global(qos: .userInitiated).async {
             var scriptString = ""
@@ -440,10 +445,10 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             label.attributedStringValue = prefix
             label.lineBreakMode = .byTruncatingTail
             label.cell?.truncatesLastVisibleLine = true
-            // Cap label width so Reveal button is always visible
+            // Fixed label width so positions don't jump
             label.translatesAutoresizingMaskIntoConstraints = false
             label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-            label.widthAnchor.constraint(lessThanOrEqualToConstant: CGFloat(widget.ankiTextMaxWidth)).isActive = true
+            label.widthAnchor.constraint(equalToConstant: CGFloat(widget.ankiTextMaxWidth)).isActive = true
             
             let btn = NSButton(title: "Reveal ▶", target: self, action: #selector(ankiRevealTapped(_:)))
             btn.bezelStyle = .rounded
@@ -469,10 +474,15 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             label.attributedStringValue = prefix
             label.lineBreakMode = .byTruncatingTail
             label.cell?.truncatesLastVisibleLine = true
-            // Cap label width so rating buttons are always visible
+            
+            // Answer text is clickable to play/stop audio
+            let gesture = NSClickGestureRecognizer(target: self, action: #selector(ankiAudioToggleTapped(_:)))
+            label.addGestureRecognizer(gesture)
+            
+            // Fixed label width so rating buttons are always in the same place
             label.translatesAutoresizingMaskIntoConstraints = false
             label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-            label.widthAnchor.constraint(lessThanOrEqualToConstant: CGFloat(widget.ankiTextMaxWidth * 0.8)).isActive = true
+            label.widthAnchor.constraint(equalToConstant: CGFloat(widget.ankiTextMaxWidth * 0.8)).isActive = true
             stack.addArrangedSubview(label)
             
             let count = card.buttonCount
@@ -484,10 +494,30 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                 btn.bezelStyle = .rounded
                 btn.bezelColor = btnSpec.color
                 btn.contentTintColor = .white
-                btn.font = NSFont.systemFont(ofSize: CGFloat(max(9, widget.fontSize - 2)), weight: .bold)
+                // Fixed font size 11 for ratings as requested
+                btn.font = NSFont.systemFont(ofSize: 11, weight: .bold)
                 btn.setContentCompressionResistancePriority(.required, for: .horizontal)
                 btn.setContentHuggingPriority(.required, for: .horizontal)
                 stack.addArrangedSubview(btn)
+            }
+            
+            // Add custom play/stop audio button on the right
+            if card.soundFilename != nil {
+                let audioBtn = NSButton(title: "", target: self, action: #selector(ankiAudioToggleTapped(_:)))
+                audioBtn.bezelStyle = .rounded
+                audioBtn.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
+                let symbolName = anki.isAudioPlaying ? "stop.fill" : "play.fill"
+                if let audioImg = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Toggle Audio") {
+                    audioBtn.image = audioImg
+                    audioBtn.imagePosition = .imageOnly
+                } else {
+                    audioBtn.title = anki.isAudioPlaying ? "Stop" : "Play"
+                }
+                audioBtn.translatesAutoresizingMaskIntoConstraints = false
+                audioBtn.widthAnchor.constraint(equalToConstant: 30).isActive = true
+                audioBtn.setContentCompressionResistancePriority(.required, for: .horizontal)
+                audioBtn.setContentHuggingPriority(.required, for: .horizontal)
+                stack.addArrangedSubview(audioBtn)
             }
         }
         

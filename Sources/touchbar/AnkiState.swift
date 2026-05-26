@@ -5,7 +5,7 @@ import AppKit
 
 @Observable
 @MainActor
-public final class AnkiState {
+public final class AnkiState: NSObject, NSSoundDelegate {
     public static var shared: AnkiState? = nil
     
     // Connection
@@ -26,11 +26,16 @@ public final class AnkiState {
     public var cardsReviewed: Int = 0
     public var sessionStartTime: Date? = nil
     
+    // Audio
+    public var isAudioPlaying: Bool = false
+    private var currentSound: NSSound? = nil
+    
     private var connectionCheckTimer: Timer?
     private var wasConnectedBefore: Bool = false
     private var hasRestoredDeck: Bool = false
     
-    public init() {
+    public override init() {
+        super.init()
         Self.shared = self
         startConnectionMonitor()
     }
@@ -158,11 +163,13 @@ public final class AnkiState {
     /// Load the current card from Anki
     public func loadCurrentCard() async {
         self.isLoading = true
+        stopAudio()
         let widget = getActiveAnkiWidget()
         let qField = widget?.ankiQuestionField ?? "Front"
         let aField = widget?.ankiAnswerField ?? "Back"
+        let audioField = widget?.ankiAudioField ?? "Audio"
         
-        let card = await AnkiConnectClient.shared.getCurrentCard(questionField: qField, answerField: aField)
+        let card = await AnkiConnectClient.shared.getCurrentCard(questionField: qField, answerField: aField, audioField: audioField)
         self.currentCard = card
         self.isShowingAnswer = false
         self.isLoading = false
@@ -194,6 +201,7 @@ public final class AnkiState {
         guard currentCard != nil, isShowingAnswer else { return }
         
         self.isLoading = true
+        stopAudio()
         
         Task {
             let answered = await AnkiConnectClient.shared.answerCard(ease: ease)
@@ -258,5 +266,60 @@ public final class AnkiState {
     
     public var answerPreview: String {
         currentCard?.answer ?? ""
+    }
+    
+    // MARK: - Audio Controls
+    
+    public func toggleAudio() {
+        if isAudioPlaying {
+            stopAudio()
+        } else {
+            playAudio()
+        }
+    }
+    
+    public func stopAudio() {
+        currentSound?.stop()
+        currentSound = nil
+        isAudioPlaying = false
+        refreshTouchBar()
+    }
+    
+    public func playAudio() {
+        guard let card = currentCard, let filename = card.soundFilename else { return }
+        
+        // Stop currently playing sound if any
+        currentSound?.stop()
+        currentSound = nil
+        isAudioPlaying = false
+        
+        Task {
+            if let data = await AnkiConnectClient.shared.retrieveMediaFile(filename: filename) {
+                let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+                do {
+                    try data.write(to: tempURL)
+                    
+                    await MainActor.run {
+                        if let sound = NSSound(contentsOf: tempURL, byReference: true) {
+                            sound.delegate = self
+                            self.currentSound = sound
+                            self.isAudioPlaying = true
+                            sound.play()
+                            self.refreshTouchBar()
+                        }
+                    }
+                } catch {
+                    print("AnkiState: Failed to write temp audio file: \(error)")
+                }
+            }
+        }
+    }
+    
+    nonisolated public func sound(_ sound: NSSound, didFinishPlaying flag: Bool) {
+        Task { @MainActor in
+            self.isAudioPlaying = false
+            self.currentSound = nil
+            self.refreshTouchBar()
+        }
     }
 }

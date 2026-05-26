@@ -8,6 +8,29 @@ public struct AnkiCard: Sendable {
     public let answer: String
     public let deckName: String
     public let buttonCount: Int  // number of answer buttons (typically 2-4)
+    public let audioText: String
+
+    public var soundFilename: String? {
+        if audioText.isEmpty { return nil }
+        if let range = audioText.range(of: "\\[sound:([^\\]]+)\\]", options: .regularExpression) {
+            let tag = audioText[range]
+            return tag.replacingOccurrences(of: "[sound:", with: "")
+                      .replacingOccurrences(of: "]", with: "")
+                      .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        if let range = audioText.range(of: "src=\"([^\"]+)\"", options: .regularExpression) {
+            let matched = audioText[range]
+            return matched.replacingOccurrences(of: "src=\"", with: "")
+                          .replacingOccurrences(of: "\"", with: "")
+                          .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        let trimmed = audioText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lower = trimmed.lowercased()
+        if lower.hasSuffix(".mp3") || lower.hasSuffix(".wav") || lower.hasSuffix(".m4a") || lower.hasSuffix(".ogg") {
+            return trimmed
+        }
+        return nil
+    }
 }
 
 // MARK: - AnkiConnect Client
@@ -92,7 +115,7 @@ public actor AnkiConnectClient {
     }
     
     /// Get the current card being reviewed
-    public func getCurrentCard(questionField: String = "Front", answerField: String = "Back") async -> AnkiCard? {
+    public func getCurrentCard(questionField: String = "Front", answerField: String = "Back", audioField: String = "Audio") async -> AnkiCard? {
         do {
             guard let result = try await request(action: "guiCurrentCard") as? [String: Any] else {
                 return nil
@@ -167,12 +190,27 @@ public actor AnkiConnectClient {
                 answerText = stripHTML(answerText)
             }
             
+            // Extract custom audio field or search all fields for a [sound:] tag
+            var audioText = ""
+            if !audioField.isEmpty, let val = fieldsDict[audioField]?["value"] as? String {
+                audioText = val
+            }
+            if audioText.isEmpty {
+                for (_, fieldDict) in fieldsDict {
+                    if let val = fieldDict["value"] as? String, val.contains("[sound:") {
+                        audioText = val
+                        break
+                    }
+                }
+            }
+            
             return AnkiCard(
                 cardId: cardId,
                 question: truncateForTouchBar(questionText),
                 answer: truncateForTouchBar(answerText),
                 deckName: deckName,
-                buttonCount: buttonCount
+                buttonCount: buttonCount,
+                audioText: audioText
             )
         } catch {
             print("AnkiConnect: Failed to get current card: \(error)")
@@ -219,6 +257,19 @@ public actor AnkiConnectClient {
             _ = try await request(action: "guiStartCardTimer")
         } catch {
             // Non-critical, silently ignore
+        }
+    }
+    
+    /// Retrieve a media file by name from AnkiConnect
+    public func retrieveMediaFile(filename: String) async -> Data? {
+        do {
+            guard let result = try await request(action: "retrieveMediaFile", params: ["filename": filename]) as? String else {
+                return nil
+            }
+            return Data(base64Encoded: result)
+        } catch {
+            print("AnkiConnect: Failed to retrieve media file '\(filename)': \(error)")
+            return nil
         }
     }
     
