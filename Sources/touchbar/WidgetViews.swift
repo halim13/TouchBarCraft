@@ -758,18 +758,22 @@ public struct WidgetVolumeSliderView: View {
     
     public var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: "speaker.fill")
-                .font(.system(size: isSimulator ? widget.fontSize - 2 : widget.fontSize))
-                .foregroundColor(Color(hex: widget.textColorHex))
+            if widget.volumeShowIcon {
+                Image(systemName: "speaker.fill")
+                    .font(.system(size: isSimulator ? widget.fontSize - 2 : widget.fontSize))
+                    .foregroundColor(Color(hex: widget.textColorHex))
+            }
             
             Slider(value: $volume, in: 0...100, onEditingChanged: { _ in
                 setSystemVolume(Int(volume))
             })
             .frame(width: isSimulator ? widget.volumeSliderWidth * 0.6 : widget.volumeSliderWidth)
             
-            Image(systemName: "speaker.wave.3.fill")
-                .font(.system(size: isSimulator ? widget.fontSize - 2 : widget.fontSize))
-                .foregroundColor(Color(hex: widget.textColorHex))
+            if widget.volumeShowIcon {
+                Image(systemName: "speaker.wave.3.fill")
+                    .font(.system(size: isSimulator ? widget.fontSize - 2 : widget.fontSize))
+                    .foregroundColor(Color(hex: widget.textColorHex))
+            }
         }
         .padding(.horizontal, isSimulator ? 8 : 12)
         .padding(.vertical, isSimulator ? 5 : 6)

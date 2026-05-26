@@ -76,6 +76,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     
     // Volume slider properties
     public var volumeSliderWidth: Double
+    public var volumeShowIcon: Bool
     
     // Aesthetic properties
     public var fontSize: Double
@@ -120,6 +121,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         fontSize: Double = 12.0,
         brightnessButtonSize: Double = 16.0,
         volumeSliderWidth: Double = 150.0,
+        volumeShowIcon: Bool = true,
         batteryDisplayType: BatteryDisplayType = .imageOrAnimation,
         batteryChargingIcon: String = "",
         batteryFullIcon: String = "",
@@ -154,6 +156,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.fontSize = fontSize
         self.brightnessButtonSize = brightnessButtonSize
         self.volumeSliderWidth = volumeSliderWidth
+        self.volumeShowIcon = volumeShowIcon
         self.batteryDisplayType = batteryDisplayType
         self.batteryChargingIcon = batteryChargingIcon
         self.batteryFullIcon = batteryFullIcon
@@ -170,7 +173,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         case actionType, actionValue, monitorType, animationType, animationSpeed
         case ankiDeckName, ankiShowAgain, ankiShowHard, ankiShowGood, ankiShowEasy, ankiQuestionField, ankiAnswerField, ankiAudioField, ankiTextMaxWidth
         case showSeconds
-        case fontSize, brightnessButtonSize, volumeSliderWidth
+        case fontSize, brightnessButtonSize, volumeSliderWidth, volumeShowIcon
         case batteryDisplayType, batteryChargingIcon, batteryFullIcon, batteryLowIcon, batteryNormalIcon, batteryLowThreshold, batteryFullThreshold
         case ankiBoldColorHex
         case customGifPath
@@ -205,6 +208,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.fontSize = try container.decodeIfPresent(Double.self, forKey: .fontSize) ?? 12.0
         self.brightnessButtonSize = try container.decodeIfPresent(Double.self, forKey: .brightnessButtonSize) ?? 16.0
         self.volumeSliderWidth = try container.decodeIfPresent(Double.self, forKey: .volumeSliderWidth) ?? 150.0
+        self.volumeShowIcon = try container.decodeIfPresent(Bool.self, forKey: .volumeShowIcon) ?? true
         
         self.batteryDisplayType = try container.decodeIfPresent(BatteryDisplayType.self, forKey: .batteryDisplayType) ?? .imageOrAnimation
         self.batteryChargingIcon = try container.decodeIfPresent(String.self, forKey: .batteryChargingIcon) ?? ""

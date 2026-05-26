@@ -712,9 +712,13 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         maxView.widthAnchor.constraint(equalToConstant: 16).isActive = true
         maxView.heightAnchor.constraint(equalToConstant: 16).isActive = true
         
-        stack.addArrangedSubview(minView)
+        if widget.volumeShowIcon {
+            stack.addArrangedSubview(minView)
+        }
         stack.addArrangedSubview(slider)
-        stack.addArrangedSubview(maxView)
+        if widget.volumeShowIcon {
+            stack.addArrangedSubview(maxView)
+        }
         
         return stack
     }

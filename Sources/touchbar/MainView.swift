@@ -1395,6 +1395,17 @@ struct VolumeSliderOptionsView: View {
                     .font(.system(size: 11))
                     .foregroundColor(.gray)
             }
+            
+            Toggle("Show Volume Icons", isOn: Binding(
+                get: { widget.volumeShowIcon },
+                set: { val in
+                    state.widgets[index].volumeShowIcon = val
+                    state.saveConfig()
+                    state.ankiState.refreshTouchBar()
+                }
+            ))
+            .toggleStyle(.checkbox)
+            .font(.system(size: 11))
         }
     }
 }
