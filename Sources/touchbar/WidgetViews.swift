@@ -155,10 +155,7 @@ public struct WidgetBatteryIconView: View {
         .onChange(of: state.batteryLevel) { updateIcon() }
         .onChange(of: state.isBatteryCharging) { updateIcon() }
         .onChange(of: state.isBatteryFull) { updateIcon() }
-        .onChange(of: widget.batteryChargingIcon) { updateIcon() }
-        .onChange(of: widget.batteryFullIcon) { updateIcon() }
-        .onChange(of: widget.batteryLowIcon) { updateIcon() }
-        .onChange(of: widget.batteryNormalIcon) { updateIcon() }
+        .onChange(of: widget) { updateIcon() }
     }
     
     private var fallbackIcon: some View {

@@ -44,12 +44,7 @@ public final class AppState {
             print("Successfully saved configurations to \(configPath.path)")
             
             // Notify system presenter to refresh the physical Touch Bar layout!
-            // We use NSSelectorFromString to avoid compile issues if presenter is not yet resolved
-            let presenterClass: AnyClass? = NSClassFromString("touchbar.TouchBarPresenter")
-            let refreshSelector = NSSelectorFromString("refreshTouchBar")
-            if let presenter = presenterClass as? NSObject.Type {
-                presenter.perform(refreshSelector)
-            }
+            TouchBarPresenter.refreshTouchBar()
         } catch {
             print("Failed to save configurations: \(error.localizedDescription)")
         }
