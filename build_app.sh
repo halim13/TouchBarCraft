@@ -16,6 +16,9 @@ mkdir -p "$RESOURCES_DIR"
 echo "⚙️ Copying executable..."
 cp .build/release/touchbar "$MACOS_DIR/TouchBarCraft"
 
+echo "🎨 Copying app icon..."
+cp Assets/AppIcon.icns "$RESOURCES_DIR/AppIcon.icns"
+
 echo "📝 Creating Info.plist..."
 cat <<EOF > "$CONTENTS_DIR/Info.plist"
 <?xml version="1.0" encoding="UTF-8"?>
@@ -24,6 +27,8 @@ cat <<EOF > "$CONTENTS_DIR/Info.plist"
 <dict>
     <key>CFBundleExecutable</key>
     <string>TouchBarCraft</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>com.halim13.TouchBarCraft</string>
     <key>CFBundleName</key>

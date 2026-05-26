@@ -723,4 +723,3 @@ public struct WidgetBrightnessButtonsView: View {
         }
     }
 }
-

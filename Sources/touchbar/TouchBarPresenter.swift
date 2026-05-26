@@ -735,4 +735,3 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         }
     }
 }
-
