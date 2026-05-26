@@ -245,44 +245,55 @@ public struct WidgetSystemMonitorView: View {
     }
     
     public var body: some View {
-        HStack(spacing: 6) {
-            if widget.monitorType == .battery && widget.batteryDisplayType == .textOnly {
-                Text("\(state.batteryLevel)%")
-                    .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .bold, design: .monospaced))
-                    .foregroundColor(state.batteryLevel <= widget.batteryLowThreshold ? .rose : Color(hex: widget.textColorHex))
-            } else {
-                if widget.monitorType == .battery {
-                    WidgetBatteryIconView(widget: widget, state: state, isSimulator: isSimulator)
+        Group {
+            if widget.monitorType == .battery {
+                if widget.batteryDisplayType == .textOnly {
+                    // Text Only: hanya tampilkan persentase, merah jika lemah
+                    Text("\(state.batteryLevel)%")
+                        .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .bold, design: .monospaced))
+                        .foregroundColor(state.batteryLevel <= widget.batteryLowThreshold ? .rose : Color(hex: widget.textColorHex))
+                        .padding(.horizontal, isSimulator ? 8 : 12)
+                        .padding(.vertical, isSimulator ? 5 : 6)
+                        .background(Color(hex: widget.backgroundColorHex).opacity(0.15))
+                        .cornerRadius(6)
                 } else {
+                    // Image or Animation: hanya tampilkan gambar/animasi saja
+                    WidgetBatteryIconView(widget: widget, state: state, isSimulator: isSimulator)
+                        .padding(.horizontal, isSimulator ? 8 : 12)
+                        .padding(.vertical, isSimulator ? 5 : 6)
+                        .background(Color(hex: widget.backgroundColorHex).opacity(0.15))
+                        .cornerRadius(6)
+                }
+            } else {
+                // CPU / RAM: icon + teks + progress bar seperti biasa
+                HStack(spacing: 6) {
                     Image(systemName: widget.iconName)
                         .font(.system(size: isSimulator ? widget.fontSize - 2 : widget.fontSize))
                         .foregroundColor(Color(hex: widget.textColorHex))
-                }
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(String(format: "%.0f%% %@", value, suffix))
-                        .font(.system(size: isSimulator ? widget.fontSize - 3 : widget.fontSize - 2, design: .monospaced))
-                        .foregroundColor(Color(hex: widget.textColorHex))
                     
-                    // Value progress bar
-                    GeometryReader { geometry in
-                        ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 1.5)
-                                .fill(Color.white.opacity(0.15))
-                            
-                            RoundedRectangle(cornerRadius: 1.5)
-                                .fill(barColor)
-                                .frame(width: max(0, min(geometry.size.width, geometry.size.width * CGFloat(value / 100.0))))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(String(format: "%.0f%% %@", value, suffix))
+                            .font(.system(size: isSimulator ? widget.fontSize - 3 : widget.fontSize - 2, design: .monospaced))
+                            .foregroundColor(Color(hex: widget.textColorHex))
+                        
+                        GeometryReader { geometry in
+                            ZStack(alignment: .leading) {
+                                RoundedRectangle(cornerRadius: 1.5)
+                                    .fill(Color.white.opacity(0.15))
+                                RoundedRectangle(cornerRadius: 1.5)
+                                    .fill(barColor)
+                                    .frame(width: max(0, min(geometry.size.width, geometry.size.width * CGFloat(value / 100.0))))
+                            }
                         }
+                        .frame(width: isSimulator ? 45 : 60, height: 3)
                     }
-                    .frame(width: isSimulator ? 45 : 60, height: 3)
                 }
+                .padding(.horizontal, isSimulator ? 8 : 12)
+                .padding(.vertical, isSimulator ? 5 : 6)
+                .background(Color(hex: widget.backgroundColorHex).opacity(0.15))
+                .cornerRadius(6)
             }
         }
-        .padding(.horizontal, isSimulator ? 8 : 12)
-        .padding(.vertical, isSimulator ? 5 : 6)
-        .background(Color(hex: widget.backgroundColorHex).opacity(0.15))
-        .cornerRadius(6)
     }
 }
 
