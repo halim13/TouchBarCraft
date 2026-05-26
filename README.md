@@ -27,6 +27,11 @@
 - **Custom JSON Configuration**: Widgets are dynamically saved and loaded from `~/.touchbarcraft.json`.
 
 ---
+# Screenshoot
+<img width="2560" height="1920" alt="telegram-cloud-photo-size-5-6100572101749182025-w" src="https://github.com/user-attachments/assets/0fdba26d-8e04-4322-97ab-3143515c0d66" />
+
+
+---
 
 ## 🛠 Available Widgets
 
