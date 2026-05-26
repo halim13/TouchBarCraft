@@ -158,12 +158,23 @@ public struct WidgetBatteryIconView: View {
         .onChange(of: widget.batteryChargingIcon) { updateIcon() }
         .onChange(of: widget.batteryFullIcon) { updateIcon() }
         .onChange(of: widget.batteryLowIcon) { updateIcon() }
+        .onChange(of: widget.batteryNormalIcon) { updateIcon() }
     }
     
     private var fallbackIcon: some View {
-        Image(systemName: widget.iconName)
+        let name: String
+        if state.isBatteryCharging {
+            name = "battery.100.bolt"
+        } else if state.batteryLevel <= widget.batteryLowThreshold {
+            name = "battery.25"
+        } else if state.batteryLevel >= widget.batteryFullThreshold || state.isBatteryFull {
+            name = "battery.100"
+        } else {
+            name = widget.iconName.isEmpty ? "battery.75" : widget.iconName
+        }
+        return Image(systemName: name)
             .font(.system(size: isSimulator ? widget.fontSize - 2 : widget.fontSize))
-            .foregroundColor(Color(hex: widget.textColorHex))
+            .foregroundColor(state.batteryLevel <= widget.batteryLowThreshold ? .rose : Color(hex: widget.textColorHex))
     }
     
     private func updateIcon() {
@@ -172,8 +183,10 @@ public struct WidgetBatteryIconView: View {
             path = widget.batteryChargingIcon
         } else if state.batteryLevel <= widget.batteryLowThreshold && !widget.batteryLowIcon.isEmpty {
             path = widget.batteryLowIcon
-        } else if state.isBatteryFull && !widget.batteryFullIcon.isEmpty {
+        } else if (state.batteryLevel >= widget.batteryFullThreshold || state.isBatteryFull) && !widget.batteryFullIcon.isEmpty {
             path = widget.batteryFullIcon
+        } else if !widget.batteryNormalIcon.isEmpty {
+            path = widget.batteryNormalIcon
         } else {
             path = ""
         }
@@ -236,31 +249,37 @@ public struct WidgetSystemMonitorView: View {
     
     public var body: some View {
         HStack(spacing: 6) {
-            if widget.monitorType == .battery {
-                WidgetBatteryIconView(widget: widget, state: state, isSimulator: isSimulator)
+            if widget.monitorType == .battery && widget.batteryDisplayType == .textOnly {
+                Text("\(state.batteryLevel)%")
+                    .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .bold, design: .monospaced))
+                    .foregroundColor(state.batteryLevel <= widget.batteryLowThreshold ? .rose : Color(hex: widget.textColorHex))
             } else {
-                Image(systemName: widget.iconName)
-                    .font(.system(size: isSimulator ? widget.fontSize - 2 : widget.fontSize))
-                    .foregroundColor(Color(hex: widget.textColorHex))
-            }
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(String(format: "%.0f%% %@", value, suffix))
-                    .font(.system(size: isSimulator ? widget.fontSize - 3 : widget.fontSize - 2, design: .monospaced))
-                    .foregroundColor(Color(hex: widget.textColorHex))
-                
-                // Value progress bar
-                GeometryReader { geometry in
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 1.5)
-                            .fill(Color.white.opacity(0.15))
-                        
-                        RoundedRectangle(cornerRadius: 1.5)
-                            .fill(barColor)
-                            .frame(width: max(0, min(geometry.size.width, geometry.size.width * CGFloat(value / 100.0))))
-                    }
+                if widget.monitorType == .battery {
+                    WidgetBatteryIconView(widget: widget, state: state, isSimulator: isSimulator)
+                } else {
+                    Image(systemName: widget.iconName)
+                        .font(.system(size: isSimulator ? widget.fontSize - 2 : widget.fontSize))
+                        .foregroundColor(Color(hex: widget.textColorHex))
                 }
-                .frame(width: isSimulator ? 45 : 60, height: 3)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(format: "%.0f%% %@", value, suffix))
+                        .font(.system(size: isSimulator ? widget.fontSize - 3 : widget.fontSize - 2, design: .monospaced))
+                        .foregroundColor(Color(hex: widget.textColorHex))
+                    
+                    // Value progress bar
+                    GeometryReader { geometry in
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 1.5)
+                                .fill(Color.white.opacity(0.15))
+                            
+                            RoundedRectangle(cornerRadius: 1.5)
+                                .fill(barColor)
+                                .frame(width: max(0, min(geometry.size.width, geometry.size.width * CGFloat(value / 100.0))))
+                        }
+                    }
+                    .frame(width: isSimulator ? 45 : 60, height: 3)
+                }
             }
         }
         .padding(.horizontal, isSimulator ? 8 : 12)

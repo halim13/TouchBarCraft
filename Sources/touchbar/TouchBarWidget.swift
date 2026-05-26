@@ -25,6 +25,11 @@ public enum MonitorType: String, Codable, CaseIterable, Sendable {
     case battery = "Battery Level"
 }
 
+public enum BatteryDisplayType: String, Codable, CaseIterable, Sendable {
+    case textOnly = "Text Only"
+    case imageOrAnimation = "Image or Animation"
+}
+
 public enum AnimationPreset: String, Codable, CaseIterable, Sendable {
     case cat = "Walking Cat 🐱🐾"
     case heart = "Pulsing Heart ❤️"
@@ -74,11 +79,14 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     // Aesthetic properties
     public var fontSize: Double
     
-    // Battery custom icons
+    // Battery custom icons & settings
+    public var batteryDisplayType: BatteryDisplayType
     public var batteryChargingIcon: String
     public var batteryFullIcon: String
     public var batteryLowIcon: String
+    public var batteryNormalIcon: String
     public var batteryLowThreshold: Int
+    public var batteryFullThreshold: Int
     
     // Anki bold custom color
     public var ankiBoldColorHex: String
@@ -110,10 +118,13 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         fontSize: Double = 12.0,
         brightnessButtonSize: Double = 16.0,
         volumeSliderWidth: Double = 150.0,
+        batteryDisplayType: BatteryDisplayType = .imageOrAnimation,
         batteryChargingIcon: String = "",
         batteryFullIcon: String = "",
         batteryLowIcon: String = "",
+        batteryNormalIcon: String = "",
         batteryLowThreshold: Int = 20,
+        batteryFullThreshold: Int = 85,
         ankiBoldColorHex: String = "#FFD60A",
         customGifPath: String = ""
     ) {
@@ -140,10 +151,13 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.fontSize = fontSize
         self.brightnessButtonSize = brightnessButtonSize
         self.volumeSliderWidth = volumeSliderWidth
+        self.batteryDisplayType = batteryDisplayType
         self.batteryChargingIcon = batteryChargingIcon
         self.batteryFullIcon = batteryFullIcon
         self.batteryLowIcon = batteryLowIcon
+        self.batteryNormalIcon = batteryNormalIcon
         self.batteryLowThreshold = batteryLowThreshold
+        self.batteryFullThreshold = batteryFullThreshold
         self.ankiBoldColorHex = ankiBoldColorHex
         self.customGifPath = customGifPath
     }
@@ -154,7 +168,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         case ankiDeckName, ankiShowAgain, ankiShowHard, ankiShowGood, ankiShowEasy, ankiQuestionField, ankiAnswerField, ankiTextMaxWidth
         case showSeconds
         case fontSize, brightnessButtonSize, volumeSliderWidth
-        case batteryChargingIcon, batteryFullIcon, batteryLowIcon, batteryLowThreshold
+        case batteryDisplayType, batteryChargingIcon, batteryFullIcon, batteryLowIcon, batteryNormalIcon, batteryLowThreshold, batteryFullThreshold
         case ankiBoldColorHex
         case customGifPath
     }
@@ -188,10 +202,13 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.brightnessButtonSize = try container.decodeIfPresent(Double.self, forKey: .brightnessButtonSize) ?? 16.0
         self.volumeSliderWidth = try container.decodeIfPresent(Double.self, forKey: .volumeSliderWidth) ?? 150.0
         
+        self.batteryDisplayType = try container.decodeIfPresent(BatteryDisplayType.self, forKey: .batteryDisplayType) ?? .imageOrAnimation
         self.batteryChargingIcon = try container.decodeIfPresent(String.self, forKey: .batteryChargingIcon) ?? ""
         self.batteryFullIcon = try container.decodeIfPresent(String.self, forKey: .batteryFullIcon) ?? ""
         self.batteryLowIcon = try container.decodeIfPresent(String.self, forKey: .batteryLowIcon) ?? ""
+        self.batteryNormalIcon = try container.decodeIfPresent(String.self, forKey: .batteryNormalIcon) ?? ""
         self.batteryLowThreshold = try container.decodeIfPresent(Int.self, forKey: .batteryLowThreshold) ?? 20
+        self.batteryFullThreshold = try container.decodeIfPresent(Int.self, forKey: .batteryFullThreshold) ?? 85
         
         self.ankiBoldColorHex = try container.decodeIfPresent(String.self, forKey: .ankiBoldColorHex) ?? "#FFD60A"
         

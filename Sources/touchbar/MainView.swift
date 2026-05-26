@@ -1101,50 +1101,123 @@ struct SystemMonitorOptionsView: View {
                 Divider()
                     .padding(.vertical, 4)
                 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Battery Icon Customization")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.gray)
+                VStack(alignment: .leading, spacing: 10) {
+                    Picker("Display Mode:", selection: Binding(
+                        get: { widget.batteryDisplayType },
+                        set: { state.widgets[index].batteryDisplayType = $0; state.saveConfig() }
+                    )) {
+                        ForEach(BatteryDisplayType.allCases, id: \.self) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
                     
-                    // Low threshold setting
-                    HStack(spacing: 8) {
-                        Text("Low Battery Limit:")
-                            .font(.system(size: 11))
-                            .frame(width: 140, alignment: .leading)
-                        
-                        TextField("", text: Binding(
-                            get: { String(widget.batteryLowThreshold) },
-                            set: { val in
-                                if let num = Int(val.filter { $0.isNumber }) {
-                                    state.widgets[index].batteryLowThreshold = num
-                                    state.saveConfig()
-                                }
-                            }
-                        ))
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 60)
-                        
-                        Text("% (Default 20%)")
+                    if widget.batteryDisplayType == .textOnly {
+                        Text("Shows only the battery percentage (e.g. 50%). If the battery level drops below the Low Battery Limit, the text color will automatically turn red.")
                             .font(.system(size: 10))
                             .foregroundColor(.gray)
-                    }
-                    
-                    // Custom Charging Icon
-                    customFileRow(label: "Charging Icon:", path: widget.batteryChargingIcon) { path in
-                        state.widgets[index].batteryChargingIcon = path
-                        state.saveConfig()
-                    }
-                    
-                    // Custom Low Icon
-                    customFileRow(label: "Low Battery Icon:", path: widget.batteryLowIcon) { path in
-                        state.widgets[index].batteryLowIcon = path
-                        state.saveConfig()
-                    }
-                    
-                    // Custom Full Icon
-                    customFileRow(label: "Full Battery Icon:", path: widget.batteryFullIcon) { path in
-                        state.widgets[index].batteryFullIcon = path
-                        state.saveConfig()
+                            .lineSpacing(3)
+                        
+                        HStack(spacing: 8) {
+                            Text("Low Battery Limit:")
+                                .font(.system(size: 11))
+                                .frame(width: 140, alignment: .leading)
+                            
+                            TextField("", text: Binding(
+                                get: { String(widget.batteryLowThreshold) },
+                                set: { val in
+                                    if let num = Int(val.filter { $0.isNumber }) {
+                                        state.widgets[index].batteryLowThreshold = num
+                                        state.saveConfig()
+                                    }
+                                }
+                            ))
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 60)
+                            
+                            Text("% (Default 20%)")
+                                .font(.system(size: 10))
+                                .foregroundColor(.gray)
+                        }
+                    } else {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Battery Icon & Animation Customization")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(.gray)
+                            
+                            // Low threshold setting
+                            HStack(spacing: 8) {
+                                Text("Low Battery Limit:")
+                                    .font(.system(size: 11))
+                                    .frame(width: 140, alignment: .leading)
+                                
+                                TextField("", text: Binding(
+                                    get: { String(widget.batteryLowThreshold) },
+                                    set: { val in
+                                        if let num = Int(val.filter { $0.isNumber }) {
+                                            state.widgets[index].batteryLowThreshold = num
+                                            state.saveConfig()
+                                        }
+                                    }
+                                ))
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 60)
+                                
+                                Text("% (Default 20%)")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.gray)
+                            }
+                            
+                            // Full threshold setting
+                            HStack(spacing: 8) {
+                                Text("Full Battery Limit:")
+                                    .font(.system(size: 11))
+                                    .frame(width: 140, alignment: .leading)
+                                
+                                TextField("", text: Binding(
+                                    get: { String(widget.batteryFullThreshold) },
+                                    set: { val in
+                                        if let num = Int(val.filter { $0.isNumber }) {
+                                            state.widgets[index].batteryFullThreshold = num
+                                            state.saveConfig()
+                                        }
+                                    }
+                                ))
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 60)
+                                
+                                Text("% (Default 85%)")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.gray)
+                            }
+                            
+                            Divider()
+                                .padding(.vertical, 2)
+                            
+                            // Custom Charging Icon
+                            customFileRow(label: "⚡️ Charging Icon/Animation:", path: widget.batteryChargingIcon) { path in
+                                state.widgets[index].batteryChargingIcon = path
+                                state.saveConfig()
+                            }
+                            
+                            // Custom Normal Icon
+                            customFileRow(label: "🔋 Not Charging (Normal) Icon/Animation:", path: widget.batteryNormalIcon) { path in
+                                state.widgets[index].batteryNormalIcon = path
+                                state.saveConfig()
+                            }
+                            
+                            // Custom Low Icon
+                            customFileRow(label: "⚠️ Low Battery Icon/Animation (≤ 20%):", path: widget.batteryLowIcon) { path in
+                                state.widgets[index].batteryLowIcon = path
+                                state.saveConfig()
+                            }
+                            
+                            // Custom Full Icon
+                            customFileRow(label: "✅ Full Battery Icon/Animation (≥ 85%):", path: widget.batteryFullIcon) { path in
+                                state.widgets[index].batteryFullIcon = path
+                                state.saveConfig()
+                            }
+                        }
                     }
                 }
             }
