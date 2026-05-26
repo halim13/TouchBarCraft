@@ -119,24 +119,38 @@ public struct WidgetLabelView: View {
     }
 }
 
-public struct WidgetBatteryIconView: View {
+// Computed: select the right icon path based on current battery state
+public struct WidgetBatteryAnimationView: View {
     let widget: TouchBarWidget
     let state: AppState
     let isSimulator: Bool
-    
+
     @State private var currentFrameIndex: Int = 0
-    @State private var timer: Timer? = nil
-    @State private var activeFrames: [NSImage] = []
-    @State private var activePath: String = ""
-    
+    @State private var animTimer: Timer? = nil
+    @State private var frames: [NSImage] = []
+
+    // Computed property — SwiftUI tracks state.isBatteryCharging, batteryLevel, etc. automatically
+    private var activePath: String {
+        if state.isBatteryCharging && !widget.batteryChargingIcon.isEmpty {
+            return widget.batteryChargingIcon
+        } else if state.batteryLevel <= widget.batteryLowThreshold && !widget.batteryLowIcon.isEmpty {
+            return widget.batteryLowIcon
+        } else if (state.batteryLevel >= widget.batteryFullThreshold || state.isBatteryFull) && !widget.batteryFullIcon.isEmpty {
+            return widget.batteryFullIcon
+        } else if !widget.batteryNormalIcon.isEmpty {
+            return widget.batteryNormalIcon
+        }
+        return ""
+    }
+
     public var body: some View {
         Group {
-            if !activeFrames.isEmpty {
-                if let nsImg = activeFrames[safe: currentFrameIndex % activeFrames.count] {
+            if !frames.isEmpty {
+                if let nsImg = frames[safe: currentFrameIndex % frames.count] {
                     Image(nsImage: nsImg)
                         .resizable()
                         .scaledToFit()
-                        .frame(width: isSimulator ? 18 : 22, height: isSimulator ? 18 : 22)
+                        .frame(width: isSimulator ? 30 : 40, height: isSimulator ? 20 : 30)
                 } else {
                     fallbackIcon
                 }
@@ -144,20 +158,15 @@ public struct WidgetBatteryIconView: View {
                 Image(nsImage: nsImg)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: isSimulator ? 18 : 22, height: isSimulator ? 18 : 22)
+                    .frame(width: isSimulator ? 30 : 40, height: isSimulator ? 20 : 30)
             } else {
                 fallbackIcon
             }
         }
-        .onAppear {
-            updateIcon()
-        }
-        .onChange(of: state.batteryLevel) { updateIcon() }
-        .onChange(of: state.isBatteryCharging) { updateIcon() }
-        .onChange(of: state.isBatteryFull) { updateIcon() }
-        .onChange(of: widget) { updateIcon() }
+        .onAppear { loadFrames() }
+        .onChange(of: activePath) { loadFrames() }
     }
-    
+
     private var fallbackIcon: some View {
         let name: String
         if state.isBatteryCharging {
@@ -167,50 +176,29 @@ public struct WidgetBatteryIconView: View {
         } else if state.batteryLevel >= widget.batteryFullThreshold || state.isBatteryFull {
             name = "battery.100"
         } else {
-            name = widget.iconName.isEmpty ? "battery.75" : widget.iconName
+            name = "battery.75"
         }
         return Image(systemName: name)
             .font(.system(size: isSimulator ? widget.fontSize - 2 : widget.fontSize))
             .foregroundColor(state.batteryLevel <= widget.batteryLowThreshold ? .rose : Color(hex: widget.textColorHex))
     }
-    
-    private func updateIcon() {
-        let path: String
-        if state.isBatteryCharging && !widget.batteryChargingIcon.isEmpty {
-            path = widget.batteryChargingIcon
-        } else if state.batteryLevel <= widget.batteryLowThreshold && !widget.batteryLowIcon.isEmpty {
-            path = widget.batteryLowIcon
-        } else if (state.batteryLevel >= widget.batteryFullThreshold || state.isBatteryFull) && !widget.batteryFullIcon.isEmpty {
-            path = widget.batteryFullIcon
-        } else if !widget.batteryNormalIcon.isEmpty {
-            path = widget.batteryNormalIcon
-        } else {
-            path = ""
-        }
-        
-        guard path != activePath else { return }
-        activePath = path
-        
-        timer?.invalidate()
-        timer = nil
-        
-        guard !path.isEmpty else {
-            activeFrames = []
-            return
-        }
-        
-        if path.lowercased().hasSuffix(".gif") {
-            activeFrames = SystemUtils.extractGifFrames(from: path)
-            if !activeFrames.isEmpty {
-                currentFrameIndex = 0
-                timer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { [self] _ in
-                    Task { @MainActor in
-                        self.currentFrameIndex += 1
-                    }
-                }
+
+    private func loadFrames() {
+        animTimer?.invalidate()
+        animTimer = nil
+        frames = []
+        currentFrameIndex = 0
+
+        guard !activePath.isEmpty, activePath.lowercased().hasSuffix(".gif") else { return }
+
+        let loaded = SystemUtils.extractGifFrames(from: activePath)
+        frames = loaded
+        guard !loaded.isEmpty else { return }
+
+        animTimer = Timer.scheduledTimer(withTimeInterval: widget.animationSpeed, repeats: true) { _ in
+            Task { @MainActor in
+                self.currentFrameIndex += 1
             }
-        } else {
-            activeFrames = []
         }
     }
 }
@@ -257,12 +245,8 @@ public struct WidgetSystemMonitorView: View {
                         .background(Color(hex: widget.backgroundColorHex).opacity(0.15))
                         .cornerRadius(6)
                 } else {
-                    // Image or Animation: hanya tampilkan gambar/animasi saja
-                    WidgetBatteryIconView(widget: widget, state: state, isSimulator: isSimulator)
-                        .padding(.horizontal, isSimulator ? 8 : 12)
-                        .padding(.vertical, isSimulator ? 5 : 6)
-                        .background(Color(hex: widget.backgroundColorHex).opacity(0.15))
-                        .cornerRadius(6)
+                    // Image or Animation: full animasi, tanpa background/padding (persis seperti widget Animasi)
+                    WidgetBatteryAnimationView(widget: widget, state: state, isSimulator: isSimulator)
                 }
             } else {
                 // CPU / RAM: icon + teks + progress bar seperti biasa
