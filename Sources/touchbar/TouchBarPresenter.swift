@@ -404,20 +404,6 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         if anki.isSyncing {
             syncButton.isEnabled = false
             stack.addArrangedSubview(syncButton)
-            
-            let spinner = NSProgressIndicator()
-            spinner.style = .spinning
-            spinner.controlSize = .small
-            spinner.isIndeterminate = true
-            spinner.startAnimation(nil)
-            
-            spinner.translatesAutoresizingMaskIntoConstraints = false
-            NSLayoutConstraint.activate([
-                spinner.widthAnchor.constraint(equalToConstant: 18),
-                spinner.heightAnchor.constraint(equalToConstant: 18)
-            ])
-            
-            stack.addArrangedSubview(spinner)
         } else {
             syncButton.isEnabled = true
             stack.addArrangedSubview(syncButton)
@@ -438,7 +424,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             let textColor = NSColor(Color(hex: widget.textColorHex))
             let boldColor = NSColor(Color(hex: widget.ankiBoldColorHex))
             
-            let prefix = NSMutableAttributedString(string: "Q: ", attributes: [.font: font, .foregroundColor: textColor])
+            let prefix = NSMutableAttributedString(string: "", attributes: [.font: font, .foregroundColor: textColor])
             let content = parseBoldTags(in: card.question, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
             prefix.append(content)
             
@@ -467,7 +453,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             let textColor = NSColor(Color(hex: widget.textColorHex))
             let boldColor = NSColor(Color(hex: widget.ankiBoldColorHex))
             
-            let prefix = NSMutableAttributedString(string: "A: ", attributes: [.font: font, .foregroundColor: textColor])
+            let prefix = NSMutableAttributedString(string: "", attributes: [.font: font, .foregroundColor: textColor])
             let content = parseBoldTags(in: card.answer, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
             prefix.append(content)
             

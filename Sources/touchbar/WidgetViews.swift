@@ -508,13 +508,6 @@ public struct WidgetAnkiView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(anki.isSyncing)
-                    
-                    if anki.isSyncing {
-                        ProgressView()
-                            .progressViewStyle(.circular)
-                            .scaleEffect(0.5)
-                            .frame(width: 12, height: 12)
-                    }
                 }
                 
                 if anki.currentCard == nil {
@@ -522,9 +515,7 @@ public struct WidgetAnkiView: View {
                         .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
                 } else if !anki.isShowingAnswer {
                     (
-                        Text("Q: ")
-                            .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
-                        + parseBoldTags(in: anki.questionPreview, defaultColor: Color(hex: widget.textColorHex), boldColor: Color(hex: widget.ankiBoldColorHex), fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize)
+                        parseBoldTags(in: anki.questionPreview, defaultColor: Color(hex: widget.textColorHex), boldColor: Color(hex: widget.ankiBoldColorHex), fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize)
                     )
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -544,9 +535,7 @@ public struct WidgetAnkiView: View {
                     .buttonStyle(.plain)
                 } else {
                     (
-                        Text("A: ")
-                            .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
-                        + parseBoldTags(in: anki.answerPreview, defaultColor: Color(hex: widget.textColorHex), boldColor: Color(hex: widget.ankiBoldColorHex), fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize)
+                        parseBoldTags(in: anki.answerPreview, defaultColor: Color(hex: widget.textColorHex), boldColor: Color(hex: widget.ankiBoldColorHex), fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize)
                     )
                     .lineLimit(1)
                     .truncationMode(.tail)
