@@ -132,15 +132,29 @@ public final class AppState {
     
     // MARK: - Actions
     
-    public func executeAction(for widget: TouchBarWidget) {
-        guard widget.type == .button else { return }
+    public func executeAction(for widget: TouchBarWidget, isLongPress: Bool = false) {
+        let actionType = isLongPress ? widget.longPressActionType : widget.actionType
+        let actionValue = isLongPress ? widget.longPressActionValue : widget.actionValue
         
-        switch widget.actionType {
+        switch actionType {
         case .none:
             break
             
+        case .appleScript:
+            let scriptSource = actionValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !scriptSource.isEmpty else { return }
+            DispatchQueue.global(qos: .userInitiated).async {
+                if let script = NSAppleScript(source: scriptSource) {
+                    var error: NSDictionary?
+                    script.executeAndReturnError(&error)
+                    if let error = error {
+                        print("AppleScript execution error: \(error)")
+                    }
+                }
+            }
+            
         case .shellCommand:
-            let command = widget.actionValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            let command = actionValue.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !command.isEmpty else { return }
             
             // Execute shell command asynchronously
@@ -158,7 +172,7 @@ public final class AppState {
             }
             
         case .playSound:
-            let soundName = widget.actionValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            let soundName = actionValue.trimmingCharacters(in: .whitespacesAndNewlines)
             if !soundName.isEmpty, let sound = NSSound(named: soundName) {
                 sound.play()
             } else {

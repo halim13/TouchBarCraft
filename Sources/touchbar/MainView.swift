@@ -968,18 +968,18 @@ struct WidgetOptionsView: View {
     var body: some View {
         switch widget.type {
         case .label:
-            LabelOptionsView(widget: widget, index: index, state: state)
+            LabelOptionsView(widget: widget, index: index, state: state, soundPresets: soundPresets)
         case .button:
             ButtonOptionsView(widget: widget, index: index, state: state, soundPresets: soundPresets)
         case .systemMonitor:
-            SystemMonitorOptionsView(widget: widget, index: index, state: state)
+            SystemMonitorOptionsView(widget: widget, index: index, state: state, soundPresets: soundPresets)
         case .media:
             Text("Fully automatic system widget. Renders interactive Backward, Play/Pause, and Forward keys that communicate directly with Apple Music, Spotify, or default macOS media listeners.")
                 .font(.system(size: 11))
                 .foregroundColor(.gray)
                 .lineSpacing(4)
         case .animation:
-            AnimationOptionsView(widget: widget, index: index, state: state)
+            AnimationOptionsView(widget: widget, index: index, state: state, soundPresets: soundPresets)
         case .anki:
             AnkiConfigView(widget: widget, index: index, state: state)
         case .volumeSlider:
@@ -994,6 +994,7 @@ struct LabelOptionsView: View {
     let widget: TouchBarWidget
     let index: Int
     let state: AppState
+    let soundPresets: [String]
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -1017,6 +1018,33 @@ struct LabelOptionsView: View {
                 PlaceholderTip(code: "{ram}", desc: "Physical RAM utilization percentage")
                 PlaceholderTip(code: "{battery}", desc: "MacBook battery charge percentage")
             }
+            
+            Divider()
+            ActionConfigurationView(
+                title: "On Tap Action:",
+                actionType: Binding(
+                    get: { widget.actionType },
+                    set: { state.widgets[index].actionType = $0; state.saveConfig() }
+                ),
+                actionValue: Binding(
+                    get: { widget.actionValue },
+                    set: { state.widgets[index].actionValue = $0; state.saveConfig() }
+                ),
+                soundPresets: soundPresets
+            )
+            Divider()
+            ActionConfigurationView(
+                title: "On Long Press Action:",
+                actionType: Binding(
+                    get: { widget.longPressActionType },
+                    set: { state.widgets[index].longPressActionType = $0; state.saveConfig() }
+                ),
+                actionValue: Binding(
+                    get: { widget.longPressActionValue },
+                    set: { state.widgets[index].longPressActionValue = $0; state.saveConfig() }
+                ),
+                soundPresets: soundPresets
+            )
         }
     }
 }
@@ -1035,46 +1063,76 @@ struct ButtonOptionsView: View {
             ))
             .toggleStyle(.checkbox)
             .font(.system(size: 11))
-            
-            Picker("Button Action:", selection: Binding(
-                get: { widget.actionType },
-                set: { state.widgets[index].actionType = $0; state.saveConfig() }
-            )) {
+            ActionConfigurationView(
+                title: "Button Action:",
+                actionType: Binding(
+                    get: { widget.actionType },
+                    set: { state.widgets[index].actionType = $0; state.saveConfig() }
+                ),
+                actionValue: Binding(
+                    get: { widget.actionValue },
+                    set: { state.widgets[index].actionValue = $0; state.saveConfig() }
+                ),
+                soundPresets: soundPresets
+            )
+            Divider()
+            ActionConfigurationView(
+                title: "Long Press Action:",
+                actionType: Binding(
+                    get: { widget.longPressActionType },
+                    set: { state.widgets[index].longPressActionType = $0; state.saveConfig() }
+                ),
+                actionValue: Binding(
+                    get: { widget.longPressActionValue },
+                    set: { state.widgets[index].longPressActionValue = $0; state.saveConfig() }
+                ),
+                soundPresets: soundPresets
+            )
+        }
+    }
+}
+
+struct ActionConfigurationView: View {
+    let title: String
+    @Binding var actionType: ActionType
+    @Binding var actionValue: String
+    let soundPresets: [String]
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Picker(title, selection: $actionType) {
                 ForEach(ActionType.allCases, id: \.self) { type in
                     Text(type.rawValue).tag(type)
                 }
             }
             .pickerStyle(.menu)
             
-            if widget.actionType == .shellCommand {
+            if actionType == .shellCommand || actionType == .appleScript {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Shell command to run:")
+                    Text(actionType == .shellCommand ? "Shell command to run:" : "AppleScript to run:")
                         .font(.system(size: 10))
                         .foregroundColor(.gray)
                     
-                    TextEditor(text: Binding(
-                        get: { widget.actionValue },
-                        set: { state.widgets[index].actionValue = $0; state.saveConfig() }
-                    ))
+                    TextEditor(text: $actionValue)
                     .font(.system(size: 10, design: .monospaced))
                     .frame(height: 50)
                     .padding(4)
                     .background(Color.black.opacity(0.3))
                     .cornerRadius(4)
                     
-                    Text("e.g. 'open -a Safari', 'say Done', or a path to a script")
+                    Text(actionType == .shellCommand ? "e.g. 'open -a Safari', 'say Done', or a path to a script" : "e.g. 'tell application \"System Events\" to key code 25 using {command down, shift down}'")
                         .font(.system(size: 9))
                         .foregroundColor(.gray)
                 }
-            } else if widget.actionType == .playSound {
+            } else if actionType == .playSound {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Sound Effect Name:")
                         .font(.system(size: 10))
                         .foregroundColor(.gray)
                     
                     Picker("Select Sound", selection: Binding(
-                        get: { soundPresets.contains(widget.actionValue) ? widget.actionValue : "Glass" },
-                        set: { state.widgets[index].actionValue = $0; state.saveConfig() }
+                        get: { soundPresets.contains(actionValue) ? actionValue : "Glass" },
+                        set: { actionValue = $0 }
                     )) {
                         ForEach(soundPresets, id: \.self) { sound in
                             Text(sound).tag(sound)
@@ -1083,13 +1141,13 @@ struct ButtonOptionsView: View {
                     .pickerStyle(.menu)
                     
                     Button("🎵 Test Sound Now") {
-                        NSSound(named: widget.actionValue)?.play()
+                        NSSound(named: actionValue)?.play()
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                     .padding(.top, 4)
                 }
-            } else {
+            } else if actionType != .none {
                 Text("No additional arguments needed.")
                     .font(.system(size: 10))
                     .foregroundColor(.gray)
@@ -1102,6 +1160,7 @@ struct SystemMonitorOptionsView: View {
     let widget: TouchBarWidget
     let index: Int
     let state: AppState
+    let soundPresets: [String]
     
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -1265,6 +1324,33 @@ struct SystemMonitorOptionsView: View {
                     .font(.system(size: 10))
                     .foregroundColor(.gray)
             }
+            
+            Divider()
+            ActionConfigurationView(
+                title: "On Tap Action:",
+                actionType: Binding(
+                    get: { widget.actionType },
+                    set: { state.widgets[index].actionType = $0; state.saveConfig() }
+                ),
+                actionValue: Binding(
+                    get: { widget.actionValue },
+                    set: { state.widgets[index].actionValue = $0; state.saveConfig() }
+                ),
+                soundPresets: soundPresets
+            )
+            Divider()
+            ActionConfigurationView(
+                title: "On Long Press Action:",
+                actionType: Binding(
+                    get: { widget.longPressActionType },
+                    set: { state.widgets[index].longPressActionType = $0; state.saveConfig() }
+                ),
+                actionValue: Binding(
+                    get: { widget.longPressActionValue },
+                    set: { state.widgets[index].longPressActionValue = $0; state.saveConfig() }
+                ),
+                soundPresets: soundPresets
+            )
         }
     }
     
@@ -1309,6 +1395,7 @@ struct AnimationOptionsView: View {
     let widget: TouchBarWidget
     let index: Int
     let state: AppState
+    let soundPresets: [String]
     
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -1395,6 +1482,33 @@ struct AnimationOptionsView: View {
                     .font(.system(size: 10))
                     .foregroundColor(.gray)
             }
+            
+            Divider()
+            ActionConfigurationView(
+                title: "On Tap Action:",
+                actionType: Binding(
+                    get: { widget.actionType },
+                    set: { state.widgets[index].actionType = $0; state.saveConfig() }
+                ),
+                actionValue: Binding(
+                    get: { widget.actionValue },
+                    set: { state.widgets[index].actionValue = $0; state.saveConfig() }
+                ),
+                soundPresets: soundPresets
+            )
+            Divider()
+            ActionConfigurationView(
+                title: "On Long Press Action:",
+                actionType: Binding(
+                    get: { widget.longPressActionType },
+                    set: { state.widgets[index].longPressActionType = $0; state.saveConfig() }
+                ),
+                actionValue: Binding(
+                    get: { widget.longPressActionValue },
+                    set: { state.widgets[index].longPressActionValue = $0; state.saveConfig() }
+                ),
+                soundPresets: soundPresets
+            )
         }
     }
     

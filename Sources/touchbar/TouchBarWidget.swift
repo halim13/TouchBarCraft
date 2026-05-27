@@ -14,6 +14,7 @@ public enum WidgetType: String, Codable, CaseIterable, Sendable {
 public enum ActionType: String, Codable, CaseIterable, Sendable {
     case none = "None"
     case shellCommand = "Shell Command"
+    case appleScript = "AppleScript"
     case playSound = "Play Sound"
     case toggleDarkMode = "Toggle Dark Mode"
     case lockScreen = "Lock Screen"
@@ -46,9 +47,11 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     public var backgroundColorHex: String
     public var textColorHex: String
     
-    // Button properties
+    // Action properties
     public var actionType: ActionType
     public var actionValue: String // command string or sound name
+    public var longPressActionType: ActionType
+    public var longPressActionValue: String
     
     // Monitor properties
     public var monitorType: MonitorType
@@ -108,6 +111,8 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         textColorHex: String = "#FFFFFF",
         actionType: ActionType = .none,
         actionValue: String = "",
+        longPressActionType: ActionType = .none,
+        longPressActionValue: String = "",
         monitorType: MonitorType = .cpu,
         animationType: AnimationPreset = .cat,
         animationSpeed: Double = 0.2,
@@ -144,6 +149,8 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.textColorHex = textColorHex
         self.actionType = actionType
         self.actionValue = actionValue
+        self.longPressActionType = longPressActionType
+        self.longPressActionValue = longPressActionValue
         self.monitorType = monitorType
         self.animationType = animationType
         self.animationSpeed = animationSpeed
@@ -175,7 +182,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     
     enum CodingKeys: String, CodingKey {
         case id, type, title, iconName, backgroundColorHex, textColorHex
-        case actionType, actionValue, monitorType, animationType, animationSpeed
+        case actionType, actionValue, longPressActionType, longPressActionValue, monitorType, animationType, animationSpeed
         case ankiDeckName, ankiShowAgain, ankiShowHard, ankiShowGood, ankiShowEasy, ankiQuestionField, ankiAnswerField, ankiAudioField, ankiTextMaxWidth
         case showSeconds
         case fontSize, brightnessButtonSize, volumeSliderWidth, volumeShowIcon
@@ -196,6 +203,8 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         
         self.actionType = try container.decode(ActionType.self, forKey: .actionType)
         self.actionValue = try container.decode(String.self, forKey: .actionValue)
+        self.longPressActionType = try container.decodeIfPresent(ActionType.self, forKey: .longPressActionType) ?? .none
+        self.longPressActionValue = try container.decodeIfPresent(String.self, forKey: .longPressActionValue) ?? ""
         self.monitorType = try container.decode(MonitorType.self, forKey: .monitorType)
         self.animationType = try container.decode(AnimationPreset.self, forKey: .animationType)
         self.animationSpeed = try container.decode(Double.self, forKey: .animationSpeed)

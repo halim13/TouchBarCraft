@@ -165,11 +165,26 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     // MARK: - Button Action Dispatch (called by native NSButton targets)
     
     @objc private func touchBarButtonTapped(_ sender: NSButton) {
-        // Tag stores hash; find the widget via identifier stored in accessibilityIdentifier
         let identifier = sender.accessibilityIdentifier()
-        guard let widget = widgetMap[identifier] else { return }
         guard let state = AppState.shared else { return }
-        state.executeAction(for: widget)
+        guard let widget = state.widgets.first(where: { $0.id.uuidString == identifier }) else { return }
+        state.executeAction(for: widget, isLongPress: false)
+    }
+    
+    @objc private func widgetTapped(_ gesture: NSGestureRecognizer) {
+        guard let identifier = gesture.view?.accessibilityIdentifier() else { return }
+        guard let state = AppState.shared else { return }
+        guard let widget = state.widgets.first(where: { $0.id.uuidString == identifier }) else { return }
+        state.executeAction(for: widget, isLongPress: false)
+    }
+    
+    @objc private func widgetLongPressed(_ gesture: NSPressGestureRecognizer) {
+        if gesture.state == .began {
+            guard let identifier = gesture.view?.accessibilityIdentifier() else { return }
+            guard let state = AppState.shared else { return }
+            guard let widget = state.widgets.first(where: { $0.id.uuidString == identifier }) else { return }
+            state.executeAction(for: widget, isLongPress: true)
+        }
     }
     
     @objc private func mediaPlayPause(_ sender: NSButton) {
@@ -260,6 +275,13 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         case .button:
             // Use native NSButton so touch events fire correctly in system modal
             let button = makeNativeButton(for: widget, state: state)
+            
+            // Add long press gesture
+            let longPress = NSPressGestureRecognizer(target: self, action: #selector(widgetLongPressed(_:)))
+            longPress.minimumPressDuration = 0.5
+            longPress.allowedTouchTypes = .direct
+            button.addGestureRecognizer(longPress)
+            
             item.view = button
             
         case .media:
@@ -268,19 +290,34 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             item.view = stack
             
         case .label:
-            // Display-only: NSHostingView is fine
             let hostView = NSHostingView(rootView:
                 WidgetLabelView(widget: widget, state: state, isSimulator: false)
                     .frame(height: 30)
             )
-            item.view = hostView
+            let button = TouchBarContainerButton(hostView: hostView, target: self, action: #selector(touchBarButtonTapped(_:)))
+            button.setAccessibilityIdentifier(identifier.rawValue)
+            
+            let longPress = NSPressGestureRecognizer(target: self, action: #selector(widgetLongPressed(_:)))
+            longPress.minimumPressDuration = 0.5
+            longPress.allowedTouchTypes = .direct
+            button.addGestureRecognizer(longPress)
+            
+            item.view = button
             
         case .systemMonitor:
             let hostView = NSHostingView(rootView:
                 WidgetSystemMonitorView(widget: widget, state: state, isSimulator: false)
                     .frame(height: 30)
             )
-            item.view = hostView
+            let button = TouchBarContainerButton(hostView: hostView, target: self, action: #selector(touchBarButtonTapped(_:)))
+            button.setAccessibilityIdentifier(identifier.rawValue)
+            
+            let longPress = NSPressGestureRecognizer(target: self, action: #selector(widgetLongPressed(_:)))
+            longPress.minimumPressDuration = 0.5
+            longPress.allowedTouchTypes = .direct
+            button.addGestureRecognizer(longPress)
+            
+            item.view = button
             
         case .animation:
             let animView = makeNativeAnimationView(for: widget)
@@ -743,49 +780,54 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     }
     
     private func makeNativeAnimationView(for widget: TouchBarWidget) -> NSView {
-        let view = NSImageView()
-        view.imageScaling = .scaleProportionallyUpOrDown
+        let btn = NSButton(title: "", target: self, action: #selector(touchBarButtonTapped(_:)))
+        btn.setButtonType(.momentaryPushIn)
+        btn.isBordered = false
+        btn.bezelStyle = .shadowlessSquare
+        btn.setAccessibilityIdentifier(widget.id.uuidString)
+        
+        // Add long press gesture
+        let longPress = NSPressGestureRecognizer(target: self, action: #selector(widgetLongPressed(_:)))
+        longPress.minimumPressDuration = 0.5
+        longPress.allowedTouchTypes = .direct
+        btn.addGestureRecognizer(longPress)
         
         let frames = touchbar.SystemUtils.extractGifFrames(from: widget.customGifPath)
         if !frames.isEmpty {
-            // Render custom GIF frames using native NSImageView animation
-            view.image = frames.first
+            btn.image = frames.first
+            btn.imagePosition = .imageOnly
             
-            // Create a custom timer to cycle through frames manually since Touch Bar views benefit from explicit frame-by-frame updates
             var currentFrame = 0
             let timer = Timer.scheduledTimer(withTimeInterval: widget.animationSpeed, repeats: true) { _ in
                 DispatchQueue.main.async {
                     currentFrame = (currentFrame + 1) % frames.count
-                    view.image = frames[currentFrame]
+                    btn.image = frames[currentFrame]
                 }
             }
-            // Bind timer lifecycle to view
-            objc_setAssociatedObject(view, unsafeBitCast(timer, to: UnsafeRawPointer.self), timer, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            objc_setAssociatedObject(btn, unsafeBitCast(timer, to: UnsafeRawPointer.self), timer, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
             
-            view.translatesAutoresizingMaskIntoConstraints = false
-            view.widthAnchor.constraint(equalToConstant: 40).isActive = true
-            view.heightAnchor.constraint(equalToConstant: 30).isActive = true
-            return view
+            btn.translatesAutoresizingMaskIntoConstraints = false
+            btn.widthAnchor.constraint(equalToConstant: 40).isActive = true
+            btn.heightAnchor.constraint(equalToConstant: 30).isActive = true
         } else {
-            // Fallback to text labels for presets
-            let label = NSTextField(labelWithString: "")
-            label.font = NSFont.monospacedSystemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
-            label.textColor = NSColor(Color(hex: widget.textColorHex))
-            
             let presetFrames = widget.animationType.frames
+            btn.font = NSFont.monospacedSystemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
+            btn.contentTintColor = NSColor(Color(hex: widget.textColorHex))
+            btn.imagePosition = .noImage
+            
             if !presetFrames.isEmpty {
                 var currentFrame = 0
-                label.stringValue = presetFrames[0]
+                btn.title = presetFrames[0]
                 let timer = Timer.scheduledTimer(withTimeInterval: widget.animationSpeed, repeats: true) { _ in
                     DispatchQueue.main.async {
                         currentFrame = (currentFrame + 1) % presetFrames.count
-                        label.stringValue = presetFrames[currentFrame]
+                        btn.title = presetFrames[currentFrame]
                     }
                 }
-                objc_setAssociatedObject(label, unsafeBitCast(timer, to: UnsafeRawPointer.self), timer, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+                objc_setAssociatedObject(btn, unsafeBitCast(timer, to: UnsafeRawPointer.self), timer, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
             }
-            return label
         }
+        return btn
     }
     
     private func makeNativeBrightnessControls(for widget: TouchBarWidget) -> NSStackView {
@@ -839,3 +881,32 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         }
     }
 }
+
+class TouchBarContainerButton: NSButton {
+    private var hostView: NSView?
+    
+    init(hostView: NSView, target: AnyObject?, action: Selector?) {
+        super.init(frame: .zero)
+        self.hostView = hostView
+        self.target = target
+        self.action = action
+        self.isBordered = false
+        self.bezelStyle = .shadowlessSquare
+        self.title = ""
+        self.image = nil
+        
+        addSubview(hostView)
+        hostView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            hostView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            hostView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            hostView.topAnchor.constraint(equalTo: topAnchor),
+            hostView.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+}
+
