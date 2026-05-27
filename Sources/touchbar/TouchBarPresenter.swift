@@ -375,6 +375,11 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         stack.orientation = .horizontal
         stack.spacing = 8
         stack.alignment = .centerY
+        stack.distribution = .fill
+        
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        stack.widthAnchor.constraint(equalToConstant: CGFloat(widget.ankiTextMaxWidth + 160)).isActive = true
+
         
         let anki = state.ankiState
         
@@ -439,10 +444,11 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             label.attributedStringValue = prefix
             label.lineBreakMode = .byTruncatingTail
             label.cell?.truncatesLastVisibleLine = true
-            // Fixed label width so positions don't jump
+            
             label.translatesAutoresizingMaskIntoConstraints = false
             label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-            label.widthAnchor.constraint(equalToConstant: CGFloat(widget.ankiTextMaxWidth)).isActive = true
+            label.setContentHuggingPriority(.defaultLow, for: .horizontal)
+
             
             let btn = NSButton(title: "Reveal ▶", target: self, action: #selector(ankiRevealTapped(_:)))
             btn.bezelStyle = .rounded
@@ -469,14 +475,13 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             label.lineBreakMode = .byTruncatingTail
             label.cell?.truncatesLastVisibleLine = true
             
-            // Answer text is clickable to play/stop audio
             let gesture = NSClickGestureRecognizer(target: self, action: #selector(ankiAudioToggleTapped(_:)))
             label.addGestureRecognizer(gesture)
             
-            // Fixed label width so rating buttons are always in the same place
             label.translatesAutoresizingMaskIntoConstraints = false
             label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-            label.widthAnchor.constraint(equalToConstant: CGFloat(widget.ankiTextMaxWidth * 0.8)).isActive = true
+            label.setContentHuggingPriority(.defaultLow, for: .horizontal)
+            
             stack.addArrangedSubview(label)
             
             let count = card.buttonCount

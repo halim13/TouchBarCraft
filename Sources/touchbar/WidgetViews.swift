@@ -519,7 +519,7 @@ public struct WidgetAnkiView: View {
                     )
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    .frame(width: isSimulator ? widget.ankiTextMaxWidth * 0.48 : widget.ankiTextMaxWidth, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     
                     Button(action: {
                         anki.revealAnswer()
@@ -539,7 +539,7 @@ public struct WidgetAnkiView: View {
                     )
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    .frame(width: isSimulator ? widget.ankiTextMaxWidth * 0.48 : widget.ankiTextMaxWidth, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
                     .onTapGesture {
                         anki.toggleAudio()
@@ -586,6 +586,7 @@ public struct WidgetAnkiView: View {
         .padding(.vertical, isSimulator ? 5 : 6)
         .background(Color(hex: widget.backgroundColorHex).opacity(0.15))
         .cornerRadius(6)
+        .frame(width: isSimulator ? widget.ankiTextMaxWidth * 0.48 + 100 : widget.ankiTextMaxWidth + 160)
     }
     
     private func parseBoldTags(in text: String, defaultColor: Color, boldColor: Color, fontSize: CGFloat) -> Text {
