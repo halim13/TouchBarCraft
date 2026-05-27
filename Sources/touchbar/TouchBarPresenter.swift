@@ -2,6 +2,13 @@ import AppKit
 import SwiftUI
 import Foundation
 
+@objc protocol NSTouchBarPrivate {
+    static func presentSystemModalTouchBar(_ touchBar: NSTouchBar, placement: Int64, systemTrayItemIdentifier: String)
+    static func presentSystemModalTouchBar(_ touchBar: NSTouchBar, systemTrayItemIdentifier: String)
+    static func dismissSystemModalTouchBar(_ touchBar: NSTouchBar)
+    static func minimizeSystemModalTouchBar(_ touchBar: NSTouchBar)
+}
+
 @MainActor
 public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     @objc public static let shared = TouchBarPresenter()
@@ -126,25 +133,20 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             self.globalTouchBar = touchBar
         }
         
-        let presentSelector = NSSelectorFromString("presentSystemModalTouchBar:systemTrayItemIdentifier:")
-        if NSTouchBar.responds(to: presentSelector) {
-            NSTouchBar.perform(presentSelector, with: touchBar, with: trayIdentifier)
-            // Call it again after presentation to ensure macOS doesn't override it
-            dfrSystemModalShowsCloseBoxWhenFrontMost?(false)
-            print("System-wide Touch Bar successfully presented (rebuild: \(rebuild))!")
-        } else {
-            print("Failed to resolve presentSystemModalTouchBar selector.")
-        }
+        let privateClass = unsafeBitCast(NSTouchBar.self, to: NSTouchBarPrivate.Type.self)
+        privateClass.presentSystemModalTouchBar(touchBar, placement: 1, systemTrayItemIdentifier: trayIdentifier)
+        
+        // Call it again after presentation to ensure macOS doesn't override it
+        dfrSystemModalShowsCloseBoxWhenFrontMost?(false)
+        print("System-wide Touch Bar successfully presented with placement: 1 (rebuild: \(rebuild))!")
     }
     
     @objc public func dismissGlobalTouchBar() {
         guard let touchBar = globalTouchBar else { return }
         
-        let dismissSelector = NSSelectorFromString("dismissSystemModalTouchBar:")
-        if NSTouchBar.responds(to: dismissSelector) {
-            NSTouchBar.perform(dismissSelector, with: touchBar)
-            print("System-wide Touch Bar dismissed.")
-        }
+        let privateClass = unsafeBitCast(NSTouchBar.self, to: NSTouchBarPrivate.Type.self)
+        privateClass.dismissSystemModalTouchBar(touchBar)
+        print("System-wide Touch Bar dismissed.")
         
         self.globalTouchBar = nil
     }
