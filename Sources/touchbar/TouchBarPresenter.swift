@@ -299,6 +299,12 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             item.view = brightnessView
         }
         
+        if widget.customWidth > 0.0 {
+            let view = item.view
+            view.translatesAutoresizingMaskIntoConstraints = false
+            view.widthAnchor.constraint(equalToConstant: CGFloat(widget.customWidth)).isActive = true
+        }
+        
         return item
     }
     

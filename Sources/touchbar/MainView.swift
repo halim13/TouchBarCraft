@@ -1239,6 +1239,32 @@ struct SystemMonitorOptionsView: View {
                     }
                 }
             }
+            
+            Divider()
+                .padding(.vertical, 4)
+            
+            HStack(spacing: 8) {
+                Text("Custom Width:")
+                    .font(.system(size: 11))
+                    .frame(width: 140, alignment: .leading)
+                
+                TextField("0", text: Binding(
+                    get: { String(Int(widget.customWidth)) },
+                    set: { val in
+                        if let num = Double(val.filter { $0.isNumber }) {
+                            state.widgets[index].customWidth = num
+                            state.saveConfig()
+                            state.ankiState.refreshTouchBar()
+                        }
+                    }
+                ))
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 80)
+                
+                Text("px (0 for auto)")
+                    .font(.system(size: 10))
+                    .foregroundColor(.gray)
+            }
         }
     }
     
@@ -1342,6 +1368,32 @@ struct AnimationOptionsView: View {
                     get: { widget.animationSpeed },
                     set: { state.widgets[index].animationSpeed = $0; state.saveConfig() }
                 ), in: 0.05...1.0, step: 0.05)
+            }
+            
+            Divider()
+                .padding(.vertical, 4)
+            
+            HStack(spacing: 8) {
+                Text("Custom Width:")
+                    .font(.system(size: 11))
+                    .frame(width: 140, alignment: .leading)
+                
+                TextField("0", text: Binding(
+                    get: { String(Int(widget.customWidth)) },
+                    set: { val in
+                        if let num = Double(val.filter { $0.isNumber }) {
+                            state.widgets[index].customWidth = num
+                            state.saveConfig()
+                            state.ankiState.refreshTouchBar()
+                        }
+                    }
+                ))
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 80)
+                
+                Text("px (0 for auto)")
+                    .font(.system(size: 10))
+                    .foregroundColor(.gray)
             }
         }
     }

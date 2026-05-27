@@ -150,7 +150,7 @@ public struct WidgetBatteryAnimationView: View {
                     Image(nsImage: nsImg)
                         .resizable()
                         .scaledToFit()
-                        .frame(width: isSimulator ? 30 : 40, height: isSimulator ? 20 : 30)
+                        .frame(width: widget.customWidth > 0.0 ? widget.customWidth : (isSimulator ? 30 : 40), height: isSimulator ? 20 : 30)
                 } else {
                     fallbackIcon
                 }
@@ -158,7 +158,7 @@ public struct WidgetBatteryAnimationView: View {
                 Image(nsImage: nsImg)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: isSimulator ? 30 : 40, height: isSimulator ? 20 : 30)
+                    .frame(width: widget.customWidth > 0.0 ? widget.customWidth : (isSimulator ? 30 : 40), height: isSimulator ? 20 : 30)
             } else {
                 fallbackIcon
             }
@@ -301,7 +301,7 @@ public struct WidgetAnimationView: View {
                     Image(nsImage: image)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
-                        .frame(width: isSimulator ? 30 : 40, height: isSimulator ? 20 : 30)
+                        .frame(width: widget.customWidth > 0.0 ? widget.customWidth : (isSimulator ? 30 : 40), height: isSimulator ? 20 : 30)
                 }
             } else {
                 Text(currentFrame)

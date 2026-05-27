@@ -96,6 +96,9 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     // Animation Custom properties
     public var customGifPath: String
     
+    // Custom Width setting
+    public var customWidth: Double
+    
     public init(
         id: UUID = UUID(),
         type: WidgetType = .label,
@@ -130,7 +133,8 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         batteryLowThreshold: Int = 20,
         batteryFullThreshold: Int = 85,
         ankiBoldColorHex: String = "#FFD60A",
-        customGifPath: String = ""
+        customGifPath: String = "",
+        customWidth: Double = 0.0
     ) {
         self.id = id
         self.type = type
@@ -166,6 +170,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.batteryFullThreshold = batteryFullThreshold
         self.ankiBoldColorHex = ankiBoldColorHex
         self.customGifPath = customGifPath
+        self.customWidth = customWidth
     }
     
     enum CodingKeys: String, CodingKey {
@@ -177,6 +182,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         case batteryDisplayType, batteryChargingIcon, batteryFullIcon, batteryLowIcon, batteryNormalIcon, batteryLowThreshold, batteryFullThreshold
         case ankiBoldColorHex
         case customGifPath
+        case customWidth
     }
 
     public init(from decoder: Decoder) throws {
@@ -221,5 +227,6 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiBoldColorHex = try container.decodeIfPresent(String.self, forKey: .ankiBoldColorHex) ?? "#FFD60A"
         
         self.customGifPath = try container.decodeIfPresent(String.self, forKey: .customGifPath) ?? ""
+        self.customWidth = try container.decodeIfPresent(Double.self, forKey: .customWidth) ?? 0.0
     }
 }
