@@ -720,9 +720,26 @@ struct AnkiConfigView: View {
                         .foregroundColor(.gray)
                     
                     Picker("Deck Name:", selection: Binding(
-                        get: { widget.ankiDeckName },
+                        get: { state.widgets[index].ankiDeckName },
                         set: { deck in
+                            // Save current field values for the old deck before switching
+                            let oldDeck = state.widgets[index].ankiDeckName
+                            if !oldDeck.isEmpty {
+                                state.widgets[index].ankiDeckSettings[oldDeck] = AnkiDeckSettings(
+                                    questionField: state.widgets[index].ankiQuestionField,
+                                    answerField: state.widgets[index].ankiAnswerField,
+                                    audioField: state.widgets[index].ankiAudioField
+                                )
+                            }
                             state.widgets[index].ankiDeckName = deck
+                            // Restore saved settings for the newly selected deck
+                            if !deck.isEmpty {
+                                if let saved = state.widgets[index].ankiDeckSettings[deck] {
+                                    state.widgets[index].ankiQuestionField = saved.questionField
+                                    state.widgets[index].ankiAnswerField = saved.answerField
+                                    state.widgets[index].ankiAudioField = saved.audioField
+                                }
+                            }
                             state.saveConfig()
                             state.ankiState.startReview(deck: deck)
                         }
@@ -766,9 +783,19 @@ struct AnkiConfigView: View {
                             .font(.system(size: 11))
                             .frame(width: 95, alignment: .leading)
                         TextField("e.g. Front", text: Binding(
-                            get: { widget.ankiQuestionField },
+                            get: { state.widgets[index].ankiQuestionField },
                             set: { val in
                                 state.widgets[index].ankiQuestionField = val
+                                let deck = state.widgets[index].ankiDeckName
+                                if !deck.isEmpty {
+                                    var settings = state.widgets[index].ankiDeckSettings[deck] ?? AnkiDeckSettings(
+                                        questionField: val,
+                                        answerField: state.widgets[index].ankiAnswerField,
+                                        audioField: state.widgets[index].ankiAudioField
+                                    )
+                                    settings.questionField = val
+                                    state.widgets[index].ankiDeckSettings[deck] = settings
+                                }
                                 state.saveConfig()
                                 Task {
                                     await state.ankiState.loadCurrentCard()
@@ -784,9 +811,19 @@ struct AnkiConfigView: View {
                             .font(.system(size: 11))
                             .frame(width: 95, alignment: .leading)
                         TextField("e.g. Back", text: Binding(
-                            get: { widget.ankiAnswerField },
+                            get: { state.widgets[index].ankiAnswerField },
                             set: { val in
                                 state.widgets[index].ankiAnswerField = val
+                                let deck = state.widgets[index].ankiDeckName
+                                if !deck.isEmpty {
+                                    var settings = state.widgets[index].ankiDeckSettings[deck] ?? AnkiDeckSettings(
+                                        questionField: state.widgets[index].ankiQuestionField,
+                                        answerField: val,
+                                        audioField: state.widgets[index].ankiAudioField
+                                    )
+                                    settings.answerField = val
+                                    state.widgets[index].ankiDeckSettings[deck] = settings
+                                }
                                 state.saveConfig()
                                 Task {
                                     await state.ankiState.loadCurrentCard()
@@ -802,9 +839,19 @@ struct AnkiConfigView: View {
                             .font(.system(size: 11))
                             .frame(width: 95, alignment: .leading)
                         TextField("e.g. Audio", text: Binding(
-                            get: { widget.ankiAudioField },
+                            get: { state.widgets[index].ankiAudioField },
                             set: { val in
                                 state.widgets[index].ankiAudioField = val
+                                let deck = state.widgets[index].ankiDeckName
+                                if !deck.isEmpty {
+                                    var settings = state.widgets[index].ankiDeckSettings[deck] ?? AnkiDeckSettings(
+                                        questionField: state.widgets[index].ankiQuestionField,
+                                        answerField: state.widgets[index].ankiAnswerField,
+                                        audioField: val
+                                    )
+                                    settings.audioField = val
+                                    state.widgets[index].ankiDeckSettings[deck] = settings
+                                }
                                 state.saveConfig()
                                 Task {
                                     await state.ankiState.loadCurrentCard()
