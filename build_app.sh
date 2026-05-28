@@ -45,6 +45,8 @@ cat <<EOF > "$CONTENTS_DIR/Info.plist"
     <string>NO</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>AppleEvents needed for correct work AppleScript</string>
 </dict>
 </plist>
 EOF

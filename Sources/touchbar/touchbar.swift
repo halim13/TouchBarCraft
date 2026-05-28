@@ -8,6 +8,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         
+        // Request Accessibility permission so we can simulate key events (System Events / keystroke / key code)
+        let options = ["AXTrustedCheckOptionPrompt" as String: kCFBooleanTrue as Any] as CFDictionary
+        AXIsProcessTrustedWithOptions(options)
+        
         // Setup Control Strip and trigger global Touch Bar system-wide override
         TouchBarPresenter.shared.setupSystemTrayItem()
         TouchBarPresenter.shared.presentGlobalTouchBar()
