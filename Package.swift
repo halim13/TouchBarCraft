@@ -13,7 +13,8 @@ let package = Package(
             name: "touchbar",
             dependencies: [],
             linkerSettings: [
-                .linkedFramework("IOKit")
+                .linkedFramework("IOKit"),
+                .linkedFramework("AVFoundation")
             ]
         ),
     ]

@@ -2,10 +2,11 @@ import Foundation
 import SwiftUI
 import Observation
 import AppKit
+import AVFoundation
 
 @Observable
 @MainActor
-public final class AnkiState: NSObject, NSSoundDelegate {
+public final class AnkiState: NSObject, AVAudioPlayerDelegate {
     public static var shared: AnkiState? = nil
     
     // Connection
@@ -28,7 +29,7 @@ public final class AnkiState: NSObject, NSSoundDelegate {
     
     // Audio
     public var isAudioPlaying: Bool = false
-    private var currentSound: NSSound? = nil
+    private var currentSound: AVAudioPlayer? = nil
     
     private var connectionCheckTimer: Timer?
     private var wasConnectedBefore: Bool = false
@@ -300,12 +301,15 @@ public final class AnkiState: NSObject, NSSoundDelegate {
                     try data.write(to: tempURL)
                     
                     await MainActor.run {
-                        if let sound = NSSound(contentsOf: tempURL, byReference: true) {
+                        do {
+                            let sound = try AVAudioPlayer(contentsOf: tempURL)
                             sound.delegate = self
                             self.currentSound = sound
                             self.isAudioPlaying = true
                             sound.play()
                             self.refreshTouchBar()
+                        } catch {
+                            print("AnkiState: Failed to play audio using AVAudioPlayer: \(error)")
                         }
                     }
                 } catch {
@@ -315,7 +319,7 @@ public final class AnkiState: NSObject, NSSoundDelegate {
         }
     }
     
-    nonisolated public func sound(_ sound: NSSound, didFinishPlaying flag: Bool) {
+    nonisolated public func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         Task { @MainActor in
             self.isAudioPlaying = false
             self.currentSound = nil
