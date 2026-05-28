@@ -1,12 +1,20 @@
 import SwiftUI
 import AppKit
 
+import SwiftUI
+import AppKit
+
 public final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
+    @MainActor private static var appState: AppState?
+
     @MainActor
     public func applicationDidFinishLaunching(_ notification: Notification) {
-        // Force the app to act as a regular foreground application with active Dock Icon and Menu Bar
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
+        // Run as an accessory application (no Dock icon, resides in background/menu bar)
+        NSApp.setActivationPolicy(.accessory)
+        
+        // Initialize AppState so default config loads and system monitors run immediately
+        let state = AppState()
+        Self.appState = state
         
         // Request Accessibility permission so we can simulate key events (System Events / keystroke / key code)
         let options = ["AXTrustedCheckOptionPrompt" as String: kCFBooleanTrue as Any] as CFDictionary
@@ -15,6 +23,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
         // Setup Control Strip and trigger global Touch Bar system-wide override
         TouchBarPresenter.shared.setupSystemTrayItem()
         TouchBarPresenter.shared.presentGlobalTouchBar()
+        
+        // Setup the Menu Bar status item
+        StatusItemManager.shared.setupStatusItem()
     }
     
     @MainActor
@@ -27,51 +38,15 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
     public func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return false
     }
-    
-    @MainActor
-    public func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if !flag {
-            for window in sender.windows {
-                window.makeKeyAndOrderFront(nil)
-            }
-        }
-        return true
-    }
 }
 
 @main
 struct TouchBarCraftApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @State private var state = AppState()
     
     var body: some Scene {
-        Window("TouchBarCraft", id: "main") {
-            MainView(state: state)
-                .touchBar {
-                    ForEach(state.widgets) { widget in
-                        Group {
-                            switch widget.type {
-                            case .label:
-                                WidgetLabelView(widget: widget, state: state, isSimulator: false)
-                            case .button:
-                                WidgetButtonView(widget: widget, state: state, isSimulator: false)
-                            case .systemMonitor:
-                                WidgetSystemMonitorView(widget: widget, state: state, isSimulator: false)
-                            case .media:
-                                WidgetMediaView(widget: widget, state: state, isSimulator: false)
-                            case .animation:
-                                WidgetAnimationView(widget: widget, state: state, isSimulator: false)
-                            case .anki:
-                                WidgetAnkiView(widget: widget, state: state, isSimulator: false)
-                            case .volumeSlider:
-                                WidgetVolumeSliderView(widget: widget, state: state, isSimulator: false)
-                            case .brightnessButtons:
-                                WidgetBrightnessButtonsView(widget: widget, state: state, isSimulator: false)
-                            }
-                        }
-                    }
-                }
+        Settings {
+            EmptyView()
         }
-        .windowStyle(.hiddenTitleBar)
     }
 }
