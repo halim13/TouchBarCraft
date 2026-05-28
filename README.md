@@ -53,6 +53,10 @@ The standout feature of TouchBarCraft is its powerful, native **Anki Flashcard i
 # Screenshoot
 <img width="1062" height="1012" alt="image" src="https://github.com/user-attachments/assets/4468442b-6d1c-42c0-9d63-c998c95e1597" />
 
+---
+<img width="1004" height="30" alt="image" src="https://github.com/user-attachments/assets/51b02cd7-20f6-4dfe-90f2-5cec470b9c64" />
+
+---
 <img width="2560" height="1920" alt="telegram-cloud-photo-size-5-6100572101749182025-w" src="https://github.com/user-attachments/assets/0fdba26d-8e04-4322-97ab-3143515c0d66" />
 
 
