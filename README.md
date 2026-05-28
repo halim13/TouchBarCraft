@@ -123,5 +123,14 @@ Your custom layout is stored in a clean JSON format. An example structure:
 
 ---
 
+## 💝 Support & Donation
+
+If you find **TouchBarCraft** helpful and would like to support its development, any contributions are greatly appreciated!
+
+- 🇮🇩 **Trakteer**: [trakteer.id/halim_hasanudin](https://trakteer.id/halim_hasanudin)
+- 🪙 **Bitcoin (BTC)**: `1PUmVLW3aACR18xZsruHimsRuT297PXa5T`
+
+---
+
 ## 📝 License
 This project is open-source. Feel free to customize and craft your own widgets!
