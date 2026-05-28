@@ -491,7 +491,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             btn.bezelStyle = .rounded
             btn.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
             btn.contentTintColor = NSColor(Color(hex: widget.textColorHex))
-            btn.font = NSFont.systemFont(ofSize: CGFloat(max(9, widget.fontSize - 1)), weight: .semibold)
+            btn.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
             // Button must never shrink
             btn.setContentCompressionResistancePriority(.required, for: .horizontal)
             btn.setContentHuggingPriority(.required, for: .horizontal)
@@ -738,6 +738,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         )
         slider.controlSize = .small
         slider.wantsLayer = true
+        slider.trackFillColor = NSColor(Color(hex: widget.backgroundColorHex))
         slider.translatesAutoresizingMaskIntoConstraints = false
         slider.widthAnchor.constraint(equalToConstant: CGFloat(widget.volumeSliderWidth)).isActive = true
         

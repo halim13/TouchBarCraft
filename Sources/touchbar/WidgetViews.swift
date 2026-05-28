@@ -525,7 +525,7 @@ public struct WidgetAnkiView: View {
                         anki.revealAnswer()
                     }) {
                         Text("Reveal ▶")
-                            .font(.system(size: isSimulator ? widget.fontSize - 2 : widget.fontSize - 1, weight: .semibold))
+                            .font(.system(size: 11, weight: .semibold))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
                             .background(Color(hex: widget.backgroundColorHex))
@@ -757,6 +757,7 @@ public struct WidgetVolumeSliderView: View {
             Slider(value: $volume, in: 0...100, onEditingChanged: { _ in
                 setSystemVolume(Int(volume))
             })
+            .accentColor(Color(hex: widget.backgroundColorHex))
             .frame(width: isSimulator ? widget.volumeSliderWidth * 0.6 : widget.volumeSliderWidth)
             
             if widget.volumeShowIcon {

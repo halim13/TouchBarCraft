@@ -287,6 +287,9 @@ public struct MainView: View {
                     if let selectedID = state.selectedWidgetID,
                        let index = state.widgets.firstIndex(where: { $0.id == selectedID }) {
                         let widget = state.widgets[index]
+                        let isVolumeSlider = widget.type == .volumeSlider
+                        let bgHexLabel = isVolumeSlider ? "Slider HEX:" : "Background HEX:"
+                        let bgHexPlaceholder = isVolumeSlider ? "#HEX (Slider)" : "#HEX (Bg)"
                         
                         VStack(alignment: .leading, spacing: 18) {
                             Text("🔧 WIDGET CONFIGURATION")
@@ -364,10 +367,10 @@ public struct MainView: View {
                                     .foregroundColor(.teal)
                                 
                                 HStack(spacing: 8) {
-                                    Text("Background HEX:")
+                                    Text(bgHexLabel)
                                         .font(.system(size: 11))
                                         .frame(width: 100, alignment: .leading)
-                                    TextField("#HEX (Bg)", text: Binding(
+                                    TextField(bgHexPlaceholder, text: Binding(
                                         get: { widget.backgroundColorHex },
                                         set: { state.widgets[index].backgroundColorHex = $0; state.saveConfig() }
                                     ))
@@ -384,42 +387,44 @@ public struct MainView: View {
                                     ))
                                 }
                                 
-                                 HStack(spacing: 8) {
-                                    Text("Text HEX:")
-                                        .font(.system(size: 11))
-                                        .frame(width: 100, alignment: .leading)
-                                    TextField("#HEX (Text)", text: Binding(
-                                        get: { widget.textColorHex },
-                                        set: { state.widgets[index].textColorHex = $0; state.saveConfig() }
-                                    ))
-                                    .textFieldStyle(.roundedBorder)
-                                    
-                                    ColorPicker("", selection: Binding(
-                                        get: { Color(hex: widget.textColorHex) },
-                                        set: { color in
-                                            if let hexString = color.toHex() {
-                                                state.widgets[index].textColorHex = hexString
-                                                state.saveConfig()
-                                            }
-                                        }
-                                    ))
-                                }
-                                
-                                HStack(spacing: 8) {
-                                    Text("Font Size:")
-                                        .font(.system(size: 11))
-                                        .frame(width: 100, alignment: .leading)
-                                    
-                                    Slider(value: Binding(
-                                        get: { widget.fontSize },
-                                        set: { state.widgets[index].fontSize = $0; state.saveConfig() }
-                                    ), in: 8...20, step: 1)
-                                    
-                                    Text("\(Int(widget.fontSize))px")
-                                        .font(.system(size: 10, design: .monospaced))
-                                        .foregroundColor(.gray)
-                                        .frame(width: 35, alignment: .trailing)
-                                }
+                                 if !isVolumeSlider {
+                                     HStack(spacing: 8) {
+                                         Text("Text HEX:")
+                                             .font(.system(size: 11))
+                                             .frame(width: 100, alignment: .leading)
+                                         TextField("#HEX (Text)", text: Binding(
+                                             get: { widget.textColorHex },
+                                             set: { state.widgets[index].textColorHex = $0; state.saveConfig() }
+                                         ))
+                                         .textFieldStyle(.roundedBorder)
+                                         
+                                         ColorPicker("", selection: Binding(
+                                             get: { Color(hex: widget.textColorHex) },
+                                             set: { color in
+                                                 if let hexString = color.toHex() {
+                                                     state.widgets[index].textColorHex = hexString
+                                                     state.saveConfig()
+                                                 }
+                                             }
+                                         ))
+                                     }
+                                     
+                                     HStack(spacing: 8) {
+                                         Text("Font Size:")
+                                             .font(.system(size: 11))
+                                             .frame(width: 100, alignment: .leading)
+                                         
+                                         Slider(value: Binding(
+                                             get: { widget.fontSize },
+                                             set: { state.widgets[index].fontSize = $0; state.saveConfig() }
+                                         ), in: 8...20, step: 1)
+                                         
+                                         Text("\(Int(widget.fontSize))px")
+                                             .font(.system(size: 10, design: .monospaced))
+                                             .foregroundColor(.gray)
+                                             .frame(width: 35, alignment: .trailing)
+                                     }
+                                 }
                                 
                                 // Color Presets Grid
                                 VStack(alignment: .leading, spacing: 4) {
