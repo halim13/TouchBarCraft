@@ -51,9 +51,17 @@ cat <<EOF > "$CONTENTS_DIR/Info.plist"
 </plist>
 EOF
 
+echo "✍️ Signing app bundle (ad-hoc)..."
+codesign --force --deep --sign - "$APP_DIR"
+
+echo "🧹 Resetting macOS Accessibility permission database for the app..."
+# This removes the need for manual removal of the old build from System Settings.
+tccutil reset Accessibility com.halim13.TouchBarCraft || true
+
 echo "✅ App bundle created successfully: $(pwd)/$APP_DIR"
 echo ""
 echo "🎉 To run TouchBarCraft in the background without terminal:"
 echo "   1. Double click on $(pwd)/TouchBarCraft.app in Finder"
 echo "   2. You can move TouchBarCraft.app to your Applications folder so SMAppService can register it properly."
+echo "   NOTE: Because we reset Accessibility permissions, macOS will prompt you to turn on Accessibility again on launch."
 echo ""
