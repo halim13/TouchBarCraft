@@ -21,10 +21,33 @@
 
 ## ✨ Features
 
+- **🗂 Supercharged Anki Integration**: Full support for studying flashcards directly on your Touch Bar!
+  - Syncs seamlessly with **AnkiConnect** (localhost:8765).
+  - Displays dynamic question and answer texts with bold/italic HTML tag rendering.
+  - Supports quick deck syncing and audio playback (play/stop) for sound‑enabled cards.
+  - Fully custom ease rating buttons (Again, Hard, Good, Easy) customizable from the GUI.
 - **Global Touch Bar Override**: Fully replaces the native macOS Touch Bar system-wide.
 - **System Tray Menu Bar Item**: Quick access to controls and settings right from your macOS Menu Bar.
 - **Launch at Login (Autostart)**: Uses Apple's modern `SMAppService` API to launch at startup seamlessly.
 - **Custom JSON Configuration**: Widgets are dynamically saved and loaded from `~/.touchbarcraft.json`.
+
+---
+
+## 🗂 Anki Integration Guide
+The standout feature of TouchBarCraft is its powerful, native **Anki Flashcard integration** built directly into your Touch Bar. Review cards passively or actively throughout your day without distracting you from your work.
+
+### 🌟 Key Anki Features
+* **Live Connection Status**: Automatically detects if Anki is open and connected. Shows a quick "Connect" option right on your Touch Bar if it is offline.
+* **HTML Styling Support**: Richly parses bold (`<b>` / `<strong>`), italic (`<i>` / `<em>`), and underline (`<u>`) tags. Highlighted bold text uses custom colors customizable directly via settings!
+* **Configurable Ratings**: Choose which rating buttons show up (Again, Hard, Good, Easy) and customize how many options appear depending on your preferences.
+* **Seamless Audio**: Includes a play/stop toggle button right on the Touch Bar for cards with media sound files.
+* **Manual Sync**: Sync your decks instantly using the dedicated reload icon.
+
+### 🚀 Getting Started with Anki
+1. Open Anki on your Mac.
+2. Install the **AnkiConnect** add-on (Code: `2055492159`).
+3. Make sure AnkiConnect is running on the default port `8765`.
+4. Add the **Anki Review** widget using TouchBarCraft Settings and select your deck. You're ready to learn!
 
 ---
 # Screenshoot
