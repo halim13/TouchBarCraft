@@ -981,6 +981,25 @@ struct AnkiConfigView: View {
                 }
                 
                 Divider()
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Remaining Cards Display")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.gray)
+                    
+                    Toggle("Show Remaining Cards Status (New, Learn, Review)", isOn: Binding(
+                        get: { widget.ankiShowRemainingCounts },
+                        set: { val in
+                            state.widgets[index].ankiShowRemainingCounts = val
+                            state.saveConfig()
+                            state.ankiState.refreshTouchBar()
+                        }
+                    ))
+                    .toggleStyle(.checkbox)
+                    .font(.system(size: 11))
+                }
+                
+                Divider()
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Review Stats:")
