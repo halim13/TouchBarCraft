@@ -522,17 +522,21 @@ public struct WidgetAnkiView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     
                     if widget.ankiShowRemainingCounts {
-                        VStack(spacing: 2) {
-                            HStack(spacing: 4) {
-                                Text("\(anki.newCount)")
-                                    .font(.system(size: isSimulator ? 7 : 8, weight: .bold, design: .monospaced))
-                                    .foregroundColor(.blue)
-                                Text("\(anki.learnCount)")
-                                    .font(.system(size: isSimulator ? 7 : 8, weight: .bold, design: .monospaced))
-                                    .foregroundColor(.orange)
-                                Text("\(anki.reviewCount)")
-                                    .font(.system(size: isSimulator ? 7 : 8, weight: .bold, design: .monospaced))
-                                    .foregroundColor(.green)
+                        // HStack: counts label on left, Reveal button on right
+                        // VStack is NOT viable in Touch Bar (30pt height limit clips it)
+                        HStack(spacing: 4) {
+                            VStack(spacing: 1) {
+                                HStack(spacing: 3) {
+                                    Text("\(anki.newCount)")
+                                        .font(.system(size: isSimulator ? 7 : 8, weight: .bold, design: .monospaced))
+                                        .foregroundColor(.blue)
+                                    Text("\(anki.learnCount)")
+                                        .font(.system(size: isSimulator ? 7 : 8, weight: .bold, design: .monospaced))
+                                        .foregroundColor(.orange)
+                                    Text("\(anki.reviewCount)")
+                                        .font(.system(size: isSimulator ? 7 : 8, weight: .bold, design: .monospaced))
+                                        .foregroundColor(.green)
+                                }
                             }
                             Button(action: {
                                 anki.revealAnswer()
@@ -614,7 +618,7 @@ public struct WidgetAnkiView: View {
         .padding(.vertical, isSimulator ? 5 : 6)
         .background(Color(hex: widget.backgroundColorHex).opacity(0.15))
         .cornerRadius(6)
-        .frame(width: isSimulator ? (widget.ankiShowRemainingCounts ? widget.ankiTextMaxWidth * 0.48 + 160 : widget.ankiTextMaxWidth * 0.48 + 100) : (widget.ankiShowRemainingCounts ? widget.ankiTextMaxWidth + 220 : widget.ankiTextMaxWidth + 160))
+        .frame(width: isSimulator ? widget.ankiTextMaxWidth * 0.48 + 100 : widget.ankiTextMaxWidth + 160)
     }
     
     private func parseBoldTags(in text: String, defaultColor: Color, boldColor: Color, fontSize: CGFloat) -> Text {

@@ -486,77 +486,59 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
             label.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
-            let btn = NSButton(title: "Reveal ▶", target: self, action: #selector(ankiRevealTapped(_:)))
-            btn.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
-            btn.contentTintColor = NSColor(Color(hex: widget.textColorHex))
-            btn.setContentCompressionResistancePriority(.required, for: .horizontal)
-            btn.setContentHuggingPriority(.required, for: .horizontal)
-            
             if widget.ankiShowRemainingCounts {
-                btn.bezelStyle = .roundRect
-                btn.font = NSFont.systemFont(ofSize: 8, weight: .bold)
-                btn.translatesAutoresizingMaskIntoConstraints = false
-                btn.heightAnchor.constraint(equalToConstant: 16).isActive = true
-                
+                // Build counts attributed string (N  L  R in blue/orange/green)
+                let countFont = NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .bold)
+                let attrStr = NSMutableAttributedString()
+                attrStr.append(NSAttributedString(string: "\(anki.newCount)", attributes: [
+                    .font: countFont, .foregroundColor: NSColor.systemBlue
+                ]))
+                attrStr.append(NSAttributedString(string: "  ", attributes: [.font: countFont]))
+                attrStr.append(NSAttributedString(string: "\(anki.learnCount)", attributes: [
+                    .font: countFont, .foregroundColor: NSColor.systemOrange
+                ]))
+                attrStr.append(NSAttributedString(string: "  ", attributes: [.font: countFont]))
+                attrStr.append(NSAttributedString(string: "\(anki.reviewCount)", attributes: [
+                    .font: countFont, .foregroundColor: NSColor.systemGreen
+                ]))
+
                 let countsLabel = NSTextField(labelWithString: "")
-                countsLabel.alignment = .center
+                countsLabel.attributedStringValue = attrStr
+                countsLabel.alignment = .right
                 countsLabel.isBezeled = false
                 countsLabel.drawsBackground = false
                 countsLabel.isEditable = false
                 countsLabel.isSelectable = false
-                
-                let countFont = NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .bold)
-                let attrStr = NSMutableAttributedString()
-                
-                attrStr.append(NSAttributedString(string: "\(anki.newCount)", attributes: [
-                    .font: countFont,
-                    .foregroundColor: NSColor.systemBlue
-                ]))
-                attrStr.append(NSAttributedString(string: "  ", attributes: [.font: countFont]))
-                attrStr.append(NSAttributedString(string: "\(anki.learnCount)", attributes: [
-                    .font: countFont,
-                    .foregroundColor: NSColor.systemOrange
-                ]))
-                attrStr.append(NSAttributedString(string: "  ", attributes: [.font: countFont]))
-                attrStr.append(NSAttributedString(string: "\(anki.reviewCount)", attributes: [
-                    .font: countFont,
-                    .foregroundColor: NSColor.systemGreen
-                ]))
-                countsLabel.attributedStringValue = attrStr
-                
-                let rightStack = NSStackView(views: [countsLabel, btn])
-                rightStack.orientation = .vertical
-                rightStack.spacing = 1
-                rightStack.alignment = .centerX
-                rightStack.distribution = .fill
-                
-                // Adjust priorities to ensure button is not compressed out
-                rightStack.setContentCompressionResistancePriority(.required, for: .horizontal)
-                rightStack.setContentHuggingPriority(.required, for: .horizontal)
-                // Ensure counts label does not expand vertically beyond touch bar height
-                countsLabel.setContentCompressionResistancePriority(.required, for: .vertical)
-                countsLabel.setContentHuggingPriority(.required, for: .vertical)
-                
-                // Create a flexible spacer to push the right side content to the edge
-                let spacer = NSView()
-                spacer.translatesAutoresizingMaskIntoConstraints = false
-                // Low hugging so it expands to fill available space
-                spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-                spacer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-                
-                // Add label (question/answer) and spacer before rightStack
+                countsLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+                countsLabel.setContentHuggingPriority(.required, for: .horizontal)
+
+                // Reveal button — horizontal, next to counts
+                // VStack is NOT viable in Touch Bar: 30pt height clips stacked elements.
+                // Layout: [question label] [counts] [Reveal ▶]
+                let revealBtn = NSButton(title: "Reveal ▶", target: self, action: #selector(ankiRevealTapped(_:)))
+                revealBtn.bezelStyle = .rounded
+                revealBtn.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
+                revealBtn.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
+                revealBtn.contentTintColor = NSColor(Color(hex: widget.textColorHex))
+                revealBtn.setContentCompressionResistancePriority(.required, for: .horizontal)
+                revealBtn.setContentHuggingPriority(.required, for: .horizontal)
+
                 stack.addArrangedSubview(label)
-                stack.addArrangedSubview(spacer)
-                
-                // Add the rightStack with counts and button
-                stack.addArrangedSubview(rightStack)
+                stack.addArrangedSubview(countsLabel)
+                stack.addArrangedSubview(revealBtn)
             } else {
-                btn.bezelStyle = .rounded
-                btn.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
-                
+                let revealBtn = NSButton(title: "Reveal ▶", target: self, action: #selector(ankiRevealTapped(_:)))
+                revealBtn.bezelStyle = .rounded
+                revealBtn.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+                revealBtn.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
+                revealBtn.contentTintColor = NSColor(Color(hex: widget.textColorHex))
+                revealBtn.setContentCompressionResistancePriority(.required, for: .horizontal)
+                revealBtn.setContentHuggingPriority(.required, for: .horizontal)
+
                 stack.addArrangedSubview(label)
-                stack.addArrangedSubview(btn)
+                stack.addArrangedSubview(revealBtn)
             }
+
         } else {
             let label = NSTextField(labelWithString: "")
             let font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
