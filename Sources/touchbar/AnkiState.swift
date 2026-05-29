@@ -27,6 +27,11 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
     public var cardsReviewed: Int = 0
     public var sessionStartTime: Date? = nil
     
+    // Remaining Card Counts
+    public var newCount: Int = 0
+    public var learnCount: Int = 0
+    public var reviewCount: Int = 0
+    
     // Audio
     public var isAudioPlaying: Bool = false
     private var currentSound: AVAudioPlayer? = nil
@@ -175,8 +180,21 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
         self.isShowingAnswer = false
         self.isLoading = false
         
-        if card != nil {
+        if let card = card {
+            if let stats = await AnkiConnectClient.shared.getDeckStats(name: card.deckName) {
+                self.newCount = stats.newCount
+                self.learnCount = stats.learnCount
+                self.reviewCount = stats.reviewCount
+            } else {
+                self.newCount = 0
+                self.learnCount = 0
+                self.reviewCount = 0
+            }
             await AnkiConnectClient.shared.startCardTimer()
+        } else {
+            self.newCount = 0
+            self.learnCount = 0
+            self.reviewCount = 0
         }
         
         // Refresh touch bar to show new card

@@ -108,6 +108,9 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     
     // Anki bold custom color
     public var ankiBoldColorHex: String
+    
+    // Anki show remaining counts toggle
+    public var ankiShowRemainingCounts: Bool
 
     // Animation Custom properties
     public var customGifPath: String
@@ -152,6 +155,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         batteryLowThreshold: Int = 20,
         batteryFullThreshold: Int = 85,
         ankiBoldColorHex: String = "#FFD60A",
+        ankiShowRemainingCounts: Bool = false,
         customGifPath: String = "",
         customWidth: Double = 0.0
     ) {
@@ -191,6 +195,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.batteryLowThreshold = batteryLowThreshold
         self.batteryFullThreshold = batteryFullThreshold
         self.ankiBoldColorHex = ankiBoldColorHex
+        self.ankiShowRemainingCounts = ankiShowRemainingCounts
         self.customGifPath = customGifPath
         self.customWidth = customWidth
     }
@@ -203,6 +208,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         case fontSize, brightnessButtonSize, volumeSliderWidth, volumeShowIcon
         case batteryDisplayType, batteryChargingIcon, batteryFullIcon, batteryLowIcon, batteryNormalIcon, batteryLowThreshold, batteryFullThreshold
         case ankiBoldColorHex
+        case ankiShowRemainingCounts
         case customGifPath
         case customWidth
     }
@@ -250,6 +256,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.batteryFullThreshold = try container.decodeIfPresent(Int.self, forKey: .batteryFullThreshold) ?? 85
         
         self.ankiBoldColorHex = try container.decodeIfPresent(String.self, forKey: .ankiBoldColorHex) ?? "#FFD60A"
+        self.ankiShowRemainingCounts = try container.decodeIfPresent(Bool.self, forKey: .ankiShowRemainingCounts) ?? false
         
         self.customGifPath = try container.decodeIfPresent(String.self, forKey: .customGifPath) ?? ""
         self.customWidth = try container.decodeIfPresent(Double.self, forKey: .customWidth) ?? 0.0

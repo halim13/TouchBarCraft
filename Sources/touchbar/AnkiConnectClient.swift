@@ -33,6 +33,12 @@ public struct AnkiCard: Sendable {
     }
 }
 
+public struct AnkiDeckStats: Sendable {
+    public let newCount: Int
+    public let learnCount: Int
+    public let reviewCount: Int
+}
+
 // MARK: - AnkiConnect Client
 
 public actor AnkiConnectClient {
@@ -269,6 +275,25 @@ public actor AnkiConnectClient {
             return Data(base64Encoded: result)
         } catch {
             print("AnkiConnect: Failed to retrieve media file '\(filename)': \(error)")
+            return nil
+        }
+    }
+    
+    /// Get the statistics (new, learn, review counts) for a deck
+    public func getDeckStats(name: String) async -> AnkiDeckStats? {
+        do {
+            guard let result = try await request(action: "getDeckStats", params: ["decks": [name]]) as? [String: [String: Any]] else {
+                return nil
+            }
+            if let statsDict = result.values.first(where: { ($0["name"] as? String) == name }) ?? result.values.first {
+                let newCount = statsDict["new_count"] as? Int ?? 0
+                let learnCount = statsDict["learn_count"] as? Int ?? 0
+                let reviewCount = statsDict["review_count"] as? Int ?? 0
+                return AnkiDeckStats(newCount: newCount, learnCount: learnCount, reviewCount: reviewCount)
+            }
+            return nil
+        } catch {
+            print("AnkiConnect: Failed to get deck stats for '\(name)': \(error)")
             return nil
         }
     }
