@@ -512,20 +512,48 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                 countsLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
                 countsLabel.setContentHuggingPriority(.required, for: .horizontal)
 
-                // Reveal button — horizontal, next to counts
-                // VStack is NOT viable in Touch Bar: 30pt height clips stacked elements.
-                // Layout: [question label] [counts] [Reveal ▶]
+                let verticalStack = NSStackView()
+                verticalStack.orientation = .vertical
+                verticalStack.alignment = .centerX
+                verticalStack.distribution = .gravityAreas
+                verticalStack.spacing = 2
+                // Height constraint (≤30 pt)
+                verticalStack.heightAnchor.constraint(equalToConstant: 28).isActive = true
+
+                // Counts label (already created as countsLabel)
+                countsLabel.alignment = .center
+                countsLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+                countsLabel.setContentHuggingPriority(.required, for: .horizontal)
+
+                // Reveal button (borderless, looks like label)
                 let revealBtn = NSButton(title: "Reveal ▶", target: self, action: #selector(ankiRevealTapped(_:)))
-                revealBtn.bezelStyle = .rounded
-                revealBtn.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
-                revealBtn.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
+                revealBtn.bezelStyle = .regularSquare
+                revealBtn.isBordered = false
+                revealBtn.font = NSFont.systemFont(ofSize: 7, weight: .semibold)
                 revealBtn.contentTintColor = NSColor(Color(hex: widget.textColorHex))
+                revealBtn.wantsLayer = true
+                revealBtn.layer?.backgroundColor = NSColor(Color(hex: widget.backgroundColorHex)).cgColor
+                revealBtn.layer?.cornerRadius = 4
                 revealBtn.setContentCompressionResistancePriority(.required, for: .horizontal)
                 revealBtn.setContentHuggingPriority(.required, for: .horizontal)
 
+                // Assemble vertical stack
+                verticalStack.addArrangedSubview(countsLabel)
+                verticalStack.addArrangedSubview(revealBtn)
+
+                // Spacer to push verticalStack to the right
+                let spacer = NSView()
+                spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+                spacer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+                // Add to main horizontal stack: question label, spacer, verticalStack
                 stack.addArrangedSubview(label)
-                stack.addArrangedSubview(countsLabel)
-                stack.addArrangedSubview(revealBtn)
+                stack.addArrangedSubview(spacer)
+                stack.addArrangedSubview(verticalStack)
+
+
+
+
             } else {
                 let revealBtn = NSButton(title: "Reveal ▶", target: self, action: #selector(ankiRevealTapped(_:)))
                 revealBtn.bezelStyle = .rounded
