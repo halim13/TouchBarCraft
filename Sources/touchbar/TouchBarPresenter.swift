@@ -680,26 +680,29 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             )
         }
         
-        // Gunakan NSButton (bukan NSTextField) karena button menangani sentuhan Touch Bar secara native.
-        // NSTextField dengan NSClickGestureRecognizer tidak reliably menerima tap di Touch Bar.
-        let button = NSButton(title: "", target: self, action: #selector(ankiTouchBarAudioTapped(_:)))
-        button.isBordered = false
-        button.bezelStyle = .shadowlessSquare
-        button.wantsLayer = true
-        
+        // Gunakan NSTextField dengan NSClickGestureRecognizer agar tap events
+        // diterima dengan reliable di Touch Bar (DFR). NSButton dengan isBordered=false
+        // tidak konsisten menangani sentuhan di konteks NSTouchBar.
+        let label = NSTextField(labelWithString: "")
         let prefix = NSMutableAttributedString(string: "", attributes: [.font: font, .foregroundColor: textColor])
         let content = parseBoldTags(in: card.answer, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
         prefix.append(content)
         
-        button.attributedTitle = prefix
-        button.contentTintColor = textColor
-        button.cell?.lineBreakMode = .byTruncatingTail
-        button.cell?.truncatesLastVisibleLine = true
+        label.attributedStringValue = prefix
+        label.lineBreakMode = .byTruncatingTail
+        label.cell?.truncatesLastVisibleLine = true
         
-        button.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        button.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        label.setContentHuggingPriority(.defaultLow, for: .horizontal)
         
-        return button
+        // Add click gesture recognizer for Touch Bar tap events
+        let clickGesture = NSClickGestureRecognizer(target: self, action: #selector(ankiTouchBarAudioTapped(_:)))
+        clickGesture.buttonMask = 1 // Left click / touch
+        clickGesture.allowedTouchTypes = .direct
+        label.addGestureRecognizer(clickGesture)
+        
+        return label
     }
     
     /// Build a rich text view with furigana ruby annotations using vertical NSStackView.
@@ -894,17 +897,26 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         }
         
         if isButton, let action = buttonAction {
-            let container = NSButton(title: "", target: self, action: action)
-            container.isBordered = false
-            container.bezelStyle = .shadowlessSquare
-            container.wantsLayer = true
+            // Gunakan NSView container dengan gesture recognizer, bukan NSButton,
+            // karena NSButton dengan isBordered=false tidak reliable menangani
+            // sentuhan di konteks NSTouchBar.
+            let container = NSView()
+            container.translatesAutoresizingMaskIntoConstraints = false
             container.addSubview(hStack)
             hStack.translatesAutoresizingMaskIntoConstraints = false
             NSLayoutConstraint.activate([
                 hStack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
                 hStack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-                hStack.centerYAnchor.constraint(equalTo: container.centerYAnchor)
+                hStack.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+                hStack.topAnchor.constraint(greaterThanOrEqualTo: container.topAnchor),
+                hStack.bottomAnchor.constraint(lessThanOrEqualTo: container.bottomAnchor)
             ])
+            
+            let clickGesture = NSClickGestureRecognizer(target: self, action: action)
+            clickGesture.buttonMask = 1
+            clickGesture.allowedTouchTypes = .direct
+            container.addGestureRecognizer(clickGesture)
+            
             return container
         }
         
