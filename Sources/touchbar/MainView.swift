@@ -1001,6 +1001,33 @@ struct AnkiConfigView: View {
                 
                 Divider()
                 
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Touch Bar Layout Toggle")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.gray)
+                    
+                    Toggle("Move media controls (Rating/Audio/Reveal) to the left side", isOn: Binding(
+                        get: { AnkiTouchBarConfig.storedIsMediaOnLeft },
+                        set: { val in
+                            AnkiTouchBarConfig.storedIsMediaOnLeft = val
+                            let presenterClass: AnyClass? = NSClassFromString("touchbar.TouchBarPresenter")
+                            let refreshSelector = NSSelectorFromString("refreshTouchBar")
+                            if let presenter = presenterClass as? NSObject.Type {
+                                presenter.perform(refreshSelector)
+                            }
+                        }
+                    ))
+                    .toggleStyle(.checkbox)
+                    .font(.system(size: 11))
+                    
+                    Text("When enabled: media controls appear on the left, Sync on the right. Default: Sync on left, media controls on right.")
+                        .font(.system(size: 9))
+                        .foregroundColor(.gray)
+                        .italic()
+                }
+                
+                Divider()
+                
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Review Stats:")
                         .font(.system(size: 11, weight: .bold))

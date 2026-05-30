@@ -37,6 +37,11 @@ public final class StatusItemManager: NSObject {
         settingsItem.target = self
         menu.addItem(settingsItem)
         
+        let toggleLayoutItem = NSMenuItem(title: "Toggle Anki Touch Bar Layout", action: #selector(toggleAnkiLayout), keyEquivalent: "t")
+        toggleLayoutItem.target = self
+        toggleLayoutItem.keyEquivalentModifierMask = [.command]
+        menu.addItem(toggleLayoutItem)
+        
         menu.addItem(NSMenuItem.separator())
         
         let quitItem = NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q")
@@ -73,6 +78,10 @@ public final class StatusItemManager: NSObject {
         
         settingsWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+    
+    @objc private func toggleAnkiLayout() {
+        TouchBarPresenter.shared.toggleLayout()
     }
     
     @objc private func quitApp() {

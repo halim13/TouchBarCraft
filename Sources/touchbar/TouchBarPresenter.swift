@@ -2,6 +2,23 @@ import AppKit
 import SwiftUI
 import Foundation
 
+// MARK: - Anki Touch Bar Layout Configuration
+
+struct AnkiTouchBarConfig {
+    var isMediaOnLeft: Bool
+    
+    private static let toggleKey = "AnkiTouchBar.isMediaOnLeft"
+    
+    static var storedIsMediaOnLeft: Bool {
+        get { UserDefaults.standard.bool(forKey: toggleKey) }
+        set { UserDefaults.standard.set(newValue, forKey: toggleKey) }
+    }
+    
+    static var current: AnkiTouchBarConfig {
+        AnkiTouchBarConfig(isMediaOnLeft: storedIsMediaOnLeft)
+    }
+}
+
 @objc protocol NSTouchBarPrivate {
     static func presentSystemModalTouchBar(_ touchBar: NSTouchBar, placement: Int64, systemTrayItemIdentifier: String)
     static func presentSystemModalTouchBar(_ touchBar: NSTouchBar, systemTrayItemIdentifier: String)
@@ -225,6 +242,14 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         state.ankiState.toggleAudio()
     }
     
+    // MARK: - Toggle Touch Bar Layout
+    
+    @objc public func toggleLayout() {
+        AnkiTouchBarConfig.storedIsMediaOnLeft.toggle()
+        presentGlobalTouchBar(rebuild: true)
+        print("Anki Touch Bar layout toggled: mediaOnLeft = \(AnkiTouchBarConfig.storedIsMediaOnLeft)")
+    }
+    
     private func executeMediaCommand(_ action: String) {
         DispatchQueue.global(qos: .userInitiated).async {
             var scriptString = ""
@@ -417,8 +442,8 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.widthAnchor.constraint(equalToConstant: CGFloat(widget.ankiTextMaxWidth + 160)).isActive = true
 
-        
         let anki = state.ankiState
+        let config = AnkiTouchBarConfig.current
         
         if !anki.isConnected {
             let label = NSTextField(labelWithString: "Anki Offline")
@@ -429,17 +454,159 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             btn.bezelStyle = .rounded
             btn.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
             btn.contentTintColor = NSColor(Color(hex: widget.textColorHex))
+            btn.setAccessibilityLabel("Connect to Anki")
             
             stack.addArrangedSubview(label)
             stack.addArrangedSubview(btn)
             return stack
         }
         
-        // Add Sync Button (selalu tampil) dan progress spinner di sebelahnya jika sedang syncing
+        // Build the sync button
+        let syncButton = buildSyncButton(for: widget, anki: anki)
+        
+        guard let card = anki.currentCard else {
+            let label = NSTextField(labelWithString: "Anki: Select Deck")
+            label.font = NSFont.systemFont(ofSize: 12, weight: .medium)
+            label.textColor = NSColor(Color(hex: widget.textColorHex))
+            
+            if config.isMediaOnLeft {
+                stack.addArrangedSubview(label)
+                stack.addArrangedSubview(syncButton)
+            } else {
+                stack.addArrangedSubview(syncButton)
+                stack.addArrangedSubview(label)
+            }
+            return stack
+        }
+        
+        if !anki.isShowingAnswer {
+            // Build question label
+            let questionLabel = buildQuestionLabel(for: widget, card: card)
+            
+            if widget.ankiShowRemainingCounts {
+                let controls = buildCountsAndRevealStack(for: widget, anki: anki)
+                let spacer = NSView()
+                spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+                spacer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+                
+                if config.isMediaOnLeft {
+                    stack.addArrangedSubview(controls)
+                    stack.addArrangedSubview(spacer)
+                    stack.addArrangedSubview(questionLabel)
+                    stack.addArrangedSubview(syncButton)
+                } else {
+                    stack.addArrangedSubview(syncButton)
+                    stack.addArrangedSubview(questionLabel)
+                    stack.addArrangedSubview(spacer)
+                    stack.addArrangedSubview(controls)
+                }
+            } else {
+                let revealBtn = NSButton(title: "Reveal ▶", target: self, action: #selector(ankiRevealTapped(_:)))
+                revealBtn.bezelStyle = .rounded
+                revealBtn.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+                revealBtn.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
+                revealBtn.contentTintColor = NSColor(Color(hex: widget.textColorHex))
+                revealBtn.setAccessibilityLabel("Reveal Answer")
+                revealBtn.setContentCompressionResistancePriority(.required, for: .horizontal)
+                revealBtn.setContentHuggingPriority(.required, for: .horizontal)
+                
+                if config.isMediaOnLeft {
+                    // Left: Reveal | Spacer | Label | Sync
+                    let labelSpacer = NSView()
+                    labelSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+                    labelSpacer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+                    stack.addArrangedSubview(revealBtn)
+                    stack.addArrangedSubview(labelSpacer)
+                    stack.addArrangedSubview(questionLabel)
+                    stack.addArrangedSubview(syncButton)
+                } else {
+                    // Default: Sync | Label | Reveal
+                    stack.addArrangedSubview(syncButton)
+                    stack.addArrangedSubview(questionLabel)
+                    stack.addArrangedSubview(revealBtn)
+                }
+            }
+        } else {
+            // Build answer label
+            let answerLabel = buildAnswerLabel(for: widget, card: card, anki: anki)
+            
+            // Build rating buttons
+            let count = card.buttonCount
+            let buttonsToShow = getRatingButtons(for: widget, buttonCount: count)
+            var ratingButtons: [NSButton] = []
+            for btnSpec in buttonsToShow {
+                let btn = NSButton(title: btnSpec.title, target: self, action: #selector(ankiRatingTapped(_:)))
+                btn.tag = btnSpec.rating
+                btn.bezelStyle = .rounded
+                btn.bezelColor = btnSpec.color
+                btn.contentTintColor = .white
+                btn.font = NSFont.systemFont(ofSize: 11, weight: .bold)
+                btn.setAccessibilityLabel("Rate \(btnSpec.title)")
+                btn.setContentCompressionResistancePriority(.required, for: .horizontal)
+                btn.setContentHuggingPriority(.required, for: .horizontal)
+                ratingButtons.append(btn)
+            }
+            
+            // Build audio button
+            var audioButton: NSButton? = nil
+            if card.soundFilename != nil {
+                audioButton = NSButton(title: "", target: self, action: #selector(ankiAudioToggleTapped(_:)))
+                audioButton!.bezelStyle = .rounded
+                audioButton!.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
+                let symbolName = anki.isAudioPlaying ? "stop.fill" : "play.fill"
+                if let audioImg = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Toggle Audio") {
+                    audioButton!.image = audioImg
+                    audioButton!.imagePosition = .imageOnly
+                } else {
+                    audioButton!.title = anki.isAudioPlaying ? "Stop" : "Play"
+                }
+                audioButton!.setAccessibilityLabel(anki.isAudioPlaying ? "Stop Audio" : "Play Audio")
+                audioButton!.translatesAutoresizingMaskIntoConstraints = false
+                audioButton!.widthAnchor.constraint(equalToConstant: 30).isActive = true
+                audioButton!.setContentCompressionResistancePriority(.required, for: .horizontal)
+                audioButton!.setContentHuggingPriority(.required, for: .horizontal)
+            }
+            
+            let answerSpacer = NSView()
+            answerSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+            answerSpacer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            
+            if config.isMediaOnLeft {
+                // Left: rating + audio
+                for btn in ratingButtons {
+                    stack.addArrangedSubview(btn)
+                }
+                if let audio = audioButton {
+                    stack.addArrangedSubview(audio)
+                }
+                stack.addArrangedSubview(answerSpacer)
+                stack.addArrangedSubview(answerLabel)
+                stack.addArrangedSubview(syncButton)
+            } else {
+                // Left: sync, then answer, then rating + audio
+                stack.addArrangedSubview(syncButton)
+                stack.addArrangedSubview(answerLabel)
+                stack.addArrangedSubview(answerSpacer)
+                for btn in ratingButtons {
+                    stack.addArrangedSubview(btn)
+                }
+                if let audio = audioButton {
+                    stack.addArrangedSubview(audio)
+                }
+            }
+        }
+        
+        return stack
+    }
+    
+    // MARK: - Anki View Building Helpers
+    
+    private func buildSyncButton(for widget: TouchBarWidget, anki: AnkiState) -> NSButton {
         let syncButton = NSButton(title: "", target: self, action: #selector(ankiSyncTapped(_:)))
         syncButton.bezelStyle = .rounded
         syncButton.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
         syncButton.contentTintColor = NSColor(Color(hex: widget.textColorHex))
+        syncButton.setAccessibilityLabel("Sync")
         
         if let syncImage = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: "Sync") {
             syncButton.image = syncImage
@@ -450,183 +617,110 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         
         syncButton.translatesAutoresizingMaskIntoConstraints = false
         syncButton.widthAnchor.constraint(equalToConstant: 30).isActive = true
+        syncButton.isEnabled = !anki.isSyncing
         
-        if anki.isSyncing {
-            syncButton.isEnabled = false
-            stack.addArrangedSubview(syncButton)
-        } else {
-            syncButton.isEnabled = true
-            stack.addArrangedSubview(syncButton)
-        }
+        return syncButton
+    }
+    
+    private func buildQuestionLabel(for widget: TouchBarWidget, card: AnkiCard) -> NSTextField {
+        let label = NSTextField(labelWithString: "")
+        let font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
+        let textColor = NSColor(Color(hex: widget.textColorHex))
+        let boldColor = NSColor(Color(hex: widget.ankiBoldColorHex))
         
-        guard let card = anki.currentCard else {
-            let label = NSTextField(labelWithString: "Anki: Select Deck")
-            label.font = NSFont.systemFont(ofSize: 12, weight: .medium)
-            label.textColor = NSColor(Color(hex: widget.textColorHex))
-            
-            stack.addArrangedSubview(label)
-            return stack
-        }
+        let prefix = NSMutableAttributedString(string: "", attributes: [.font: font, .foregroundColor: textColor])
+        let content = parseBoldTags(in: card.question, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
+        prefix.append(content)
         
-        if !anki.isShowingAnswer {
-            let label = NSTextField(labelWithString: "")
-            let font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
-            let textColor = NSColor(Color(hex: widget.textColorHex))
-            let boldColor = NSColor(Color(hex: widget.ankiBoldColorHex))
-            
-            let prefix = NSMutableAttributedString(string: "", attributes: [.font: font, .foregroundColor: textColor])
-            let content = parseBoldTags(in: card.question, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
-            prefix.append(content)
-            
-            label.attributedStringValue = prefix
-            label.lineBreakMode = .byTruncatingTail
-            label.cell?.truncatesLastVisibleLine = true
-            
-            label.translatesAutoresizingMaskIntoConstraints = false
-            label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-            label.setContentHuggingPriority(.defaultLow, for: .horizontal)
-
-            if widget.ankiShowRemainingCounts {
-                // Build counts attributed string (N  L  R in blue/orange/green)
-                let countFont = NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .bold)
-                let attrStr = NSMutableAttributedString()
-                attrStr.append(NSAttributedString(string: "\(anki.newCount)", attributes: [
-                    .font: countFont, .foregroundColor: NSColor.systemBlue
-                ]))
-                attrStr.append(NSAttributedString(string: "  ", attributes: [.font: countFont]))
-                attrStr.append(NSAttributedString(string: "\(anki.learnCount)", attributes: [
-                    .font: countFont, .foregroundColor: NSColor.systemOrange
-                ]))
-                attrStr.append(NSAttributedString(string: "  ", attributes: [.font: countFont]))
-                attrStr.append(NSAttributedString(string: "\(anki.reviewCount)", attributes: [
-                    .font: countFont, .foregroundColor: NSColor.systemGreen
-                ]))
-
-                let countsLabel = NSTextField(labelWithString: "")
-                countsLabel.attributedStringValue = attrStr
-                countsLabel.alignment = .right
-                countsLabel.isBezeled = false
-                countsLabel.drawsBackground = false
-                countsLabel.isEditable = false
-                countsLabel.isSelectable = false
-                countsLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
-                countsLabel.setContentHuggingPriority(.required, for: .horizontal)
-
-                let verticalStack = NSStackView()
-                verticalStack.orientation = .vertical
-                verticalStack.alignment = .centerX
-                verticalStack.distribution = .gravityAreas
-                verticalStack.spacing = 2
-                // Height constraint (≤30 pt)
-                verticalStack.heightAnchor.constraint(equalToConstant: 28).isActive = true
-
-                // Counts label (already created as countsLabel)
-                countsLabel.alignment = .center
-                countsLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
-                countsLabel.setContentHuggingPriority(.required, for: .horizontal)
-
-                // Reveal button (borderless, looks like label)
-                let revealBtn = NSButton(title: "Reveal ▶", target: self, action: #selector(ankiRevealTapped(_:)))
-                revealBtn.bezelStyle = .regularSquare
-                revealBtn.isBordered = false
-                revealBtn.font = NSFont.systemFont(ofSize: 7, weight: .semibold)
-                revealBtn.contentTintColor = NSColor(Color(hex: widget.textColorHex))
-                revealBtn.wantsLayer = true
-                revealBtn.layer?.backgroundColor = NSColor(Color(hex: widget.backgroundColorHex)).cgColor
-                revealBtn.layer?.cornerRadius = 4
-                revealBtn.setContentCompressionResistancePriority(.required, for: .horizontal)
-                revealBtn.setContentHuggingPriority(.required, for: .horizontal)
-
-                // Assemble vertical stack
-                verticalStack.addArrangedSubview(countsLabel)
-                verticalStack.addArrangedSubview(revealBtn)
-
-                // Spacer to push verticalStack to the right
-                let spacer = NSView()
-                spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-                spacer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-
-                // Add to main horizontal stack: question label, spacer, verticalStack
-                stack.addArrangedSubview(label)
-                stack.addArrangedSubview(spacer)
-                stack.addArrangedSubview(verticalStack)
-
-
-
-
-            } else {
-                let revealBtn = NSButton(title: "Reveal ▶", target: self, action: #selector(ankiRevealTapped(_:)))
-                revealBtn.bezelStyle = .rounded
-                revealBtn.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
-                revealBtn.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
-                revealBtn.contentTintColor = NSColor(Color(hex: widget.textColorHex))
-                revealBtn.setContentCompressionResistancePriority(.required, for: .horizontal)
-                revealBtn.setContentHuggingPriority(.required, for: .horizontal)
-
-                stack.addArrangedSubview(label)
-                stack.addArrangedSubview(revealBtn)
-            }
-
-        } else {
-            let label = NSTextField(labelWithString: "")
-            let font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
-            let textColor = NSColor(Color(hex: widget.textColorHex))
-            let boldColor = NSColor(Color(hex: widget.ankiBoldColorHex))
-            
-            let prefix = NSMutableAttributedString(string: "", attributes: [.font: font, .foregroundColor: textColor])
-            let content = parseBoldTags(in: card.answer, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
-            prefix.append(content)
-            
-            label.attributedStringValue = prefix
-            label.lineBreakMode = .byTruncatingTail
-            label.cell?.truncatesLastVisibleLine = true
-            
-            let gesture = NSClickGestureRecognizer(target: self, action: #selector(ankiAudioToggleTapped(_:)))
-            label.addGestureRecognizer(gesture)
-            
-            label.translatesAutoresizingMaskIntoConstraints = false
-            label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-            label.setContentHuggingPriority(.defaultLow, for: .horizontal)
-            
-            stack.addArrangedSubview(label)
-            
-            let count = card.buttonCount
-            let buttonsToShow = getRatingButtons(for: widget, buttonCount: count)
-            
-            for btnSpec in buttonsToShow {
-                let btn = NSButton(title: btnSpec.title, target: self, action: #selector(ankiRatingTapped(_:)))
-                btn.tag = btnSpec.rating
-                btn.bezelStyle = .rounded
-                btn.bezelColor = btnSpec.color
-                btn.contentTintColor = .white
-                // Fixed font size 11 for ratings as requested
-                btn.font = NSFont.systemFont(ofSize: 11, weight: .bold)
-                btn.setContentCompressionResistancePriority(.required, for: .horizontal)
-                btn.setContentHuggingPriority(.required, for: .horizontal)
-                stack.addArrangedSubview(btn)
-            }
-            
-            // Add custom play/stop audio button on the right
-            if card.soundFilename != nil {
-                let audioBtn = NSButton(title: "", target: self, action: #selector(ankiAudioToggleTapped(_:)))
-                audioBtn.bezelStyle = .rounded
-                audioBtn.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
-                let symbolName = anki.isAudioPlaying ? "stop.fill" : "play.fill"
-                if let audioImg = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Toggle Audio") {
-                    audioBtn.image = audioImg
-                    audioBtn.imagePosition = .imageOnly
-                } else {
-                    audioBtn.title = anki.isAudioPlaying ? "Stop" : "Play"
-                }
-                audioBtn.translatesAutoresizingMaskIntoConstraints = false
-                audioBtn.widthAnchor.constraint(equalToConstant: 30).isActive = true
-                audioBtn.setContentCompressionResistancePriority(.required, for: .horizontal)
-                audioBtn.setContentHuggingPriority(.required, for: .horizontal)
-                stack.addArrangedSubview(audioBtn)
-            }
-        }
+        label.attributedStringValue = prefix
+        label.lineBreakMode = .byTruncatingTail
+        label.cell?.truncatesLastVisibleLine = true
         
-        return stack
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        label.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        
+        return label
+    }
+    
+    private func buildAnswerLabel(for widget: TouchBarWidget, card: AnkiCard, anki: AnkiState) -> NSTextField {
+        let label = NSTextField(labelWithString: "")
+        let font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
+        let textColor = NSColor(Color(hex: widget.textColorHex))
+        let boldColor = NSColor(Color(hex: widget.ankiBoldColorHex))
+        
+        let prefix = NSMutableAttributedString(string: "", attributes: [.font: font, .foregroundColor: textColor])
+        let content = parseBoldTags(in: card.answer, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
+        prefix.append(content)
+        
+        label.attributedStringValue = prefix
+        label.lineBreakMode = .byTruncatingTail
+        label.cell?.truncatesLastVisibleLine = true
+        
+        let gesture = NSClickGestureRecognizer(target: self, action: #selector(ankiAudioToggleTapped(_:)))
+        label.addGestureRecognizer(gesture)
+        
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        label.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        
+        return label
+    }
+    
+    private func buildCountsAndRevealStack(for widget: TouchBarWidget, anki: AnkiState) -> NSStackView {
+        // Build counts attributed string (N  L  R in blue/orange/green)
+        let countFont = NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .bold)
+        let attrStr = NSMutableAttributedString()
+        attrStr.append(NSAttributedString(string: "\(anki.newCount)", attributes: [
+            .font: countFont, .foregroundColor: NSColor.systemBlue
+        ]))
+        attrStr.append(NSAttributedString(string: "  ", attributes: [.font: countFont]))
+        attrStr.append(NSAttributedString(string: "\(anki.learnCount)", attributes: [
+            .font: countFont, .foregroundColor: NSColor.systemOrange
+        ]))
+        attrStr.append(NSAttributedString(string: "  ", attributes: [.font: countFont]))
+        attrStr.append(NSAttributedString(string: "\(anki.reviewCount)", attributes: [
+            .font: countFont, .foregroundColor: NSColor.systemGreen
+        ]))
+
+        let countsLabel = NSTextField(labelWithString: "")
+        countsLabel.attributedStringValue = attrStr
+        countsLabel.alignment = .center
+        countsLabel.isBezeled = false
+        countsLabel.drawsBackground = false
+        countsLabel.isEditable = false
+        countsLabel.isSelectable = false
+        countsLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        countsLabel.setContentHuggingPriority(.required, for: .horizontal)
+
+        let verticalStack = NSStackView()
+        verticalStack.orientation = .vertical
+        verticalStack.alignment = .centerX
+        verticalStack.distribution = .gravityAreas
+        verticalStack.spacing = 2
+        verticalStack.heightAnchor.constraint(equalToConstant: 28).isActive = true
+
+        countsLabel.alignment = .center
+        countsLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        countsLabel.setContentHuggingPriority(.required, for: .horizontal)
+
+        // Reveal button (borderless, looks like label)
+        let revealBtn = NSButton(title: "Reveal ▶", target: self, action: #selector(ankiRevealTapped(_:)))
+        revealBtn.bezelStyle = .regularSquare
+        revealBtn.isBordered = false
+        revealBtn.font = NSFont.systemFont(ofSize: 7, weight: .semibold)
+        revealBtn.contentTintColor = NSColor(Color(hex: widget.textColorHex))
+        revealBtn.wantsLayer = true
+        revealBtn.layer?.backgroundColor = NSColor(Color(hex: widget.backgroundColorHex)).cgColor
+        revealBtn.layer?.cornerRadius = 4
+        revealBtn.setAccessibilityLabel("Reveal Answer")
+        revealBtn.setContentCompressionResistancePriority(.required, for: .horizontal)
+        revealBtn.setContentHuggingPriority(.required, for: .horizontal)
+
+        verticalStack.addArrangedSubview(countsLabel)
+        verticalStack.addArrangedSubview(revealBtn)
+        
+        return verticalStack
     }
     
     private func parseBoldTags(in text: String, defaultFont: NSFont, defaultColor: NSColor, boldColor: NSColor) -> NSAttributedString {
