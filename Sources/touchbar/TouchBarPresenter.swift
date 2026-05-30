@@ -490,11 +490,13 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                 spacer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
                 
                 if config.isMediaOnLeft {
+                    // Left: Counts+Reveal | Label | Spacer | Sync
                     stack.addArrangedSubview(controls)
-                    stack.addArrangedSubview(spacer)
                     stack.addArrangedSubview(questionLabel)
+                    stack.addArrangedSubview(spacer)
                     stack.addArrangedSubview(syncButton)
                 } else {
+                    // Default: Sync | Label | Spacer | Counts+Reveal
                     stack.addArrangedSubview(syncButton)
                     stack.addArrangedSubview(questionLabel)
                     stack.addArrangedSubview(spacer)
@@ -511,13 +513,13 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                 revealBtn.setContentHuggingPriority(.required, for: .horizontal)
                 
                 if config.isMediaOnLeft {
-                    // Left: Reveal | Spacer | Label | Sync
+                    // Left: Reveal | Label | Spacer | Sync
                     let labelSpacer = NSView()
                     labelSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
                     labelSpacer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
                     stack.addArrangedSubview(revealBtn)
-                    stack.addArrangedSubview(labelSpacer)
                     stack.addArrangedSubview(questionLabel)
+                    stack.addArrangedSubview(labelSpacer)
                     stack.addArrangedSubview(syncButton)
                 } else {
                     // Default: Sync | Label | Reveal
@@ -572,18 +574,18 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             answerSpacer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
             
             if config.isMediaOnLeft {
-                // Left: rating + audio
+                // Left: Rating+Audio | Label | Spacer | Sync
                 for btn in ratingButtons {
                     stack.addArrangedSubview(btn)
                 }
                 if let audio = audioButton {
                     stack.addArrangedSubview(audio)
                 }
-                stack.addArrangedSubview(answerSpacer)
                 stack.addArrangedSubview(answerLabel)
+                stack.addArrangedSubview(answerSpacer)
                 stack.addArrangedSubview(syncButton)
             } else {
-                // Left: sync, then answer, then rating + audio
+                // Default: Sync | Label | Spacer | Rating+Audio
                 stack.addArrangedSubview(syncButton)
                 stack.addArrangedSubview(answerLabel)
                 stack.addArrangedSubview(answerSpacer)
