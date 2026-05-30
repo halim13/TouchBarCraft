@@ -997,38 +997,46 @@ public struct WidgetAnkiView: View {
     private func getRatingButtons(for widget: TouchBarWidget, buttonCount: Int) -> [(title: String, rating: Int, color: Color)] {
         var result: [(title: String, rating: Int, color: Color)] = []
         
-        // Anki ease ratings: 1=Again, 2=Hard, 3=Good, 4=Easy
-        if buttonCount == 2 {
-            if widget.ankiShowAgain {
-                result.append((title: "Again", rating: 1, color: .red))
-            }
-            if widget.ankiShowGood {
-                result.append((title: "Good", rating: 3, color: .green))
-            }
-        } else if buttonCount == 3 {
-            if widget.ankiShowAgain {
-                result.append((title: "Again", rating: 1, color: .red))
-            }
-            if widget.ankiShowGood {
-                result.append((title: "Good", rating: 3, color: .green))
-            }
-            if widget.ankiShowEasy {
-                result.append((title: "Easy", rating: 4, color: .blue))
-            }
-        } else {
-            if widget.ankiShowAgain {
-                result.append((title: "Again", rating: 1, color: .red))
-            }
-            if widget.ankiShowHard {
-                result.append((title: "Hard", rating: 2, color: .orange))
-            }
-            if widget.ankiShowGood {
-                result.append((title: "Good", rating: 3, color: .green))
-            }
-            if widget.ankiShowEasy {
-                result.append((title: "Easy", rating: 4, color: .blue))
-            }
+        // Anki ease ratings di AnkiConnect bersifat 1-indexed sesuai posisi tombol:
+        //   2 tombol: 1=Again, 2=Good
+        //   3 tombol: 1=Again, 2=Good, 3=Easy
+        //   4 tombol: 1=Again, 2=Hard, 3=Good, 4=Easy
+        //
+        // Tampilkan tombol sesuai preferensi user. Untuk buttonCount < 4, ease value
+        // disesuaikan agar mapping-nya benar di Anki. Hard (ease=2) valid untuk semua
+        // jumlah tombol (meski di 2/3 tombol artinya "Good" di Anki). Easy untuk
+        // buttonCount=2 menggunakan ease=2 (tombol kedua = Good) sebagai fallback.
+        
+        if widget.ankiShowAgain {
+            result.append((title: "Again", rating: 1, color: .red))
         }
+        if widget.ankiShowHard && buttonCount >= 2 {
+            // ease=2 valid untuk semua buttonCount:
+            //   2 tombol -> Good, 3 tombol -> Good, 4 tombol -> Hard
+            result.append((title: "Hard", rating: 2, color: .orange))
+        }
+        if widget.ankiShowGood && buttonCount >= 2 {
+            let ease = buttonCount == 2 ? 2 : 3
+            result.append((title: "Good", rating: ease, color: .green))
+        }
+        if widget.ankiShowEasy {
+            let ease: Int
+            if buttonCount >= 4 {
+                ease = 4
+            } else if buttonCount >= 3 {
+                ease = 3
+            } else {
+                // buttonCount=2: Easy tidak ada di Anki, tapi kita tampilkan
+                // dengan ease=2 (tombol kedua = Good) agar tombol tetap muncul.
+                ease = 2
+            }
+            result.append((title: "Easy", rating: ease, color: .blue))
+        }
+        
+        // Deduplicate: if multiple checked buttons map to the same ease value (happens
+        // when buttonCount < 4), keep only the first one to avoid redundant buttons.
+        var seenRatings = Set<Int>()
+        result = result.filter { seenRatings.insert($0.rating).inserted }
         
         return result
     }
