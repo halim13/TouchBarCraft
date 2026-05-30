@@ -35,6 +35,8 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
     // Audio
     public var isAudioPlaying: Bool = false
     private var currentSound: AVAudioPlayer? = nil
+    public var isTouchBarAudioPlaying: Bool = false
+    private var currentTouchBarSound: AVAudioPlayer? = nil
     
     private var connectionCheckTimer: Timer?
     private var wasConnectedBefore: Bool = false
@@ -170,12 +172,14 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
     public func loadCurrentCard() async {
         self.isLoading = true
         stopAudio()
+        stopTouchBarAudio()
         let widget = getActiveAnkiWidget()
         let qField = widget?.ankiQuestionField ?? "Front"
         let aField = widget?.ankiAnswerField ?? "Back"
         let audioField = widget?.ankiAudioField ?? "Audio"
+        let touchBarAudioField = widget?.ankiTouchBarAudioField ?? audioField
         
-        let card = await AnkiConnectClient.shared.getCurrentCard(questionField: qField, answerField: aField, audioField: audioField)
+        let card = await AnkiConnectClient.shared.getCurrentCard(questionField: qField, answerField: aField, audioField: audioField, touchBarAudioField: touchBarAudioField)
         self.currentCard = card
         self.isShowingAnswer = false
         self.isLoading = false
@@ -221,6 +225,7 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
         
         self.isLoading = true
         stopAudio()
+        stopTouchBarAudio()
         
         Task {
             let answered = await AnkiConnectClient.shared.answerCard(ease: ease)
@@ -304,6 +309,54 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
         refreshTouchBar()
     }
     
+    public func stopTouchBarAudio() {
+        currentTouchBarSound?.stop()
+        currentTouchBarSound = nil
+        isTouchBarAudioPlaying = false
+        refreshTouchBar()
+    }
+    
+    public func toggleTouchBarAudio() {
+        if isTouchBarAudioPlaying {
+            stopTouchBarAudio()
+        } else {
+            playTouchBarAudio()
+        }
+    }
+    
+    public func playTouchBarAudio() {
+        guard let card = currentCard, let filename = card.touchBarSoundFilename else { return }
+        
+        // Stop currently playing sound if any
+        currentTouchBarSound?.stop()
+        currentTouchBarSound = nil
+        isTouchBarAudioPlaying = false
+        
+        Task {
+            if let data = await AnkiConnectClient.shared.retrieveMediaFile(filename: filename) {
+                let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+                do {
+                    try data.write(to: tempURL)
+                    
+                    await MainActor.run {
+                        do {
+                            let sound = try AVAudioPlayer(contentsOf: tempURL)
+                            sound.delegate = self
+                            self.currentTouchBarSound = sound
+                            self.isTouchBarAudioPlaying = true
+                            sound.play()
+                            self.refreshTouchBar()
+                        } catch {
+                            print("AnkiState: Failed to play Touch Bar audio using AVAudioPlayer: \(error)")
+                        }
+                    }
+                } catch {
+                    print("AnkiState: Failed to write temp Touch Bar audio file: \(error)")
+                }
+            }
+        }
+    }
+    
     public func playAudio() {
         guard let card = currentCard, let filename = card.soundFilename else { return }
         
@@ -338,9 +391,16 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
     }
     
     nonisolated public func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        // Use ObjectIdentifier to safely compare player identity across actor boundaries
+        let playerId = ObjectIdentifier(player)
         Task { @MainActor in
-            self.isAudioPlaying = false
-            self.currentSound = nil
+            if let tbSound = self.currentTouchBarSound, ObjectIdentifier(tbSound) == playerId {
+                self.isTouchBarAudioPlaying = false
+                self.currentTouchBarSound = nil
+            } else {
+                self.isAudioPlaying = false
+                self.currentSound = nil
+            }
             self.refreshTouchBar()
         }
     }

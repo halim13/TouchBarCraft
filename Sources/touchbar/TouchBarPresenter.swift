@@ -242,6 +242,11 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         state.ankiState.toggleAudio()
     }
     
+    @objc private func ankiTouchBarAudioTapped(_ sender: Any) {
+        guard let state = AppState.shared else { return }
+        state.ankiState.toggleTouchBarAudio()
+    }
+    
     // MARK: - Toggle Touch Bar Layout
     
     @objc public func toggleLayout() {
@@ -645,8 +650,14 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         return label
     }
     
-    private func buildAnswerLabel(for widget: TouchBarWidget, card: AnkiCard, anki: AnkiState) -> NSTextField {
-        let label = NSTextField(labelWithString: "")
+    private func buildAnswerLabel(for widget: TouchBarWidget, card: AnkiCard, anki: AnkiState) -> NSView {
+        // Gunakan NSButton (bukan NSTextField) karena button menangani sentuhan Touch Bar secara native.
+        // NSTextField dengan NSClickGestureRecognizer tidak reliably menerima tap di Touch Bar.
+        let button = NSButton(title: "", target: self, action: #selector(ankiTouchBarAudioTapped(_:)))
+        button.isBordered = false
+        button.bezelStyle = .shadowlessSquare
+        button.wantsLayer = true
+        
         let font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
         let textColor = NSColor(Color(hex: widget.textColorHex))
         let boldColor = NSColor(Color(hex: widget.ankiBoldColorHex))
@@ -655,18 +666,15 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         let content = parseBoldTags(in: card.answer, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
         prefix.append(content)
         
-        label.attributedStringValue = prefix
-        label.lineBreakMode = .byTruncatingTail
-        label.cell?.truncatesLastVisibleLine = true
+        button.attributedTitle = prefix
+        button.contentTintColor = textColor
+        button.cell?.lineBreakMode = .byTruncatingTail
+        button.cell?.truncatesLastVisibleLine = true
         
-        let gesture = NSClickGestureRecognizer(target: self, action: #selector(ankiAudioToggleTapped(_:)))
-        label.addGestureRecognizer(gesture)
+        button.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        button.setContentHuggingPriority(.defaultLow, for: .horizontal)
         
-        label.translatesAutoresizingMaskIntoConstraints = false
-        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        label.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        
-        return label
+        return button
     }
     
     private func buildCountsAndRevealStack(for widget: TouchBarWidget, anki: AnkiState) -> NSStackView {

@@ -9,22 +9,31 @@ public struct AnkiCard: Sendable {
     public let deckName: String
     public let buttonCount: Int  // number of answer buttons (typically 2-4)
     public let audioText: String
+    public let touchBarAudioText: String
 
     public var soundFilename: String? {
-        if audioText.isEmpty { return nil }
-        if let range = audioText.range(of: "\\[sound:([^\\]]+)\\]", options: .regularExpression) {
-            let tag = audioText[range]
+        extractFilename(from: audioText)
+    }
+    
+    public var touchBarSoundFilename: String? {
+        extractFilename(from: touchBarAudioText)
+    }
+    
+    private func extractFilename(from text: String) -> String? {
+        if text.isEmpty { return nil }
+        if let range = text.range(of: "\\[sound:([^\\]]+)\\]", options: .regularExpression) {
+            let tag = text[range]
             return tag.replacingOccurrences(of: "[sound:", with: "")
                       .replacingOccurrences(of: "]", with: "")
                       .trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        if let range = audioText.range(of: "src=\"([^\"]+)\"", options: .regularExpression) {
-            let matched = audioText[range]
+        if let range = text.range(of: "src=\"([^\"]+)\"", options: .regularExpression) {
+            let matched = text[range]
             return matched.replacingOccurrences(of: "src=\"", with: "")
                           .replacingOccurrences(of: "\"", with: "")
                           .trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        let trimmed = audioText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let lower = trimmed.lowercased()
         if lower.hasSuffix(".mp3") || lower.hasSuffix(".wav") || lower.hasSuffix(".m4a") || lower.hasSuffix(".ogg") {
             return trimmed
@@ -121,7 +130,7 @@ public actor AnkiConnectClient {
     }
     
     /// Get the current card being reviewed
-    public func getCurrentCard(questionField: String = "Front", answerField: String = "Back", audioField: String = "Audio") async -> AnkiCard? {
+    public func getCurrentCard(questionField: String = "Front", answerField: String = "Back", audioField: String = "Audio", touchBarAudioField: String = "Audio") async -> AnkiCard? {
         do {
             guard let result = try await request(action: "guiCurrentCard") as? [String: Any] else {
                 return nil
@@ -196,7 +205,7 @@ public actor AnkiConnectClient {
                 answerText = stripHTML(answerText)
             }
             
-            // Extract custom audio field or search all fields for a [sound:] tag
+            // Extract custom audio field for play/stop button
             var audioText = ""
             if !audioField.isEmpty, let val = fieldsDict[audioField]?["value"] as? String {
                 audioText = val
@@ -210,13 +219,28 @@ public actor AnkiConnectClient {
                 }
             }
             
+            // Extract custom audio field for Touch Bar text tap
+            var touchBarAudioText = ""
+            if !touchBarAudioField.isEmpty, let val = fieldsDict[touchBarAudioField]?["value"] as? String {
+                touchBarAudioText = val
+            }
+            if touchBarAudioText.isEmpty {
+                for (_, fieldDict) in fieldsDict {
+                    if let val = fieldDict["value"] as? String, val.contains("[sound:") {
+                        touchBarAudioText = val
+                        break
+                    }
+                }
+            }
+            
             return AnkiCard(
                 cardId: cardId,
                 question: truncateForTouchBar(questionText),
                 answer: truncateForTouchBar(answerText),
                 deckName: deckName,
                 buttonCount: buttonCount,
-                audioText: audioText
+                audioText: audioText,
+                touchBarAudioText: touchBarAudioText
             )
         } catch {
             print("AnkiConnect: Failed to get current card: \(error)")

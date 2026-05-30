@@ -43,11 +43,13 @@ public struct AnkiDeckSettings: Codable, Hashable, Sendable {
     public var questionField: String
     public var answerField: String
     public var audioField: String
+    public var touchBarAudioField: String
     
-    public init(questionField: String, answerField: String, audioField: String) {
+    public init(questionField: String, answerField: String, audioField: String, touchBarAudioField: String = "Audio") {
         self.questionField = questionField
         self.answerField = answerField
         self.audioField = audioField
+        self.touchBarAudioField = touchBarAudioField
     }
 }
 
@@ -81,6 +83,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     public var ankiQuestionField: String
     public var ankiAnswerField: String
     public var ankiAudioField: String
+    public var ankiTouchBarAudioField: String
     public var ankiTextMaxWidth: Double
     public var ankiDeckSettings: [String: AnkiDeckSettings]
     
@@ -140,6 +143,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         ankiQuestionField: String = "Front",
         ankiAnswerField: String = "Back",
         ankiAudioField: String = "Audio",
+        ankiTouchBarAudioField: String = "Audio",
         ankiTextMaxWidth: Double = 250.0,
         ankiDeckSettings: [String: AnkiDeckSettings] = [:],
         showSeconds: Bool = true,
@@ -180,6 +184,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiQuestionField = ankiQuestionField
         self.ankiAnswerField = ankiAnswerField
         self.ankiAudioField = ankiAudioField
+        self.ankiTouchBarAudioField = ankiTouchBarAudioField
         self.ankiTextMaxWidth = ankiTextMaxWidth
         self.ankiDeckSettings = ankiDeckSettings
         self.showSeconds = showSeconds
@@ -203,7 +208,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     enum CodingKeys: String, CodingKey {
         case id, type, title, iconName, backgroundColorHex, textColorHex
         case actionType, actionValue, longPressActionType, longPressActionValue, monitorType, animationType, animationSpeed
-        case ankiDeckName, ankiShowAgain, ankiShowHard, ankiShowGood, ankiShowEasy, ankiQuestionField, ankiAnswerField, ankiAudioField, ankiTextMaxWidth, ankiDeckSettings
+        case ankiDeckName, ankiShowAgain, ankiShowHard, ankiShowGood, ankiShowEasy, ankiQuestionField, ankiAnswerField, ankiAudioField, ankiTouchBarAudioField, ankiTextMaxWidth, ankiDeckSettings
         case showSeconds
         case fontSize, brightnessButtonSize, volumeSliderWidth, volumeShowIcon
         case batteryDisplayType, batteryChargingIcon, batteryFullIcon, batteryLowIcon, batteryNormalIcon, batteryLowThreshold, batteryFullThreshold
@@ -238,6 +243,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiQuestionField = try container.decodeIfPresent(String.self, forKey: .ankiQuestionField) ?? "Front"
         self.ankiAnswerField = try container.decodeIfPresent(String.self, forKey: .ankiAnswerField) ?? "Back"
         self.ankiAudioField = try container.decodeIfPresent(String.self, forKey: .ankiAudioField) ?? "Audio"
+        self.ankiTouchBarAudioField = try container.decodeIfPresent(String.self, forKey: .ankiTouchBarAudioField) ?? self.ankiAudioField
         self.ankiTextMaxWidth = try container.decodeIfPresent(Double.self, forKey: .ankiTextMaxWidth) ?? 250.0
         self.ankiDeckSettings = try container.decodeIfPresent([String: AnkiDeckSettings].self, forKey: .ankiDeckSettings) ?? [:]
         

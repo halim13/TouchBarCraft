@@ -572,9 +572,8 @@ public struct WidgetAnkiView: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
                     .onTapGesture {
-                        anki.toggleAudio()
+                        anki.toggleTouchBarAudio()
                     }
                     
                     HStack(spacing: 4) {

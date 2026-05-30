@@ -728,7 +728,8 @@ struct AnkiConfigView: View {
                                 state.widgets[index].ankiDeckSettings[oldDeck] = AnkiDeckSettings(
                                     questionField: state.widgets[index].ankiQuestionField,
                                     answerField: state.widgets[index].ankiAnswerField,
-                                    audioField: state.widgets[index].ankiAudioField
+                                    audioField: state.widgets[index].ankiAudioField,
+                                    touchBarAudioField: state.widgets[index].ankiTouchBarAudioField
                                 )
                             }
                             state.widgets[index].ankiDeckName = deck
@@ -738,6 +739,7 @@ struct AnkiConfigView: View {
                                     state.widgets[index].ankiQuestionField = saved.questionField
                                     state.widgets[index].ankiAnswerField = saved.answerField
                                     state.widgets[index].ankiAudioField = saved.audioField
+                                    state.widgets[index].ankiTouchBarAudioField = saved.touchBarAudioField
                                 }
                             }
                             state.saveConfig()
@@ -862,7 +864,35 @@ struct AnkiConfigView: View {
                         .font(.system(size: 11))
                     }
                     
-                    Text("Falls back to standard 'Front'/'Back'/'Audio' if fields aren't found, or automatically searches other fields for audio.")
+                    HStack {
+                        Text("Touch Bar Audio:")
+                            .font(.system(size: 11))
+                            .frame(width: 95, alignment: .leading)
+                        TextField("e.g. Audio", text: Binding(
+                            get: { state.widgets[index].ankiTouchBarAudioField },
+                            set: { val in
+                                state.widgets[index].ankiTouchBarAudioField = val
+                                let deck = state.widgets[index].ankiDeckName
+                                if !deck.isEmpty {
+                                    var settings = state.widgets[index].ankiDeckSettings[deck] ?? AnkiDeckSettings(
+                                        questionField: state.widgets[index].ankiQuestionField,
+                                        answerField: state.widgets[index].ankiAnswerField,
+                                        audioField: state.widgets[index].ankiAudioField
+                                    )
+                                    settings.touchBarAudioField = val
+                                    state.widgets[index].ankiDeckSettings[deck] = settings
+                                }
+                                state.saveConfig()
+                                Task {
+                                    await state.ankiState.loadCurrentCard()
+                                }
+                            }
+                        ))
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 11))
+                    }
+                    
+                    Text("Audio Field: used by Play/Stop button. Touch Bar Audio: played when tapping the answer text on the physical Touch Bar.")
                         .font(.system(size: 9))
                         .foregroundColor(.gray)
                         .italic()
