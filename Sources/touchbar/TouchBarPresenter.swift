@@ -629,12 +629,22 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         return syncButton
     }
     
-    private func buildQuestionLabel(for widget: TouchBarWidget, card: AnkiCard) -> NSTextField {
-        let label = NSTextField(labelWithString: "")
+    private func buildQuestionLabel(for widget: TouchBarWidget, card: AnkiCard) -> NSView {
         let font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
         let textColor = NSColor(Color(hex: widget.textColorHex))
         let boldColor = NSColor(Color(hex: widget.ankiBoldColorHex))
         
+        if widget.ankiCombineFurigana {
+            return buildFuriganaRichLabel(
+                text: card.question,
+                fontSize: CGFloat(widget.fontSize),
+                textColor: textColor,
+                boldColor: boldColor,
+                isButton: false
+            )
+        }
+        
+        let label = NSTextField(labelWithString: "")
         let prefix = NSMutableAttributedString(string: "", attributes: [.font: font, .foregroundColor: textColor])
         let content = parseBoldTags(in: card.question, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
         prefix.append(content)
@@ -651,16 +661,27 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     }
     
     private func buildAnswerLabel(for widget: TouchBarWidget, card: AnkiCard, anki: AnkiState) -> NSView {
+        let font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
+        let textColor = NSColor(Color(hex: widget.textColorHex))
+        let boldColor = NSColor(Color(hex: widget.ankiBoldColorHex))
+        
+        if widget.ankiCombineFurigana {
+            return buildFuriganaRichLabel(
+                text: card.answer,
+                fontSize: CGFloat(widget.fontSize),
+                textColor: textColor,
+                boldColor: boldColor,
+                isButton: true,
+                buttonAction: #selector(ankiTouchBarAudioTapped(_:))
+            )
+        }
+        
         // Gunakan NSButton (bukan NSTextField) karena button menangani sentuhan Touch Bar secara native.
         // NSTextField dengan NSClickGestureRecognizer tidak reliably menerima tap di Touch Bar.
         let button = NSButton(title: "", target: self, action: #selector(ankiTouchBarAudioTapped(_:)))
         button.isBordered = false
         button.bezelStyle = .shadowlessSquare
         button.wantsLayer = true
-        
-        let font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
-        let textColor = NSColor(Color(hex: widget.textColorHex))
-        let boldColor = NSColor(Color(hex: widget.ankiBoldColorHex))
         
         let prefix = NSMutableAttributedString(string: "", attributes: [.font: font, .foregroundColor: textColor])
         let content = parseBoldTags(in: card.answer, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
@@ -675,6 +696,181 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         button.setContentHuggingPriority(.defaultLow, for: .horizontal)
         
         return button
+    }
+    
+    /// Build a rich text view with furigana ruby annotations using vertical NSStackView.
+    /// Parses both HTML tags (bold/italic/underline) and furigana [furi] patterns.
+    /// Uses vertical stacking with zero spacing so furigana sits directly above kanji.
+    private func buildFuriganaRichLabel(text: String, fontSize: CGFloat, textColor: NSColor, boldColor: NSColor, isButton: Bool, buttonAction: Selector? = nil) -> NSView {
+        // First parse HTML tags into styled chunks (same logic as parseBoldTags)
+        struct StyledChunk {
+            let text: String
+            let isBold: Bool
+            let isItalic: Bool
+            let isUnderline: Bool
+        }
+        
+        var chunks: [StyledChunk] = []
+        var currentText = ""
+        var isBold = false
+        var isItalic = false
+        var isUnderline = false
+        
+        var index = text.startIndex
+        while index < text.endIndex {
+            if text[index...].hasPrefix("<b>") || text[index...].hasPrefix("<strong>") {
+                if !currentText.isEmpty {
+                    chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+                    currentText = ""
+                }
+                if text[index...].hasPrefix("<b>") { index = text.index(index, offsetBy: 3) }
+                else { index = text.index(index, offsetBy: 8) }
+                isBold = true
+            } else if text[index...].hasPrefix("</b>") || text[index...].hasPrefix("</strong>") {
+                if !currentText.isEmpty {
+                    chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+                    currentText = ""
+                }
+                if text[index...].hasPrefix("</b>") { index = text.index(index, offsetBy: 4) }
+                else { index = text.index(index, offsetBy: 9) }
+                isBold = false
+            } else if text[index...].hasPrefix("<i>") || text[index...].hasPrefix("<em>") {
+                if !currentText.isEmpty {
+                    chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+                    currentText = ""
+                }
+                if text[index...].hasPrefix("<i>") { index = text.index(index, offsetBy: 3) }
+                else { index = text.index(index, offsetBy: 4) }
+                isItalic = true
+            } else if text[index...].hasPrefix("</i>") || text[index...].hasPrefix("</em>") {
+                let hasEmClose = text[index...].hasPrefix("</em>")
+                if !currentText.isEmpty {
+                    chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+                    currentText = ""
+                }
+                if hasEmClose { index = text.index(index, offsetBy: 5) }
+                else { index = text.index(index, offsetBy: 4) }
+                isItalic = false
+            } else if text[index...].hasPrefix("<u>") {
+                if !currentText.isEmpty {
+                    chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+                    currentText = ""
+                }
+                index = text.index(index, offsetBy: 3)
+                isUnderline = true
+            } else if text[index...].hasPrefix("</u>") {
+                if !currentText.isEmpty {
+                    chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+                    currentText = ""
+                }
+                index = text.index(index, offsetBy: 4)
+                isUnderline = false
+            } else {
+                currentText.append(text[index])
+                index = text.index(after: index)
+            }
+        }
+        if !currentText.isEmpty {
+            chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+        }
+        
+        // Build horizontal stack with ruby text segments
+        let hStack = NSStackView()
+        hStack.orientation = .horizontal
+        hStack.spacing = 0
+        hStack.alignment = .centerY
+        
+        for chunk in chunks {
+            let segments = touchbar.parseFuriganaSegments(chunk.text)
+            for segment in segments {
+                if let furi = segment.furigana {
+                    // Ruby segment: vertical stack with zero spacing, furigana sits directly above kanji
+                    let vStack = NSStackView()
+                    vStack.orientation = .vertical
+                    vStack.alignment = .centerX
+                    vStack.spacing = 0
+                    
+                    let furiFontSize = max(4, fontSize * 0.25)
+                    
+                    let furiLabel = NSTextField(labelWithString: furi)
+                    furiLabel.font = NSFont.systemFont(ofSize: furiFontSize, weight: .medium)
+                    furiLabel.textColor = (chunk.isBold ? boldColor : textColor).withAlphaComponent(0.65)
+                    furiLabel.alignment = .center
+                    furiLabel.isBezeled = false
+                    furiLabel.drawsBackground = false
+                    furiLabel.isEditable = false
+                    furiLabel.isSelectable = false
+                    
+                    let baseLabel = NSTextField(labelWithString: segment.text)
+                    var baseFont = NSFont.systemFont(ofSize: fontSize, weight: chunk.isBold ? .bold : .regular)
+                    if chunk.isItalic {
+                        baseFont = NSFontManager.shared.convert(baseFont, toHaveTrait: .italicFontMask)
+                    }
+                    baseLabel.font = baseFont
+                    baseLabel.textColor = chunk.isBold ? boldColor : textColor
+                    baseLabel.alignment = .center
+                    baseLabel.isBezeled = false
+                    baseLabel.drawsBackground = false
+                    baseLabel.isEditable = false
+                    baseLabel.isSelectable = false
+                    
+                    if chunk.isUnderline {
+                        let attrs: [NSAttributedString.Key: Any] = [
+                            .font: baseFont,
+                            .foregroundColor: chunk.isBold ? boldColor : textColor,
+                            .underlineStyle: NSUnderlineStyle.single.rawValue
+                        ]
+                        baseLabel.attributedStringValue = NSAttributedString(string: segment.text, attributes: attrs)
+                    }
+                    
+                    vStack.addArrangedSubview(furiLabel)
+                    vStack.addArrangedSubview(baseLabel)
+                    
+                    hStack.addArrangedSubview(vStack)
+                } else {
+                    // Plain text segment (no furigana)
+                    let label = NSTextField(labelWithString: segment.text)
+                    var baseFont = NSFont.systemFont(ofSize: fontSize, weight: chunk.isBold ? .bold : .regular)
+                    if chunk.isItalic {
+                        baseFont = NSFontManager.shared.convert(baseFont, toHaveTrait: .italicFontMask)
+                    }
+                    label.font = baseFont
+                    label.textColor = chunk.isBold ? boldColor : textColor
+                    label.isBezeled = false
+                    label.drawsBackground = false
+                    label.isEditable = false
+                    label.isSelectable = false
+                    
+                    if chunk.isUnderline {
+                        let attrs: [NSAttributedString.Key: Any] = [
+                            .font: baseFont,
+                            .foregroundColor: chunk.isBold ? boldColor : textColor,
+                            .underlineStyle: NSUnderlineStyle.single.rawValue
+                        ]
+                        label.attributedStringValue = NSAttributedString(string: segment.text, attributes: attrs)
+                    }
+                    
+                    hStack.addArrangedSubview(label)
+                }
+            }
+        }
+        
+        if isButton, let action = buttonAction {
+            let container = NSButton(title: "", target: self, action: action)
+            container.isBordered = false
+            container.bezelStyle = .shadowlessSquare
+            container.wantsLayer = true
+            container.addSubview(hStack)
+            hStack.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                hStack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+                hStack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+                hStack.centerYAnchor.constraint(equalTo: container.centerYAnchor)
+            ])
+            return container
+        }
+        
+        return hStack
     }
     
     private func buildCountsAndRevealStack(for widget: TouchBarWidget, anki: AnkiState) -> NSStackView {

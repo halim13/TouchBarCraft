@@ -367,6 +367,220 @@ extension Array {
     }
 }
 
+// MARK: - Furigana Support
+
+public struct FuriganaSegment {
+    public let text: String
+    public let furigana: String?
+}
+
+private struct StyledChunk {
+    let text: String
+    let isBold: Bool
+    let isItalic: Bool
+    let isUnderline: Bool
+}
+
+/// Check if a character is a CJK Unified Ideograph (kanji).
+private func isCJK(_ c: Character) -> Bool {
+    guard let scalar = c.unicodeScalars.first else { return false }
+    return (0x4E00...0x9FFF).contains(scalar.value)
+}
+
+/// Extract trailing CJK (kanji) characters from `rawBase` as the furigana base.
+/// Everything before the trailing kanji run becomes a plain text prefix.
+/// E.g. "が 豊" → ("が ", "豊"), "はとても表" → ("はとても", "表"), "勉強" → ("", "勉強")
+private func splitFuriganaBase(_ rawBase: String) -> (prefix: String, kanjiBase: String) {
+    var kanjiStart = rawBase.endIndex
+    for i in rawBase.indices.reversed() {
+        guard isCJK(rawBase[i]) else { break }
+        kanjiStart = i
+    }
+    guard kanjiStart < rawBase.endIndex else { return ("", rawBase) }
+    return (String(rawBase[..<kanjiStart]), String(rawBase[kanjiStart...]))
+}
+
+public func parseFuriganaSegments(_ text: String) -> [FuriganaSegment] {
+    var segments: [FuriganaSegment] = []
+    var remaining = text[...]
+    
+    while !remaining.isEmpty {
+        if let openBracket = remaining.firstIndex(of: "["),
+           let closeBracket = remaining[openBracket...].firstIndex(of: "]"),
+           openBracket > remaining.startIndex {
+            let rawBase = String(remaining[..<openBracket])
+            let furiganaText = String(remaining[remaining.index(after: openBracket)..<closeBracket])
+            
+            // Split trailing kanji from rawBase: kanji gets the furigana, prefix is plain text
+            let (prefix, kanjiBase) = splitFuriganaBase(rawBase)
+            
+            if !prefix.isEmpty {
+                segments.append(FuriganaSegment(text: prefix, furigana: nil))
+            }
+            if !kanjiBase.isEmpty {
+                segments.append(FuriganaSegment(text: kanjiBase, furigana: furiganaText))
+            }
+            
+            remaining = remaining[remaining.index(after: closeBracket)...]
+        } else {
+            segments.append(FuriganaSegment(text: String(remaining), furigana: nil))
+            remaining = ""
+        }
+    }
+    
+    return segments
+}
+
+/// Parse HTML tags into styled chunks. Returns an array of StyledChunk.
+private func parseHTMLStyledChunks(from text: String) -> [StyledChunk] {
+    var chunks: [StyledChunk] = []
+    var currentText = ""
+    var isBold = false
+    var isItalic = false
+    var isUnderline = false
+    
+    var index = text.startIndex
+    while index < text.endIndex {
+        if text[index...].hasPrefix("<b>") || text[index...].hasPrefix("<strong>") {
+            if !currentText.isEmpty {
+                chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+                currentText = ""
+            }
+            if text[index...].hasPrefix("<b>") {
+                index = text.index(index, offsetBy: 3)
+            } else {
+                index = text.index(index, offsetBy: 8)
+            }
+            isBold = true
+        } else if text[index...].hasPrefix("</b>") || text[index...].hasPrefix("</strong>") {
+            if !currentText.isEmpty {
+                chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+                currentText = ""
+            }
+            if text[index...].hasPrefix("</b>") {
+                index = text.index(index, offsetBy: 4)
+            } else {
+                index = text.index(index, offsetBy: 9)
+            }
+            isBold = false
+        } else if text[index...].hasPrefix("<i>") || text[index...].hasPrefix("<em>") {
+            if !currentText.isEmpty {
+                chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+                currentText = ""
+            }
+            if text[index...].hasPrefix("<i>") {
+                index = text.index(index, offsetBy: 3)
+            } else {
+                index = text.index(index, offsetBy: 4)
+            }
+            isItalic = true
+        } else if text[index...].hasPrefix("</i>") || text[index...].hasPrefix("</em>") {
+            let hasEmClose = text[index...].hasPrefix("</em>")
+            if !currentText.isEmpty {
+                chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+                currentText = ""
+            }
+            if hasEmClose {
+                index = text.index(index, offsetBy: 5)
+            } else {
+                index = text.index(index, offsetBy: 4)
+            }
+            isItalic = false
+        } else if text[index...].hasPrefix("<u>") {
+            if !currentText.isEmpty {
+                chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+                currentText = ""
+            }
+            index = text.index(index, offsetBy: 3)
+            isUnderline = true
+        } else if text[index...].hasPrefix("</u>") {
+            if !currentText.isEmpty {
+                chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+                currentText = ""
+            }
+            index = text.index(index, offsetBy: 4)
+            isUnderline = false
+        } else {
+            currentText.append(text[index])
+            index = text.index(after: index)
+        }
+    }
+    
+    if !currentText.isEmpty {
+        chunks.append(StyledChunk(text: currentText, isBold: isBold, isItalic: isItalic, isUnderline: isUnderline))
+    }
+    
+    return chunks
+}
+
+private struct RichSegment: Identifiable {
+    let id = UUID()
+    let text: String
+    let furigana: String?
+    let isBold: Bool
+    let isItalic: Bool
+    let isUnderline: Bool
+}
+
+/// Build a flat list of RichSegments from HTML-styled chunks and furigana parsing.
+private func parseRichSegments(from text: String) -> [RichSegment] {
+    let chunks = parseHTMLStyledChunks(from: text)
+    return chunks.flatMap { chunk -> [RichSegment] in
+        let segments = parseFuriganaSegments(chunk.text)
+        return segments.map { seg in
+            RichSegment(text: seg.text, furigana: seg.furigana, isBold: chunk.isBold, isItalic: chunk.isItalic, isUnderline: chunk.isUnderline)
+        }
+    }
+}
+
+/// Combines HTML tag parsing (bold/italic/underline) with furigana rendering.
+/// Furigana text (e.g. 私[わたし]) is rendered as ruby text with the reading above the kanji.
+/// Uses VStack with tight spacing so total height fits within Touch Bar constraints.
+@MainActor
+public func parseFuriganaRichText(in text: String, defaultColor: Color, boldColor: Color, fontSize: CGFloat) -> some View {
+    let segments = parseRichSegments(from: text)
+    
+    return HStack(spacing: 0) {
+        ForEach(segments) { item in
+            if let furi = item.furigana {
+                // Ruby text: furigana above kanji using VStack with zero spacing
+                VStack(spacing: 0) {
+                    Text(furi)
+                        .font(.system(size: max(4, fontSize * 0.25), weight: .medium))
+                        .foregroundColor(item.isBold ? boldColor.opacity(0.65) : defaultColor.opacity(0.65))
+                        .multilineTextAlignment(.center)
+                        .fixedSize()
+                    
+                    Text(item.text)
+                        .font(.system(size: fontSize, weight: item.isBold ? .bold : .regular))
+                        .foregroundColor(item.isBold ? boldColor : defaultColor)
+                        .if(item.isItalic) { $0.italic() }
+                        .if(item.isUnderline) { $0.underline() }
+                        .frame(maxWidth: .infinity, alignment: .center)
+                }
+            } else {
+                Text(item.text)
+                    .font(.system(size: fontSize, weight: item.isBold ? .bold : .regular))
+                    .foregroundColor(item.isBold ? boldColor : defaultColor)
+                    .if(item.isItalic) { $0.italic() }
+                    .if(item.isUnderline) { $0.underline() }
+            }
+        }
+    }
+}
+
+// MARK: - View extension for conditional modifiers
+extension View {
+    @ViewBuilder
+    public func `if`<Content: View>(_ condition: Bool, transform: (Self) -> Content) -> some View {
+        if condition {
+            transform(self)
+        } else {
+            self
+        }
+    }
+}
+
 public struct WidgetMediaView: View {
     let widget: TouchBarWidget
     let state: AppState
@@ -514,12 +728,22 @@ public struct WidgetAnkiView: View {
                     Text("Anki: Select Deck")
                         .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
                 } else if !anki.isShowingAnswer {
-                    (
-                        parseBoldTags(in: anki.questionPreview, defaultColor: Color(hex: widget.textColorHex), boldColor: Color(hex: widget.ankiBoldColorHex), fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize)
-                    )
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    if widget.ankiCombineFurigana {
+                        parseFuriganaRichText(
+                            in: anki.questionPreview,
+                            defaultColor: Color(hex: widget.textColorHex),
+                            boldColor: Color(hex: widget.ankiBoldColorHex),
+                            fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize
+                        )
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        (
+                            parseBoldTags(in: anki.questionPreview, defaultColor: Color(hex: widget.textColorHex), boldColor: Color(hex: widget.ankiBoldColorHex), fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize)
+                        )
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                     
                     if widget.ankiShowRemainingCounts {
                         // HStack: counts label on left, Reveal button on right
@@ -566,14 +790,27 @@ public struct WidgetAnkiView: View {
                         .buttonStyle(.plain)
                     }
                 } else {
-                    (
-                        parseBoldTags(in: anki.answerPreview, defaultColor: Color(hex: widget.textColorHex), boldColor: Color(hex: widget.ankiBoldColorHex), fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize)
-                    )
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .onTapGesture {
-                        anki.toggleTouchBarAudio()
+                    if widget.ankiCombineFurigana {
+                        parseFuriganaRichText(
+                            in: anki.answerPreview,
+                            defaultColor: Color(hex: widget.textColorHex),
+                            boldColor: Color(hex: widget.ankiBoldColorHex),
+                            fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize
+                        )
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .onTapGesture {
+                            anki.toggleTouchBarAudio()
+                        }
+                    } else {
+                        (
+                            parseBoldTags(in: anki.answerPreview, defaultColor: Color(hex: widget.textColorHex), boldColor: Color(hex: widget.ankiBoldColorHex), fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize)
+                        )
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .onTapGesture {
+                            anki.toggleTouchBarAudio()
+                        }
                     }
                     
                     HStack(spacing: 4) {

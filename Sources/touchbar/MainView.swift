@@ -1033,6 +1033,30 @@ struct AnkiConfigView: View {
                 Divider()
                 
                 VStack(alignment: .leading, spacing: 8) {
+                    Text("Furigana Display")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.gray)
+                    
+                    Toggle("Combine Furigana (e.g. 私[わたし] → 私 with わたし above)", isOn: Binding(
+                        get: { widget.ankiCombineFurigana },
+                        set: { val in
+                            state.widgets[index].ankiCombineFurigana = val
+                            state.saveConfig()
+                            state.ankiState.refreshTouchBar()
+                        }
+                    ))
+                    .toggleStyle(.checkbox)
+                    .font(.system(size: 11))
+                    
+                    Text("When enabled, Japanese furigana readings in brackets will be displayed above the kanji text.")
+                        .font(.system(size: 9))
+                        .foregroundColor(.gray)
+                        .italic()
+                }
+                
+                Divider()
+                
+                VStack(alignment: .leading, spacing: 8) {
                     Text("Touch Bar Layout Toggle")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.gray)
