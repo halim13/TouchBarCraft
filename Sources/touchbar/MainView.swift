@@ -1048,6 +1048,74 @@ struct AnkiConfigView: View {
                     .toggleStyle(.checkbox)
                     .font(.system(size: 11))
                     
+                    if widget.ankiCombineFurigana {
+                        HStack(spacing: 8) {
+                            Text("Furigana Font Size:")
+                                .font(.system(size: 11))
+                                .frame(width: 120, alignment: .leading)
+                            
+                            Slider(value: Binding(
+                                get: { widget.ankiFuriganaFontSize == 0 ? 8 : widget.ankiFuriganaFontSize },
+                                set: { val in
+                                    state.widgets[index].ankiFuriganaFontSize = val
+                                    state.saveConfig()
+                                    state.ankiState.refreshTouchBar()
+                                }
+                            ), in: 3...16, step: 1)
+                            
+                            Text("\(Int(widget.ankiFuriganaFontSize == 0 ? 8 : widget.ankiFuriganaFontSize))pt")
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundColor(.gray)
+                                .frame(width: 35, alignment: .trailing)
+                        }
+                        
+                        HStack(spacing: 8) {
+                            Text("Furigana Offset:")
+                                .font(.system(size: 11))
+                                .frame(width: 120, alignment: .leading)
+                            
+                            Slider(value: Binding(
+                                get: { widget.ankiFuriganaVerticalOffset },
+                                set: { val in
+                                    state.widgets[index].ankiFuriganaVerticalOffset = val
+                                    state.saveConfig()
+                                    state.ankiState.refreshTouchBar()
+                                }
+                            ), in: -5...10, step: 1)
+                            
+                            Text("\(Int(widget.ankiFuriganaVerticalOffset))pt")
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundColor(.gray)
+                                .frame(width: 35, alignment: .trailing)
+                        }
+                        
+                        HStack(spacing: 8) {
+                            Button(action: {
+                                state.widgets[index].ankiFuriganaFontSize = 0
+                                state.saveConfig()
+                                state.ankiState.refreshTouchBar()
+                            }) {
+                                Text("Reset Font Size")
+                                    .font(.system(size: 9))
+                                    .foregroundColor(widget.ankiFuriganaFontSize == 0 ? .gray : .orange)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(widget.ankiFuriganaFontSize == 0)
+                            
+                            Button(action: {
+                                state.widgets[index].ankiFuriganaVerticalOffset = 0
+                                state.saveConfig()
+                                state.ankiState.refreshTouchBar()
+                            }) {
+                                Text("Reset Offset")
+                                    .font(.system(size: 9))
+                                    .foregroundColor(widget.ankiFuriganaVerticalOffset == 0 ? .gray : .orange)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(widget.ankiFuriganaVerticalOffset == 0)
+                        }
+                    }
+                    
                     Text("When enabled, Japanese furigana readings in brackets will be displayed above the kanji text.")
                         .font(.system(size: 9))
                         .foregroundColor(.gray)

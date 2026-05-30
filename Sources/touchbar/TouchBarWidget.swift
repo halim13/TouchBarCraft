@@ -117,6 +117,12 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     
     // Anki combine furigana toggle
     public var ankiCombineFurigana: Bool
+    
+    // Anki manual furigana font size (0 = auto/clamp)
+    public var ankiFuriganaFontSize: Double
+    
+    // Anki furigana vertical offset adjustment (pt). Positive = move up, negative = move down.
+    public var ankiFuriganaVerticalOffset: Double
 
     // Animation Custom properties
     public var customGifPath: String
@@ -164,6 +170,8 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         ankiBoldColorHex: String = "#FFD60A",
         ankiShowRemainingCounts: Bool = false,
         ankiCombineFurigana: Bool = false,
+        ankiFuriganaFontSize: Double = 0,
+        ankiFuriganaVerticalOffset: Double = 0,
         customGifPath: String = "",
         customWidth: Double = 0.0
     ) {
@@ -206,6 +214,8 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiBoldColorHex = ankiBoldColorHex
         self.ankiShowRemainingCounts = ankiShowRemainingCounts
         self.ankiCombineFurigana = ankiCombineFurigana
+        self.ankiFuriganaFontSize = ankiFuriganaFontSize
+        self.ankiFuriganaVerticalOffset = ankiFuriganaVerticalOffset
         self.customGifPath = customGifPath
         self.customWidth = customWidth
     }
@@ -220,6 +230,8 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         case ankiBoldColorHex
         case ankiShowRemainingCounts
         case ankiCombineFurigana
+        case ankiFuriganaFontSize
+        case ankiFuriganaVerticalOffset
         case customGifPath
         case customWidth
     }
@@ -270,6 +282,8 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiBoldColorHex = try container.decodeIfPresent(String.self, forKey: .ankiBoldColorHex) ?? "#FFD60A"
         self.ankiShowRemainingCounts = try container.decodeIfPresent(Bool.self, forKey: .ankiShowRemainingCounts) ?? false
         self.ankiCombineFurigana = try container.decodeIfPresent(Bool.self, forKey: .ankiCombineFurigana) ?? false
+        self.ankiFuriganaFontSize = try container.decodeIfPresent(Double.self, forKey: .ankiFuriganaFontSize) ?? 0
+        self.ankiFuriganaVerticalOffset = try container.decodeIfPresent(Double.self, forKey: .ankiFuriganaVerticalOffset) ?? 0
         
         self.customGifPath = try container.decodeIfPresent(String.self, forKey: .customGifPath) ?? ""
         self.customWidth = try container.decodeIfPresent(Double.self, forKey: .customWidth) ?? 0.0

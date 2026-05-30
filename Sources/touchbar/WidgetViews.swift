@@ -537,27 +537,50 @@ private func parseRichSegments(from text: String) -> [RichSegment] {
 /// Furigana text (e.g. 私[わたし]) is rendered as ruby text with the reading above the kanji.
 /// Uses VStack with tight spacing so total height fits within Touch Bar constraints.
 @MainActor
-public func parseFuriganaRichText(in text: String, defaultColor: Color, boldColor: Color, fontSize: CGFloat) -> some View {
+public func parseFuriganaRichText(in text: String, defaultColor: Color, boldColor: Color, fontSize: CGFloat, furiganaFontSize: CGFloat = 0, verticalOffset: CGFloat = 0) -> some View {
     let segments = parseRichSegments(from: text)
+    
+    // Calculate line heights for fitting within 30pt Touch Bar
+    let baseFont = NSFont.systemFont(ofSize: fontSize, weight: .regular)
+    let baseLineHeight = ceil(abs(baseFont.ascender) + abs(baseFont.descender) + baseFont.leading)
+    let touchBarHeight: CGFloat = 30
+    let reservedPadding: CGFloat = 2
+    let availableHeight = max(1, touchBarHeight - baseLineHeight - reservedPadding)
+    
+    // Use manual furigana font size if set (>0), otherwise calculate from kanji font
+    let idealFuriFontSize: CGFloat
+    if furiganaFontSize > 0 {
+        idealFuriFontSize = max(3, furiganaFontSize)
+    } else {
+        idealFuriFontSize = max(4, fontSize * 0.25)
+    }
+    let furiTestFont = NSFont.systemFont(ofSize: idealFuriFontSize, weight: .medium)
+    let furiLineHeight = ceil(abs(furiTestFont.ascender) + abs(furiTestFont.descender) + furiTestFont.leading)
+    let computedFuriFontSize: CGFloat
+    if furiLineHeight > availableHeight {
+        let scaleFactor = availableHeight / furiLineHeight
+        computedFuriFontSize = max(3, floor(idealFuriFontSize * scaleFactor))
+    } else {
+        computedFuriFontSize = idealFuriFontSize
+    }
     
     return HStack(spacing: 0) {
         ForEach(segments) { item in
             if let furi = item.furigana {
-                // Ruby text: furigana above kanji using VStack with zero spacing
-                VStack(spacing: 0) {
-                    Text(furi)
-                        .font(.system(size: max(4, fontSize * 0.25), weight: .medium))
-                        .foregroundColor(item.isBold ? boldColor.opacity(0.65) : defaultColor.opacity(0.65))
-                        .multilineTextAlignment(.center)
-                        .fixedSize()
-                    
-                    Text(item.text)
-                        .font(.system(size: fontSize, weight: item.isBold ? .bold : .regular))
-                        .foregroundColor(item.isBold ? boldColor : defaultColor)
-                        .if(item.isItalic) { $0.italic() }
-                        .if(item.isUnderline) { $0.underline() }
-                        .frame(maxWidth: .infinity, alignment: .center)
-                }
+                // Ruby text: kanji text at normal height, furigana overlaid above so kanji stays aligned with plain text
+                Text(item.text)
+                    .font(.system(size: fontSize, weight: item.isBold ? .bold : .regular))
+                    .foregroundColor(item.isBold ? boldColor : defaultColor)
+                    .if(item.isItalic) { $0.italic() }
+                    .if(item.isUnderline) { $0.underline() }
+                    .overlay(alignment: .top) {
+                        Text(furi)
+                            .font(.system(size: computedFuriFontSize, weight: .medium))
+                            .foregroundColor(item.isBold ? boldColor.opacity(0.65) : defaultColor.opacity(0.65))
+                            .multilineTextAlignment(.center)
+                            .fixedSize()
+                            .offset(y: -(computedFuriFontSize * 1.2 + verticalOffset))
+                    }
             } else {
                 Text(item.text)
                     .font(.system(size: fontSize, weight: item.isBold ? .bold : .regular))
@@ -733,7 +756,9 @@ public struct WidgetAnkiView: View {
                             in: anki.questionPreview,
                             defaultColor: Color(hex: widget.textColorHex),
                             boldColor: Color(hex: widget.ankiBoldColorHex),
-                            fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize
+                            fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize,
+                            furiganaFontSize: CGFloat(widget.ankiFuriganaFontSize),
+                            verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset)
                         )
                         .frame(maxWidth: .infinity, alignment: .leading)
                     } else {
@@ -795,7 +820,9 @@ public struct WidgetAnkiView: View {
                             in: anki.answerPreview,
                             defaultColor: Color(hex: widget.textColorHex),
                             boldColor: Color(hex: widget.ankiBoldColorHex),
-                            fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize
+                            fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize,
+                            furiganaFontSize: CGFloat(widget.ankiFuriganaFontSize),
+                            verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset)
                         )
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .onTapGesture {

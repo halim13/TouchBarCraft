@@ -640,7 +640,9 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                 fontSize: CGFloat(widget.fontSize),
                 textColor: textColor,
                 boldColor: boldColor,
-                isButton: false
+                isButton: false,
+                manualFuriFontSize: CGFloat(widget.ankiFuriganaFontSize),
+                verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset)
             )
         }
         
@@ -672,7 +674,9 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                 textColor: textColor,
                 boldColor: boldColor,
                 isButton: true,
-                buttonAction: #selector(ankiTouchBarAudioTapped(_:))
+                buttonAction: #selector(ankiTouchBarAudioTapped(_:)),
+                manualFuriFontSize: CGFloat(widget.ankiFuriganaFontSize),
+                verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset)
             )
         }
         
@@ -701,7 +705,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     /// Build a rich text view with furigana ruby annotations using vertical NSStackView.
     /// Parses both HTML tags (bold/italic/underline) and furigana [furi] patterns.
     /// Uses vertical stacking with zero spacing so furigana sits directly above kanji.
-    private func buildFuriganaRichLabel(text: String, fontSize: CGFloat, textColor: NSColor, boldColor: NSColor, isButton: Bool, buttonAction: Selector? = nil) -> NSView {
+    private func buildFuriganaRichLabel(text: String, fontSize: CGFloat, textColor: NSColor, boldColor: NSColor, isButton: Bool, buttonAction: Selector? = nil, manualFuriFontSize: CGFloat = 0, verticalOffset: CGFloat = 0) -> NSView {
         // First parse HTML tags into styled chunks (same logic as parseBoldTags)
         struct StyledChunk {
             let text: String
@@ -784,13 +788,65 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             let segments = touchbar.parseFuriganaSegments(chunk.text)
             for segment in segments {
                 if let furi = segment.furigana {
-                    // Ruby segment: vertical stack with zero spacing, furigana sits directly above kanji
-                    let vStack = NSStackView()
-                    vStack.orientation = .vertical
-                    vStack.alignment = .centerX
-                    vStack.spacing = 0
+                    // Ruby segment: kanji label at normal height, furi label overlaid above
+                    // Uses NSView container so base label height matches plain text height
+                    // Both kanji and furigana must fit within the 30pt Touch Bar
+                    let baseFont = NSFont.systemFont(ofSize: fontSize, weight: chunk.isBold ? .bold : .regular)
+                    let baseLineHeight = ceil(abs(baseFont.ascender) + abs(baseFont.descender) + baseFont.leading)
                     
-                    let furiFontSize = max(4, fontSize * 0.25)
+                    // Calculate furigana font size that fits within 30pt Touch Bar
+                    let touchBarHeight: CGFloat = 30
+                    let reservedPadding: CGFloat = 2
+                    let availableHeight = max(1, touchBarHeight - baseLineHeight - reservedPadding)
+                    // Use manual furigana font size if set (>0), otherwise calculate from kanji font
+                    let idealFuriFontSize: CGFloat
+                    if manualFuriFontSize > 0 {
+                        idealFuriFontSize = max(3, manualFuriFontSize)
+                    } else {
+                        idealFuriFontSize = max(4, fontSize * 0.25)
+                    }
+                    let furiTestFont = NSFont.systemFont(ofSize: idealFuriFontSize, weight: .medium)
+                    let furiLineHeight = ceil(abs(furiTestFont.ascender) + abs(furiTestFont.descender) + furiTestFont.leading)
+                    let furiFontSize: CGFloat
+                    if furiLineHeight > availableHeight {
+                        let scaleFactor = availableHeight / furiLineHeight
+                        furiFontSize = max(3, floor(idealFuriFontSize * scaleFactor))
+                    } else {
+                        furiFontSize = idealFuriFontSize
+                    }
+                    
+                    let container = NSView()
+                    container.translatesAutoresizingMaskIntoConstraints = false
+                    
+                    let baseLabel = NSTextField(labelWithString: segment.text)
+                    var font = baseFont
+                    if chunk.isItalic {
+                        font = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask)
+                    }
+                    baseLabel.font = font
+                    baseLabel.textColor = chunk.isBold ? boldColor : textColor
+                    baseLabel.alignment = .center
+                    baseLabel.isBezeled = false
+                    baseLabel.drawsBackground = false
+                    baseLabel.isEditable = false
+                    baseLabel.isSelectable = false
+                    if chunk.isUnderline {
+                        let attrs: [NSAttributedString.Key: Any] = [
+                            .font: font,
+                            .foregroundColor: chunk.isBold ? boldColor : textColor,
+                            .underlineStyle: NSUnderlineStyle.single.rawValue
+                        ]
+                        baseLabel.attributedStringValue = NSAttributedString(string: segment.text, attributes: attrs)
+                    }
+                    
+                    container.addSubview(baseLabel)
+                    baseLabel.translatesAutoresizingMaskIntoConstraints = false
+                    NSLayoutConstraint.activate([
+                        baseLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+                        baseLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+                        baseLabel.topAnchor.constraint(equalTo: container.topAnchor),
+                        baseLabel.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+                    ])
                     
                     let furiLabel = NSTextField(labelWithString: furi)
                     furiLabel.font = NSFont.systemFont(ofSize: furiFontSize, weight: .medium)
@@ -801,32 +857,14 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                     furiLabel.isEditable = false
                     furiLabel.isSelectable = false
                     
-                    let baseLabel = NSTextField(labelWithString: segment.text)
-                    var baseFont = NSFont.systemFont(ofSize: fontSize, weight: chunk.isBold ? .bold : .regular)
-                    if chunk.isItalic {
-                        baseFont = NSFontManager.shared.convert(baseFont, toHaveTrait: .italicFontMask)
-                    }
-                    baseLabel.font = baseFont
-                    baseLabel.textColor = chunk.isBold ? boldColor : textColor
-                    baseLabel.alignment = .center
-                    baseLabel.isBezeled = false
-                    baseLabel.drawsBackground = false
-                    baseLabel.isEditable = false
-                    baseLabel.isSelectable = false
+                    container.addSubview(furiLabel)
+                    furiLabel.translatesAutoresizingMaskIntoConstraints = false
+                    NSLayoutConstraint.activate([
+                        furiLabel.bottomAnchor.constraint(equalTo: container.topAnchor, constant: -verticalOffset),
+                        furiLabel.centerXAnchor.constraint(equalTo: container.centerXAnchor)
+                    ])
                     
-                    if chunk.isUnderline {
-                        let attrs: [NSAttributedString.Key: Any] = [
-                            .font: baseFont,
-                            .foregroundColor: chunk.isBold ? boldColor : textColor,
-                            .underlineStyle: NSUnderlineStyle.single.rawValue
-                        ]
-                        baseLabel.attributedStringValue = NSAttributedString(string: segment.text, attributes: attrs)
-                    }
-                    
-                    vStack.addArrangedSubview(furiLabel)
-                    vStack.addArrangedSubview(baseLabel)
-                    
-                    hStack.addArrangedSubview(vStack)
+                    hStack.addArrangedSubview(container)
                 } else {
                     // Plain text segment (no furigana)
                     let label = NSTextField(labelWithString: segment.text)
