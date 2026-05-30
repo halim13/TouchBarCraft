@@ -675,6 +675,7 @@ struct AnkiConfigView: View {
     let widget: TouchBarWidget
     let index: Int
     let state: AppState
+    @AppStorage("AnkiTouchBar.isMediaOnLeft") private var isMediaOnLeft: Bool = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -1037,9 +1038,9 @@ struct AnkiConfigView: View {
                         .foregroundColor(.gray)
                     
                     Toggle("Move media controls (Rating/Audio/Reveal) to the left side", isOn: Binding(
-                        get: { AnkiTouchBarConfig.storedIsMediaOnLeft },
+                        get: { isMediaOnLeft },
                         set: { val in
-                            AnkiTouchBarConfig.storedIsMediaOnLeft = val
+                            isMediaOnLeft = val
                             let presenterClass: AnyClass? = NSClassFromString("touchbar.TouchBarPresenter")
                             let refreshSelector = NSSelectorFromString("refreshTouchBar")
                             if let presenter = presenterClass as? NSObject.Type {
