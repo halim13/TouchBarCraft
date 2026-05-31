@@ -1312,6 +1312,28 @@ struct AnkiConfigView: View {
                 
                 Divider()
                 
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Audio Mute Toggle")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.gray)
+                    
+                    Toggle("Mute Anki Audio", isOn: Binding(
+                        get: { state.ankiState.isMuted },
+                        set: { _ in
+                            state.ankiState.toggleMute()
+                        }
+                    ))
+                    .toggleStyle(.checkbox)
+                    .font(.system(size: 11))
+                    
+                    Text("When muted, audio playback from Anki cards (both Play/Stop button and Touch Bar tap) will be suppressed.")
+                        .font(.system(size: 9))
+                        .foregroundColor(.gray)
+                        .italic()
+                }
+                
+                Divider()
+                
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Review Stats:")
                         .font(.system(size: 11, weight: .bold))

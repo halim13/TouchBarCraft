@@ -37,6 +37,9 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     // Map widget ID -> widget for button action dispatch
     private var widgetMap: [String: TouchBarWidget] = [:]
     
+    // Key for associated object on silent rating buttons
+    private var ratingTagKey: UInt8 = 0
+    
     // Private framework loaders
     private typealias DFRElementSetControlStripPresenceForIdentifierType = @convention(c) (CFString, Bool) -> Void
     private typealias DFRSystemModalShowsCloseBoxWhenFrontMostType = @convention(c) (Bool) -> Void
@@ -221,7 +224,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         state.ankiState.checkConnection()
     }
     
-    @objc private func ankiRevealTapped(_ sender: NSButton) {
+    @objc private func ankiRevealTapped(_ sender: Any) {
         guard let state = AppState.shared else { return }
         state.ankiState.revealAnswer()
     }
@@ -508,21 +511,34 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                     stack.addArrangedSubview(controls)
                 }
             } else {
-                let revealBtn = NSButton(title: "Reveal ▶", target: self, action: #selector(ankiRevealTapped(_:)))
-                revealBtn.bezelStyle = .rounded
-                revealBtn.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
-                revealBtn.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
-                revealBtn.contentTintColor = NSColor(Color(hex: widget.textColorHex))
-                revealBtn.setAccessibilityLabel("Reveal Answer")
-                revealBtn.setContentCompressionResistancePriority(.required, for: .horizontal)
-                revealBtn.setContentHuggingPriority(.required, for: .horizontal)
+                // Gunakan NSTextField dengan gesture recognizer (tanpa suara klik sistem)
+                let revealLabel = NSTextField(labelWithString: "Reveal ▶")
+                revealLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+                revealLabel.textColor = NSColor(Color(hex: widget.textColorHex))
+                revealLabel.alignment = .center
+                revealLabel.wantsLayer = true
+                revealLabel.layer?.backgroundColor = NSColor(Color(hex: widget.backgroundColorHex)).cgColor
+                revealLabel.layer?.cornerRadius = 6
+                revealLabel.setAccessibilityLabel("Reveal Answer")
+                revealLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+                revealLabel.setContentHuggingPriority(.required, for: .horizontal)
+                revealLabel.translatesAutoresizingMaskIntoConstraints = false
+                NSLayoutConstraint.activate([
+                    revealLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 70),
+                    revealLabel.heightAnchor.constraint(equalToConstant: 24)
+                ])
+                
+                let clickGesture = NSClickGestureRecognizer(target: self, action: #selector(ankiRevealTapped(_:)))
+                clickGesture.buttonMask = 1
+                clickGesture.allowedTouchTypes = .direct
+                revealLabel.addGestureRecognizer(clickGesture)
                 
                 if config.isMediaOnLeft {
                     // Left: Reveal | Label | Spacer | Sync
                     let labelSpacer = NSView()
                     labelSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
                     labelSpacer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-                    stack.addArrangedSubview(revealBtn)
+                    stack.addArrangedSubview(revealLabel)
                     stack.addArrangedSubview(questionLabel)
                     stack.addArrangedSubview(labelSpacer)
                     stack.addArrangedSubview(syncButton)
@@ -530,7 +546,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                     // Default: Sync | Label | Reveal
                     stack.addArrangedSubview(syncButton)
                     stack.addArrangedSubview(questionLabel)
-                    stack.addArrangedSubview(revealBtn)
+                    stack.addArrangedSubview(revealLabel)
                 }
             }
         } else {
@@ -959,21 +975,25 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         countsLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
         countsLabel.setContentHuggingPriority(.required, for: .horizontal)
 
-        // Reveal button (borderless, looks like label)
-        let revealBtn = NSButton(title: "Reveal ▶", target: self, action: #selector(ankiRevealTapped(_:)))
-        revealBtn.bezelStyle = .regularSquare
-        revealBtn.isBordered = false
-        revealBtn.font = NSFont.systemFont(ofSize: 7, weight: .semibold)
-        revealBtn.contentTintColor = NSColor(Color(hex: widget.textColorHex))
-        revealBtn.wantsLayer = true
-        revealBtn.layer?.backgroundColor = NSColor(Color(hex: widget.backgroundColorHex)).cgColor
-        revealBtn.layer?.cornerRadius = 4
-        revealBtn.setAccessibilityLabel("Reveal Answer")
-        revealBtn.setContentCompressionResistancePriority(.required, for: .horizontal)
-        revealBtn.setContentHuggingPriority(.required, for: .horizontal)
+        // Reveal button (NSTextField + gesture recognizer, silent — no system click sound)
+        let revealLabel = NSTextField(labelWithString: "Reveal ▶")
+        revealLabel.font = NSFont.systemFont(ofSize: 7, weight: .semibold)
+        revealLabel.textColor = NSColor(Color(hex: widget.textColorHex))
+        revealLabel.alignment = .center
+        revealLabel.wantsLayer = true
+        revealLabel.layer?.backgroundColor = NSColor(Color(hex: widget.backgroundColorHex)).cgColor
+        revealLabel.layer?.cornerRadius = 4
+        revealLabel.setAccessibilityLabel("Reveal Answer")
+        revealLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        revealLabel.setContentHuggingPriority(.required, for: .horizontal)
+        revealLabel.translatesAutoresizingMaskIntoConstraints = false
+        let clickGesture = NSClickGestureRecognizer(target: self, action: #selector(ankiRevealTapped(_:)))
+        clickGesture.buttonMask = 1
+        clickGesture.allowedTouchTypes = .direct
+        revealLabel.addGestureRecognizer(clickGesture)
 
         verticalStack.addArrangedSubview(countsLabel)
-        verticalStack.addArrangedSubview(revealBtn)
+        verticalStack.addArrangedSubview(revealLabel)
         
         return verticalStack
     }
