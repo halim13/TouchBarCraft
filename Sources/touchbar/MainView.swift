@@ -131,15 +131,12 @@ public struct MainView: View {
                         .padding(.vertical, 12)
                         .frame(minWidth: geometry.size.width, alignment: .leading)
                     }
-                }
-                .frame(maxWidth: .infinity, minHeight: 52)
-                .background(Color.black)
-                .cornerRadius(8)
-                .padding(.horizontal, 20)
-                .shadow(color: .black.opacity(0.4), radius: 8, y: 4)
+                }                
+                .frame(height: 40)
             }
-            .padding(.vertical, 16)
+            .frame(maxWidth: .infinity)
             .background(Color.black.opacity(0.05))
+            .padding(.vertical, 16)
             
             Divider()
             
@@ -680,10 +677,10 @@ public struct MainView: View {
             }
         }
         .frame(minWidth: 720, minHeight: 480)
-        .background(Color(red: 18/255, green: 18/255, blue: 20/255)) // Obsidan Gray
+        .background(Color(red: 18/255, green: 18/255, blue: 20/255))
+        
     }
     
-    // Sidebar move helpers
     private func moveUp(index: Int) {
         guard index > 0 else { return }
         var list = state.widgets
