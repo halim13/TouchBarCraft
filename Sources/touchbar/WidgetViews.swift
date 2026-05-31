@@ -697,171 +697,20 @@ public struct WidgetAnkiView: View {
     let state: AppState
     let isSimulator: Bool
     
+    @AppStorage("AnkiTouchBar.isMediaOnLeft") private var isMediaOnLeft: Bool = false
+    
     public var body: some View {
         let anki = state.ankiState
         
-        HStack(spacing: 8) {
+        Group {
             if !anki.isConnected {
-                HStack(spacing: 6) {
-                    Image(systemName: "rectangle.stack.fill.badge.person.crop")
-                        .font(.system(size: isSimulator ? 11 : 13))
-                    Text("Anki Offline")
-                        .font(.system(size: isSimulator ? 11 : 13, weight: .medium))
-                    Button("Connect") {
-                        anki.checkConnection()
-                    }
-                    .buttonStyle(.plain)
-                    .font(.system(size: isSimulator ? 9 : 11))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color(hex: widget.backgroundColorHex))
-                    .cornerRadius(4)
-                }
+                offlineContent
+            } else if anki.currentCard == nil {
+                noCardContent(anki: anki)
+            } else if !anki.isShowingAnswer {
+                questionPhaseContent(anki: anki)
             } else {
-                // Sync status indicator/button
-                HStack(alignment: .center, spacing: 4) {
-                    Button(action: {
-                        anki.syncDecks()
-                    }) {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.system(size: isSimulator ? 10 : 12))
-                            .foregroundColor(Color(hex: widget.textColorHex).opacity(anki.isSyncing ? 0.4 : 1.0))
-                            .frame(height: 12)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(anki.isSyncing)
-                }
-                
-                if anki.currentCard == nil {
-                    Text("Anki: Select Deck")
-                        .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
-                } else if !anki.isShowingAnswer {
-                    if widget.ankiCombineFurigana {
-                        parseFuriganaRichText(
-                            in: anki.questionPreview,
-                            defaultColor: Color(hex: widget.textColorHex),
-                            boldColor: Color(hex: widget.ankiBoldColorHex),
-                            fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize,
-                            furiganaFontSize: CGFloat(widget.ankiFuriganaFontSize),
-                            verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
-                            textOffset: CGFloat(widget.ankiFuriganaTextOffset)
-                        )
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    } else {
-                        (
-                            parseBoldTags(in: anki.questionPreview, defaultColor: Color(hex: widget.textColorHex), boldColor: Color(hex: widget.ankiBoldColorHex), fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize)
-                        )
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    
-                    if widget.ankiShowRemainingCounts {
-                        // HStack: counts label on left, Reveal button on right
-                        // VStack is NOT viable in Touch Bar (30pt height limit clips it)
-                        HStack(spacing: 4) {
-                            VStack(spacing: 1) {
-                                HStack(spacing: 3) {
-                                    Text("\(anki.newCount)")
-                                        .font(.system(size: isSimulator ? 7 : 8, weight: .bold, design: .monospaced))
-                                        .foregroundColor(.blue)
-                                    Text("\(anki.learnCount)")
-                                        .font(.system(size: isSimulator ? 7 : 8, weight: .bold, design: .monospaced))
-                                        .foregroundColor(.orange)
-                                    Text("\(anki.reviewCount)")
-                                        .font(.system(size: isSimulator ? 7 : 8, weight: .bold, design: .monospaced))
-                                        .foregroundColor(.green)
-                                }
-                            }
-                            Button(action: {
-                                anki.revealAnswer()
-                            }) {
-                                Text("Reveal ▶")
-                                    .font(.system(size: isSimulator ? 8 : 9, weight: .bold))
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(Color(hex: widget.backgroundColorHex))
-                                    .foregroundColor(Color(hex: widget.textColorHex))
-                                    .cornerRadius(4)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    } else {
-                        Button(action: {
-                            anki.revealAnswer()
-                        }) {
-                            Text("Reveal ▶")
-                                .font(.system(size: 11, weight: .semibold))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color(hex: widget.backgroundColorHex))
-                                .foregroundColor(Color(hex: widget.textColorHex))
-                                .cornerRadius(6)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                } else {
-                    if widget.ankiCombineFurigana {
-                        parseFuriganaRichText(
-                            in: anki.answerPreview,
-                            defaultColor: Color(hex: widget.textColorHex),
-                            boldColor: Color(hex: widget.ankiBoldColorHex),
-                            fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize,
-                            furiganaFontSize: CGFloat(widget.ankiFuriganaFontSize),
-                            verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
-                            textOffset: CGFloat(widget.ankiFuriganaTextOffset)
-                        )
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .onTapGesture {
-                            anki.toggleTouchBarAudio()
-                        }
-                    } else {
-                        (
-                            parseBoldTags(in: anki.answerPreview, defaultColor: Color(hex: widget.textColorHex), boldColor: Color(hex: widget.ankiBoldColorHex), fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize)
-                        )
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .onTapGesture {
-                            anki.toggleTouchBarAudio()
-                        }
-                    }
-                    
-                    HStack(spacing: 4) {
-                        let count = anki.currentCard?.buttonCount ?? 4
-                        let buttons = getRatingButtons(for: widget, buttonCount: count)
-                        
-                        ForEach(buttons, id: \.rating) { btn in
-                            Button(action: {
-                                anki.submitRating(ease: btn.rating)
-                            }) {
-                                Text(btn.title)
-                                    .font(.system(size: isSimulator ? 10 : 11, weight: .bold))
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 3)
-                                    .background(btn.color)
-                                    .cornerRadius(4)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    
-                    if anki.currentCard?.soundFilename != nil {
-                        Button(action: {
-                            anki.toggleAudio()
-                        }) {
-                            Image(systemName: anki.isAudioPlaying ? "stop.fill" : "play.fill")
-                                .font(.system(size: isSimulator ? 10 : 12))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color(hex: widget.backgroundColorHex))
-                                .foregroundColor(Color(hex: widget.textColorHex))
-                                .cornerRadius(6)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
+                answerPhaseContent(anki: anki)
             }
         }
         .padding(.horizontal, isSimulator ? 8 : 12)
@@ -869,6 +718,248 @@ public struct WidgetAnkiView: View {
         .background(Color(hex: widget.backgroundColorHex).opacity(0.15))
         .cornerRadius(6)
         .frame(width: isSimulator ? widget.ankiTextMaxWidth * 0.48 + 100 : widget.ankiTextMaxWidth + 160)
+    }
+    
+    // MARK: - Offline
+    
+    private var offlineContent: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "rectangle.stack.fill.badge.person.crop")
+                .font(.system(size: isSimulator ? 11 : 13))
+            Text("Anki Offline")
+                .font(.system(size: isSimulator ? 11 : 13, weight: .medium))
+            Button("Connect") {
+                state.ankiState.checkConnection()
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: isSimulator ? 9 : 11))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Color(hex: widget.backgroundColorHex))
+            .cornerRadius(4)
+        }
+    }
+    
+    // MARK: - No Card
+    
+    @ViewBuilder
+    private func noCardContent(anki: AnkiState) -> some View {
+        HStack(spacing: 8) {
+            if isMediaOnLeft {
+                Text("Anki: Select Deck")
+                    .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
+                syncButtonContent(anki: anki)
+            } else {
+                syncButtonContent(anki: anki)
+                Text("Anki: Select Deck")
+                    .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
+            }
+        }
+    }
+    
+    // MARK: - Question Phase
+    
+    @ViewBuilder
+    private func questionPhaseContent(anki: AnkiState) -> some View {
+        HStack(spacing: 8) {
+            if widget.ankiShowRemainingCounts {
+                if isMediaOnLeft {
+                    countsAndRevealContent(anki: anki)
+                    questionTextContent(anki: anki)
+                    Spacer()
+                    syncButtonContent(anki: anki)
+                } else {
+                    syncButtonContent(anki: anki)
+                    questionTextContent(anki: anki)
+                    Spacer()
+                    countsAndRevealContent(anki: anki)
+                }
+            } else {
+                if isMediaOnLeft {
+                    revealButtonContent
+                    questionTextContent(anki: anki)
+                    Spacer()
+                    syncButtonContent(anki: anki)
+                } else {
+                    syncButtonContent(anki: anki)
+                    questionTextContent(anki: anki)
+                    revealButtonContent
+                }
+            }
+        }
+    }
+    
+    // MARK: - Answer Phase
+    
+    @ViewBuilder
+    private func answerPhaseContent(anki: AnkiState) -> some View {
+        HStack(spacing: 8) {
+            if isMediaOnLeft {
+                ratingContent(anki: anki)
+                if anki.currentCard?.soundFilename != nil {
+                    audioButtonContent(anki: anki)
+                }
+                answerTextContent(anki: anki)
+                Spacer()
+                syncButtonContent(anki: anki)
+            } else {
+                syncButtonContent(anki: anki)
+                answerTextContent(anki: anki)
+                Spacer()
+                ratingContent(anki: anki)
+                if anki.currentCard?.soundFilename != nil {
+                    audioButtonContent(anki: anki)
+                }
+            }
+        }
+    }
+    
+    // MARK: - Sub-Views
+    
+    @ViewBuilder
+    private func syncButtonContent(anki: AnkiState) -> some View {
+        Button(action: {
+            anki.syncDecks()
+        }) {
+            Image(systemName: "arrow.triangle.2.circlepath")
+                .font(.system(size: isSimulator ? 10 : 12))
+                .foregroundColor(Color(hex: widget.textColorHex).opacity(anki.isSyncing ? 0.4 : 1.0))
+                .frame(height: 12)
+        }
+        .buttonStyle(.plain)
+        .disabled(anki.isSyncing)
+    }
+    
+    @ViewBuilder
+    private func questionTextContent(anki: AnkiState) -> some View {
+        if widget.ankiCombineFurigana {
+            parseFuriganaRichText(
+                in: anki.questionPreview,
+                defaultColor: Color(hex: widget.textColorHex),
+                boldColor: Color(hex: widget.ankiBoldColorHex),
+                fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize,
+                furiganaFontSize: CGFloat(widget.ankiFuriganaFontSize),
+                verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
+                textOffset: CGFloat(widget.ankiFuriganaTextOffset)
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            parseBoldTags(in: anki.questionPreview, defaultColor: Color(hex: widget.textColorHex), boldColor: Color(hex: widget.ankiBoldColorHex), fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+    
+    @ViewBuilder
+    private func answerTextContent(anki: AnkiState) -> some View {
+        if widget.ankiCombineFurigana {
+            parseFuriganaRichText(
+                in: anki.answerPreview,
+                defaultColor: Color(hex: widget.textColorHex),
+                boldColor: Color(hex: widget.ankiBoldColorHex),
+                fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize,
+                furiganaFontSize: CGFloat(widget.ankiFuriganaFontSize),
+                verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
+                textOffset: CGFloat(widget.ankiFuriganaTextOffset)
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .onTapGesture {
+                anki.toggleTouchBarAudio()
+            }
+        } else {
+            parseBoldTags(in: anki.answerPreview, defaultColor: Color(hex: widget.textColorHex), boldColor: Color(hex: widget.ankiBoldColorHex), fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .onTapGesture {
+                    anki.toggleTouchBarAudio()
+                }
+        }
+    }
+    
+    @ViewBuilder
+    private func countsAndRevealContent(anki: AnkiState) -> some View {
+        VStack(spacing: 2) {
+            HStack(spacing: 3) {
+                Text("\(anki.newCount)")
+                    .font(.system(size: isSimulator ? 7 : 8, weight: .bold, design: .monospaced))
+                    .foregroundColor(.blue)
+                Text("\(anki.learnCount)")
+                    .font(.system(size: isSimulator ? 7 : 8, weight: .bold, design: .monospaced))
+                    .foregroundColor(.orange)
+                Text("\(anki.reviewCount)")
+                    .font(.system(size: isSimulator ? 7 : 8, weight: .bold, design: .monospaced))
+                    .foregroundColor(.green)
+            }
+            
+            Button(action: {
+                anki.revealAnswer()
+            }) {
+                Text("Reveal ▶")
+                    .font(.system(size: isSimulator ? 7 : 8, weight: .semibold))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 1)
+                    .background(Color(hex: widget.backgroundColorHex))
+                    .foregroundColor(Color(hex: widget.textColorHex))
+                    .cornerRadius(4)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+    
+    private var revealButtonContent: some View {
+        Button(action: {
+            state.ankiState.revealAnswer()
+        }) {
+            Text("Reveal ▶")
+                .font(.system(size: 11, weight: .semibold))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color(hex: widget.backgroundColorHex))
+                .foregroundColor(Color(hex: widget.textColorHex))
+                .cornerRadius(6)
+        }
+        .buttonStyle(.plain)
+    }
+    
+    @ViewBuilder
+    private func ratingContent(anki: AnkiState) -> some View {
+        HStack(spacing: 4) {
+            let count = anki.currentCard?.buttonCount ?? 4
+            let buttons = getRatingButtons(for: widget, buttonCount: count)
+            
+            ForEach(buttons, id: \.rating) { btn in
+                Button(action: {
+                    anki.submitRating(ease: btn.rating)
+                }) {
+                    Text(btn.title)
+                        .font(.system(size: isSimulator ? 10 : 11, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(btn.color)
+                        .cornerRadius(4)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func audioButtonContent(anki: AnkiState) -> some View {
+        Button(action: {
+            anki.toggleAudio()
+        }) {
+            Image(systemName: anki.isAudioPlaying ? "stop.fill" : "play.fill")
+                .font(.system(size: isSimulator ? 10 : 12))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color(hex: widget.backgroundColorHex))
+                .foregroundColor(Color(hex: widget.textColorHex))
+                .cornerRadius(6)
+        }
+        .buttonStyle(.plain)
     }
     
     private func parseBoldTags(in text: String, defaultColor: Color, boldColor: Color, fontSize: CGFloat) -> Text {
