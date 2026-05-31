@@ -642,7 +642,8 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                 boldColor: boldColor,
                 isButton: false,
                 manualFuriFontSize: CGFloat(widget.ankiFuriganaFontSize),
-                verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset)
+                verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
+                textVerticalOffset: CGFloat(widget.ankiFuriganaTextOffset)
             )
         }
         
@@ -676,7 +677,8 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                 isButton: true,
                 buttonAction: #selector(ankiTouchBarAudioTapped(_:)),
                 manualFuriFontSize: CGFloat(widget.ankiFuriganaFontSize),
-                verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset)
+                verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
+                textVerticalOffset: CGFloat(widget.ankiFuriganaTextOffset)
             )
         }
         
@@ -708,7 +710,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     /// Build a rich text view with furigana ruby annotations using vertical NSStackView.
     /// Parses both HTML tags (bold/italic/underline) and furigana [furi] patterns.
     /// Uses vertical stacking with zero spacing so furigana sits directly above kanji.
-    private func buildFuriganaRichLabel(text: String, fontSize: CGFloat, textColor: NSColor, boldColor: NSColor, isButton: Bool, buttonAction: Selector? = nil, manualFuriFontSize: CGFloat = 0, verticalOffset: CGFloat = 0) -> NSView {
+    private func buildFuriganaRichLabel(text: String, fontSize: CGFloat, textColor: NSColor, boldColor: NSColor, isButton: Bool, buttonAction: Selector? = nil, manualFuriFontSize: CGFloat = 0, verticalOffset: CGFloat = 0, textVerticalOffset: CGFloat = 0) -> NSView {
         // First parse HTML tags into styled chunks (same logic as parseBoldTags)
         struct StyledChunk {
             let text: String
@@ -847,8 +849,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                     NSLayoutConstraint.activate([
                         baseLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor),
                         baseLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-                        baseLabel.topAnchor.constraint(equalTo: container.topAnchor),
-                        baseLabel.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+                        baseLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: textVerticalOffset)
                     ])
                     
                     let furiLabel = NSTextField(labelWithString: furi)
@@ -869,7 +870,10 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                     
                     hStack.addArrangedSubview(container)
                 } else {
-                    // Plain text segment (no furigana)
+                    // Plain text segment (no furigana) — wrap in container to apply textVerticalOffset
+                    let container = NSView()
+                    container.translatesAutoresizingMaskIntoConstraints = false
+                    
                     let label = NSTextField(labelWithString: segment.text)
                     var baseFont = NSFont.systemFont(ofSize: fontSize, weight: chunk.isBold ? .bold : .regular)
                     if chunk.isItalic {
@@ -891,7 +895,16 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                         label.attributedStringValue = NSAttributedString(string: segment.text, attributes: attrs)
                     }
                     
-                    hStack.addArrangedSubview(label)
+                    container.addSubview(label)
+                    label.translatesAutoresizingMaskIntoConstraints = false
+                    NSLayoutConstraint.activate([
+                        label.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+                        label.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+                        label.topAnchor.constraint(equalTo: container.topAnchor, constant: textVerticalOffset),
+                        label.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+                    ])
+                    
+                    hStack.addArrangedSubview(container)
                 }
             }
         }

@@ -1143,19 +1143,22 @@ struct AnkiConfigView: View {
                                 .font(.system(size: 11))
                                 .frame(width: 120, alignment: .leading)
                             
-                            Slider(value: Binding(
-                                get: { widget.ankiFuriganaFontSize == 0 ? 8 : widget.ankiFuriganaFontSize },
+                            TextField("0", text: Binding(
+                                get: { widget.ankiFuriganaFontSize == 0 ? "0" : String(format: "%.0f", widget.ankiFuriganaFontSize) },
                                 set: { val in
-                                    state.widgets[index].ankiFuriganaFontSize = val
-                                    state.saveConfig()
-                                    state.ankiState.refreshTouchBar()
+                                    if let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                                        state.widgets[index].ankiFuriganaFontSize = max(0, num)
+                                        state.saveConfig()
+                                        state.ankiState.refreshTouchBar()
+                                    }
                                 }
-                            ), in: 3...16, step: 1)
+                            ))
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 80)
                             
-                            Text("\(Int(widget.ankiFuriganaFontSize == 0 ? 8 : widget.ankiFuriganaFontSize))pt")
-                                .font(.system(size: 10, design: .monospaced))
+                            Text("pt (0 = auto)")
+                                .font(.system(size: 10))
                                 .foregroundColor(.gray)
-                                .frame(width: 35, alignment: .trailing)
                         }
                         
                         HStack(spacing: 8) {
@@ -1163,19 +1166,45 @@ struct AnkiConfigView: View {
                                 .font(.system(size: 11))
                                 .frame(width: 120, alignment: .leading)
                             
-                            Slider(value: Binding(
-                                get: { widget.ankiFuriganaVerticalOffset },
+                            TextField("0", text: Binding(
+                                get: { String(format: "%.0f", widget.ankiFuriganaVerticalOffset) },
                                 set: { val in
-                                    state.widgets[index].ankiFuriganaVerticalOffset = val
-                                    state.saveConfig()
-                                    state.ankiState.refreshTouchBar()
+                                    if let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                                        state.widgets[index].ankiFuriganaVerticalOffset = num
+                                        state.saveConfig()
+                                        state.ankiState.refreshTouchBar()
+                                    }
                                 }
-                            ), in: -5...10, step: 1)
+                            ))
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 80)
                             
-                            Text("\(Int(widget.ankiFuriganaVerticalOffset))pt")
-                                .font(.system(size: 10, design: .monospaced))
+                            Text("pt")
+                                .font(.system(size: 10))
                                 .foregroundColor(.gray)
-                                .frame(width: 35, alignment: .trailing)
+                        }
+                        
+                        HStack(spacing: 8) {
+                            Text("Text Offset:")
+                                .font(.system(size: 11))
+                                .frame(width: 120, alignment: .leading)
+                            
+                            TextField("0", text: Binding(
+                                get: { String(format: "%.0f", widget.ankiFuriganaTextOffset) },
+                                set: { val in
+                                    if let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                                        state.widgets[index].ankiFuriganaTextOffset = max(0, num)
+                                        state.saveConfig()
+                                        state.ankiState.refreshTouchBar()
+                                    }
+                                }
+                            ))
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 80)
+                            
+                            Text("pt")
+                                .font(.system(size: 10))
+                                .foregroundColor(.gray)
                         }
                         
                         HStack(spacing: 8) {
@@ -1196,12 +1225,24 @@ struct AnkiConfigView: View {
                                 state.saveConfig()
                                 state.ankiState.refreshTouchBar()
                             }) {
-                                Text("Reset Offset")
+                                Text("Reset Furi Offset")
                                     .font(.system(size: 9))
                                     .foregroundColor(widget.ankiFuriganaVerticalOffset == 0 ? .gray : .orange)
                             }
                             .buttonStyle(.plain)
                             .disabled(widget.ankiFuriganaVerticalOffset == 0)
+                            
+                            Button(action: {
+                                state.widgets[index].ankiFuriganaTextOffset = 0
+                                state.saveConfig()
+                                state.ankiState.refreshTouchBar()
+                            }) {
+                                Text("Reset Text Offset")
+                                    .font(.system(size: 9))
+                                    .foregroundColor(widget.ankiFuriganaTextOffset == 0 ? .gray : .orange)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(widget.ankiFuriganaTextOffset == 0)
                         }
                     }
                     

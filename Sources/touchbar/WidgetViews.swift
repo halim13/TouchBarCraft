@@ -537,7 +537,7 @@ private func parseRichSegments(from text: String) -> [RichSegment] {
 /// Furigana text (e.g. 私[わたし]) is rendered as ruby text with the reading above the kanji.
 /// Uses VStack with tight spacing so total height fits within Touch Bar constraints.
 @MainActor
-public func parseFuriganaRichText(in text: String, defaultColor: Color, boldColor: Color, fontSize: CGFloat, furiganaFontSize: CGFloat = 0, verticalOffset: CGFloat = 0) -> some View {
+public func parseFuriganaRichText(in text: String, defaultColor: Color, boldColor: Color, fontSize: CGFloat, furiganaFontSize: CGFloat = 0, verticalOffset: CGFloat = 0, textOffset: CGFloat = 0) -> some View {
     let segments = parseRichSegments(from: text)
     
     // Calculate line heights for fitting within 30pt Touch Bar
@@ -590,6 +590,7 @@ public func parseFuriganaRichText(in text: String, defaultColor: Color, boldColo
             }
         }
     }
+    .offset(y: textOffset)
 }
 
 // MARK: - View extension for conditional modifiers
@@ -758,7 +759,8 @@ public struct WidgetAnkiView: View {
                             boldColor: Color(hex: widget.ankiBoldColorHex),
                             fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize,
                             furiganaFontSize: CGFloat(widget.ankiFuriganaFontSize),
-                            verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset)
+                            verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
+                            textOffset: CGFloat(widget.ankiFuriganaTextOffset)
                         )
                         .frame(maxWidth: .infinity, alignment: .leading)
                     } else {
@@ -822,7 +824,8 @@ public struct WidgetAnkiView: View {
                             boldColor: Color(hex: widget.ankiBoldColorHex),
                             fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize,
                             furiganaFontSize: CGFloat(widget.ankiFuriganaFontSize),
-                            verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset)
+                            verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
+                            textOffset: CGFloat(widget.ankiFuriganaTextOffset)
                         )
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .onTapGesture {
