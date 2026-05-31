@@ -25,7 +25,21 @@ public final class AppState {
     private var statsTimer: Timer?
     private let configPath: URL
 
-    public init() {
+        public func replaceAllWidgetsFromJSON(_ jsonString: String) -> Bool {
+        guard let data = jsonString.data(using: .utf8) else { return false }
+        do {
+            let imported = try JSONDecoder().decode([TouchBarWidget].self, from: data)
+            widgets = imported
+            selectedWidgetID = imported.first?.id
+            saveConfig()
+            return true
+        } catch {
+            print("Failed to decode widgets from JSON: \(error.localizedDescription)")
+            return false
+        }
+    }
+
+public init() {
         // Setup config path in user's home directory
         let homeDir = FileManager.default.homeDirectoryForCurrentUser
         self.configPath = homeDir.appendingPathComponent(".touchbarcraft.json")
@@ -329,7 +343,46 @@ public final class AppState {
         self.ramUsage = SystemMonitorHelper.shared.getRAMUsage()
     }
     
+        // MARK: - JSON Preset Export / Import
+    
+    public func copyWidgetAsJSON(_ widget: TouchBarWidget) -> String {
+        do {
+            let data = try JSONEncoder().encode(widget)
+            let jsonString = String(data: data, encoding: .utf8) ?? ""
+            return jsonString
+        } catch {
+            print("Failed to encode widget: \(error.localizedDescription)")
+            return ""
+        }
+    }
+    
+    public func copyAllWidgetsAsJSON() -> String {
+        do {
+            let data = try JSONEncoder().encode(widgets)
+            let jsonString = String(data: data, encoding: .utf8) ?? ""
+            return jsonString
+        } catch {
+            print("Failed to encode all widgets: \(error.localizedDescription)")
+            return ""
+        }
+    }
+    
+    public func pasteWidgetFromJSON(_ jsonString: String) -> Bool {
+        guard let data = jsonString.data(using: .utf8) else { return false }
+        do {
+            let widget = try JSONDecoder().decode(TouchBarWidget.self, from: data)
+            widgets.append(widget)
+            selectedWidgetID = widget.id
+            saveConfig()
+            return true
+        } catch {
+            print("Failed to decode widget from JSON: \(error.localizedDescription)")
+            return false
+        }
+    }
+    
     // MARK: - Autostart / Launch at Login
+
     
     public var isLaunchAtLoginEnabled: Bool {
         get {

@@ -156,6 +156,16 @@ public struct MainView: View {
                             Button("Anki Review") { state.addWidget(.anki) }
                             Button("Volume Slider") { state.addWidget(.volumeSlider) }
                             Button("Brightness Controls") { state.addWidget(.brightnessButtons) }
+                            Divider()
+                            Button("Paste Widget from JSON") {
+                                let pasteboard = NSPasteboard.general
+                                if let json = pasteboard.string(forType: .string) {
+                                    let success = state.pasteWidgetFromJSON(json)
+                                    if !success {
+                                        print("Failed to paste widget — clipboard doesn't contain valid widget JSON")
+                                    }
+                                }
+                            }
                         } label: {
                             Image(systemName: "plus.circle.fill")
                                 .font(.system(size: 14))
@@ -200,8 +210,25 @@ public struct MainView: View {
                                     
                                     Spacer()
                                     
-                                    // Move buttons
+                                    // Action buttons
                                     HStack(spacing: 4) {
+                                        // Copy JSON to clipboard
+                                        Button(action: {
+                                            let json = state.copyWidgetAsJSON(widget)
+                                            if !json.isEmpty {
+                                                let pasteboard = NSPasteboard.general
+                                                pasteboard.clearContents()
+                                                pasteboard.setString(json, forType: .string)
+                                            }
+                                        }) {
+                                            Image(systemName: "doc.on.doc")
+                                                .font(.system(size: 9))
+                                                .foregroundColor(.teal.opacity(0.8))
+                                                .frame(width: 14, height: 14)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .help("Copy widget as JSON")
+                                        
                                         let isFirst = index == 0
                                         Button(action: {
                                             withAnimation { moveUp(index: index) }
@@ -541,6 +568,68 @@ public struct MainView: View {
                                     }
                                 }
                                 .padding(.top, 4)
+                            }
+                            .padding(14)
+                            .background(Color.white.opacity(0.03))
+                            .cornerRadius(8)
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.05), lineWidth: 1))
+                            
+                            // JSON Presets Card
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("JSON Preset Export / Import")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(.teal)
+                                
+                                Text("Export all widgets as JSON to share with others or backup. Import overwrites the current layout.")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.gray)
+                                    .lineLimit(nil)
+                                
+                                HStack(spacing: 12) {
+                                    Button(action: {
+                                        let json = state.copyAllWidgetsAsJSON()
+                                        if !json.isEmpty {
+                                            let pasteboard = NSPasteboard.general
+                                            pasteboard.clearContents()
+                                            pasteboard.setString(json, forType: .string)
+                                            print("Copied \(state.widgets.count) widget(s) as JSON to clipboard")
+                                        }
+                                    }) {
+                                        HStack {
+                                            Image(systemName: "doc.on.clipboard")
+                                            Text("Copy All as JSON")
+                                        }
+                                        .padding(.vertical, 6)
+                                        .padding(.horizontal, 12)
+                                        .background(Color.teal.opacity(0.2))
+                                        .foregroundColor(.teal)
+                                        .cornerRadius(6)
+                                    }
+                                    .buttonStyle(.plain)
+                                    
+                                    Button(action: {
+                                        let pasteboard = NSPasteboard.general
+                                        if let json = pasteboard.string(forType: .string) {
+                                            let success = state.replaceAllWidgetsFromJSON(json)
+                                            if success {
+                                                print("Imported widgets from clipboard successfully")
+                                            } else {
+                                                print("Failed to import — clipboard doesn't contain valid widgets JSON")
+                                            }
+                                        }
+                                    }) {
+                                        HStack {
+                                            Image(systemName: "clipboard")
+                                            Text("Import from Clipboard")
+                                        }
+                                        .padding(.vertical, 6)
+                                        .padding(.horizontal, 12)
+                                        .background(Color.blue.opacity(0.2))
+                                        .foregroundColor(.blue)
+                                        .cornerRadius(6)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
                             }
                             .padding(14)
                             .background(Color.white.opacity(0.03))
