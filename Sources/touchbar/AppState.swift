@@ -52,6 +52,11 @@ public init() {
     // MARK: - Persistence
     
     public func saveConfig() {
+        // Sync Anki mute state to the Anki widget before saving
+        if let ankiWidgetIndex = widgets.firstIndex(where: { $0.type == .anki }) {
+            widgets[ankiWidgetIndex].ankiIsMuted = ankiState.isMuted
+        }
+        
         do {
             let data = try JSONEncoder().encode(widgets)
             try data.write(to: configPath)
@@ -71,6 +76,10 @@ public init() {
                 self.widgets = try JSONDecoder().decode([TouchBarWidget].self, from: data)
                 if !widgets.isEmpty {
                     self.selectedWidgetID = widgets.first?.id
+                    // Restore Anki mute state from the saved widget
+                    if let ankiWidget = widgets.first(where: { $0.type == .anki }) {
+                        ankiState.isMuted = ankiWidget.ankiIsMuted
+                    }
                     return
                 }
             } catch {

@@ -118,6 +118,9 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     public var ankiGoodColorHex: String
     public var ankiEasyColorHex: String
     
+    // Anki mute state persistence
+    public var ankiIsMuted: Bool
+
     // Anki show remaining counts toggle
     public var ankiShowRemainingCounts: Bool
     
@@ -177,6 +180,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         batteryLowThreshold: Int = 20,
         batteryFullThreshold: Int = 85,
         ankiBoldColorHex: String = "#FFD60A",
+        ankiIsMuted: Bool = false,
         ankiShowRemainingCounts: Bool = false,
         ankiCombineFurigana: Bool = false,
         ankiFuriganaFontSize: Double = 0,
@@ -226,6 +230,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.batteryLowThreshold = batteryLowThreshold
         self.batteryFullThreshold = batteryFullThreshold
         self.ankiBoldColorHex = ankiBoldColorHex
+        self.ankiIsMuted = ankiIsMuted
         self.ankiShowRemainingCounts = ankiShowRemainingCounts
         self.ankiCombineFurigana = ankiCombineFurigana
         self.ankiFuriganaFontSize = ankiFuriganaFontSize
@@ -247,6 +252,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         case fontSize, brightnessButtonSize, volumeSliderWidth, volumeShowIcon
         case batteryDisplayType, batteryChargingIcon, batteryFullIcon, batteryLowIcon, batteryNormalIcon, batteryLowThreshold, batteryFullThreshold
         case ankiBoldColorHex
+        case ankiIsMuted
         case ankiShowRemainingCounts
         case ankiCombineFurigana
         case ankiFuriganaFontSize
@@ -304,6 +310,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.batteryFullThreshold = try container.decodeIfPresent(Int.self, forKey: .batteryFullThreshold) ?? 85
         
         self.ankiBoldColorHex = try container.decodeIfPresent(String.self, forKey: .ankiBoldColorHex) ?? "#FFD60A"
+        self.ankiIsMuted = try container.decodeIfPresent(Bool.self, forKey: .ankiIsMuted) ?? false
         self.ankiShowRemainingCounts = try container.decodeIfPresent(Bool.self, forKey: .ankiShowRemainingCounts) ?? false
         self.ankiCombineFurigana = try container.decodeIfPresent(Bool.self, forKey: .ankiCombineFurigana) ?? false
         self.ankiFuriganaFontSize = try container.decodeIfPresent(Double.self, forKey: .ankiFuriganaFontSize) ?? 0

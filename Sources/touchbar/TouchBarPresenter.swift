@@ -448,6 +448,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         stack.distribution = .fill
         
         stack.translatesAutoresizingMaskIntoConstraints = false
+        // Set the total width of the Anki stack based on user's ankiTextMaxWidth setting
         stack.widthAnchor.constraint(equalToConstant: CGFloat(widget.ankiTextMaxWidth + 160)).isActive = true
 
         let anki = state.ankiState
@@ -590,12 +591,9 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                 audioButton!.setContentHuggingPriority(.required, for: .horizontal)
             }
             
-            let answerSpacer = NSView()
-            answerSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-            answerSpacer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-            
+
             if config.isMediaOnLeft {
-                // Left: Rating+Audio | Label | Spacer | Sync
+                // Left: Rating+Audio | Label | Sync
                 for btn in ratingButtons {
                     stack.addArrangedSubview(btn)
                 }
@@ -603,13 +601,11 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                     stack.addArrangedSubview(audio)
                 }
                 stack.addArrangedSubview(answerLabel)
-                stack.addArrangedSubview(answerSpacer)
                 stack.addArrangedSubview(syncButton)
             } else {
-                // Default: Sync | Label | Spacer | Rating+Audio
+                // Default: Sync | Label | Rating+Audio
                 stack.addArrangedSubview(syncButton)
                 stack.addArrangedSubview(answerLabel)
-                stack.addArrangedSubview(answerSpacer)
                 for btn in ratingButtons {
                     stack.addArrangedSubview(btn)
                 }
@@ -665,7 +661,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         
         let label = NSTextField(labelWithString: "")
         let prefix = NSMutableAttributedString(string: "", attributes: [.font: font, .foregroundColor: textColor])
-        let content = parseBoldTags(in: card.question, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
+        let content = parseBoldTags(in: stripFuriganaMarkers(card.question), defaultFont: font, defaultColor: textColor, boldColor: boldColor)
         prefix.append(content)
         
         label.attributedStringValue = prefix
@@ -685,7 +681,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         let boldColor = NSColor(Color(hex: widget.ankiBoldColorHex))
         
         if widget.ankiCombineFurigana {
-            return buildFuriganaRichLabel(
+            let container = buildFuriganaRichLabel(
                 text: card.answer,
                 fontSize: CGFloat(widget.fontSize),
                 textColor: textColor,
@@ -696,6 +692,9 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                 verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
                 textVerticalOffset: CGFloat(widget.ankiFuriganaTextOffset)
             )
+            // Allow the furigana label to compress when space is limited (Touch Bar width constraint)
+            container.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            return container
         }
         
         // Gunakan NSTextField dengan NSClickGestureRecognizer agar tap events
@@ -703,7 +702,8 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         // tidak konsisten menangani sentuhan di konteks NSTouchBar.
         let label = NSTextField(labelWithString: "")
         let prefix = NSMutableAttributedString(string: "", attributes: [.font: font, .foregroundColor: textColor])
-        let content = parseBoldTags(in: card.answer, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
+        // Strip furigana markers so text doesn't include [furigana] brackets — reduces label width
+        let content = parseBoldTags(in: stripFuriganaMarkers(card.answer), defaultFont: font, defaultColor: textColor, boldColor: boldColor)
         prefix.append(content)
         
         label.attributedStringValue = prefix
@@ -711,8 +711,8 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         label.cell?.truncatesLastVisibleLine = true
         
         label.translatesAutoresizingMaskIntoConstraints = false
+        // Label should be compressible so it doesn't push rating buttons off-screen
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        label.setContentHuggingPriority(.defaultLow, for: .horizontal)
         
         // Add click gesture recognizer for Touch Bar tap events
         let clickGesture = NSClickGestureRecognizer(target: self, action: #selector(ankiTouchBarAudioTapped(_:)))
@@ -837,6 +837,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                     baseLabel.drawsBackground = false
                     baseLabel.isEditable = false
                     baseLabel.isSelectable = false
+                    baseLabel.lineBreakMode = .byTruncatingTail
                     if chunk.isUnderline {
                         let attrs: [NSAttributedString.Key: Any] = [
                             .font: font,
@@ -862,6 +863,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                     furiLabel.drawsBackground = false
                     furiLabel.isEditable = false
                     furiLabel.isSelectable = false
+                    furiLabel.lineBreakMode = .byTruncatingTail
                     
                     container.addSubview(furiLabel)
                     furiLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -887,6 +889,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                     label.drawsBackground = false
                     label.isEditable = false
                     label.isSelectable = false
+                    label.lineBreakMode = .byTruncatingTail
                     
                     if chunk.isUnderline {
                         let attrs: [NSAttributedString.Key: Any] = [
@@ -912,20 +915,22 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         }
         
         if isButton, let action = buttonAction {
-            // Gunakan NSView container dengan gesture recognizer, bukan NSButton,
-            // karena NSButton dengan isBordered=false tidak reliable menangani
-            // sentuhan di konteks NSTouchBar.
-            let container = NSView()
+            // Gunakan NSStackView sebagai container.
+            // Biarkan container kompresibel (.defaultLow) agar parent stack
+            // bisa mengompresi label furigana ketika space terbatas, sama
+            // seperti perilaku label non-furigana.
+            hStack.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            hStack.setContentHuggingPriority(.defaultLow, for: .horizontal)
+            
+            let container = NSStackView(views: [hStack])
+            container.orientation = .horizontal
+            container.spacing = 0
+            container.alignment = .centerY
+            container.distribution = .fill
             container.translatesAutoresizingMaskIntoConstraints = false
-            container.addSubview(hStack)
-            hStack.translatesAutoresizingMaskIntoConstraints = false
-            NSLayoutConstraint.activate([
-                hStack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-                hStack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-                hStack.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-                hStack.topAnchor.constraint(greaterThanOrEqualTo: container.topAnchor),
-                hStack.bottomAnchor.constraint(lessThanOrEqualTo: container.bottomAnchor)
-            ])
+            
+            container.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            container.setContentHuggingPriority(.defaultLow, for: .horizontal)
             
             let clickGesture = NSClickGestureRecognizer(target: self, action: action)
             clickGesture.buttonMask = 1
@@ -996,6 +1001,26 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         verticalStack.addArrangedSubview(revealLabel)
         
         return verticalStack
+    }
+    
+    /// Strip furigana markers like [わたし] from text, leaving only the base kanji/hiragana text.
+    /// Used when ankiCombineFurigana is false — the plain text will be narrower without brackets.
+    private func stripFuriganaMarkers(_ text: String) -> String {
+        var result = ""
+        var remaining = text[...]
+        while !remaining.isEmpty {
+            if let openBracket = remaining.firstIndex(of: "["),
+               let closeBracket = remaining[openBracket...].firstIndex(of: "]"),
+               openBracket > remaining.startIndex {
+                let rawBase = String(remaining[..<openBracket])
+                result.append(rawBase)
+                remaining = remaining[remaining.index(after: closeBracket)...]
+            } else {
+                result.append(String(remaining))
+                break
+            }
+        }
+        return result
     }
     
     private func parseBoldTags(in text: String, defaultFont: NSFont, defaultColor: NSColor, boldColor: NSColor) -> NSAttributedString {

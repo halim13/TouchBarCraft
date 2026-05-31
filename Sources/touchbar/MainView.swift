@@ -1321,6 +1321,8 @@ struct AnkiConfigView: View {
                         get: { state.ankiState.isMuted },
                         set: { _ in
                             state.ankiState.toggleMute()
+                            state.saveConfig()
+                            StatusItemManager.shared.refreshMuteState()
                         }
                     ))
                     .toggleStyle(.checkbox)
