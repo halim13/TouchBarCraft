@@ -150,7 +150,7 @@ public struct WidgetBatteryAnimationView: View {
                     Image(nsImage: nsImg)
                         .resizable()
                         .scaledToFit()
-                        .frame(width: widget.customWidth > 0.0 ? widget.customWidth : (isSimulator ? 30 : 40), height: isSimulator ? 20 : 30)
+                        .frame(width: widget.customWidth > 0.0 ? widget.customWidth : 40, height: isSimulator ? 20 : 30)
                 } else {
                     fallbackIcon
                 }
@@ -158,7 +158,7 @@ public struct WidgetBatteryAnimationView: View {
                 Image(nsImage: nsImg)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: widget.customWidth > 0.0 ? widget.customWidth : (isSimulator ? 30 : 40), height: isSimulator ? 20 : 30)
+                    .frame(width: widget.customWidth > 0.0 ? widget.customWidth : 40, height: isSimulator ? 20 : 30)
             } else {
                 fallbackIcon
             }
@@ -301,7 +301,7 @@ public struct WidgetAnimationView: View {
                     Image(nsImage: image)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
-                        .frame(width: widget.customWidth > 0.0 ? widget.customWidth : (isSimulator ? 30 : 40), height: isSimulator ? 20 : 30)
+                        .frame(width: widget.customWidth > 0.0 ? widget.customWidth : 40, height: isSimulator ? 20 : 30)
                 }
             } else {
                 Text(currentFrame)
@@ -717,7 +717,7 @@ public struct WidgetAnkiView: View {
         .padding(.vertical, isSimulator ? 5 : 6)
         .background(Color(hex: widget.backgroundColorHex).opacity(0.15))
         .cornerRadius(6)
-        .frame(width: isSimulator ? widget.ankiTextMaxWidth * 0.48 + 100 : widget.ankiTextMaxWidth + 160)
+        .if(widget.customWidth > 0) { $0.frame(width: widget.customWidth) }
     }
     
     // MARK: - Offline
@@ -1144,7 +1144,7 @@ public struct WidgetVolumeSliderView: View {
                 setSystemVolume(Int(volume))
             })
             .accentColor(Color(hex: widget.backgroundColorHex))
-            .frame(width: isSimulator ? widget.volumeSliderWidth * 0.6 : widget.volumeSliderWidth)
+            .frame(width: widget.volumeSliderWidth)
             
             if widget.volumeShowIcon {
                 Image(systemName: "speaker.wave.3.fill")

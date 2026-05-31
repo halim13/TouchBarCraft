@@ -89,41 +89,48 @@ public struct MainView: View {
                 }
                 .padding(.horizontal, 20)
                 
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(state.widgets) { widget in
-                            Group {
-                                switch widget.type {
-                                case .label:
-                                    WidgetLabelView(widget: widget, state: state, isSimulator: true)
-                                case .button:
-                                    WidgetButtonView(widget: widget, state: state, isSimulator: true)
-                                case .systemMonitor:
-                                    WidgetSystemMonitorView(widget: widget, state: state, isSimulator: true)
-                                case .media:
-                                    WidgetMediaView(widget: widget, state: state, isSimulator: true)
-                                case .animation:
-                                    WidgetAnimationView(widget: widget, state: state, isSimulator: true)
-                                case .anki:
-                                    WidgetAnkiView(widget: widget, state: state, isSimulator: true)
-                                case .volumeSlider:
-                                    WidgetVolumeSliderView(widget: widget, state: state, isSimulator: true)
-                                case .brightnessButtons:
-                                    WidgetBrightnessButtonsView(widget: widget, state: state, isSimulator: true)
+                GeometryReader { geometry in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(state.widgets) { widget in
+                                Group {
+                                    switch widget.type {
+                                    case .label:
+                                        WidgetLabelView(widget: widget, state: state, isSimulator: true)
+                                    case .button:
+                                        WidgetButtonView(widget: widget, state: state, isSimulator: true)
+                                    case .systemMonitor:
+                                        WidgetSystemMonitorView(widget: widget, state: state, isSimulator: true)
+                                    case .media:
+                                        WidgetMediaView(widget: widget, state: state, isSimulator: true)
+                                    case .animation:
+                                        WidgetAnimationView(widget: widget, state: state, isSimulator: true)
+                                    case .anki:
+                                        WidgetAnkiView(widget: widget, state: state, isSimulator: true)
+                                    case .volumeSlider:
+                                        WidgetVolumeSliderView(widget: widget, state: state, isSimulator: true)
+                                    case .brightnessButtons:
+                                        WidgetBrightnessButtonsView(widget: widget, state: state, isSimulator: true)
+                                    }
+                                }
+                                .shadow(color: Color(hex: widget.backgroundColorHex).opacity(0.3), radius: 4)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(state.selectedWidgetID == widget.id ? Color.purple : Color.clear, lineWidth: 2)
+                                )
+                                .onTapGesture {
+                                    state.selectedWidgetID = widget.id
                                 }
                             }
-                            .shadow(color: Color(hex: widget.backgroundColorHex).opacity(0.3), radius: 4)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .stroke(state.selectedWidgetID == widget.id ? Color.purple : Color.clear, lineWidth: 2)
-                            )
-                            .onTapGesture {
-                                state.selectedWidgetID = widget.id
+                            
+                            if !state.widgets.isEmpty {
+                                Spacer(minLength: 0)
                             }
                         }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
+                        .frame(minWidth: geometry.size.width, alignment: .leading)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
                 }
                 .frame(maxWidth: .infinity, minHeight: 52)
                 .background(Color.black)
