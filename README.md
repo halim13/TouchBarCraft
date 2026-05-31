@@ -96,13 +96,8 @@ Below is an excerpt of the JSON preset for the **Anki Review** widget (the full 
 
 ---
 # Screenshoot
-<img width="1062" height="1012" alt="image" src="https://github.com/user-attachments/assets/4468442b-6d1c-42c0-9d63-c998c95e1597" />
-
----
-<img width="1004" height="30" alt="image" src="https://github.com/user-attachments/assets/51b02cd7-20f6-4dfe-90f2-5cec470b9c64" />
-
----
-<img width="2560" height="1920" alt="telegram-cloud-photo-size-5-6100572101749182025-w" src="https://github.com/user-attachments/assets/0fdba26d-8e04-4322-97ab-3143515c0d66" />
+<img width="1748" height="1043" alt="image" src="https://github.com/user-attachments/assets/3758471c-6ecc-407e-a66c-1bff9326693e" />
+<img width="1004" height="30" alt="image" src="https://github.com/user-attachments/assets/f8c6bbe6-03b1-4363-9eb5-710cd3b5a91c" />
 
 
 ---
