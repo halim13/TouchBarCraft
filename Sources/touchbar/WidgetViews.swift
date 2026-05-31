@@ -540,28 +540,12 @@ private func parseRichSegments(from text: String) -> [RichSegment] {
 public func parseFuriganaRichText(in text: String, defaultColor: Color, boldColor: Color, fontSize: CGFloat, furiganaFontSize: CGFloat = 0, verticalOffset: CGFloat = 0, textOffset: CGFloat = 0) -> some View {
     let segments = parseRichSegments(from: text)
     
-    // Calculate line heights for fitting within 30pt Touch Bar
-    let baseFont = NSFont.systemFont(ofSize: fontSize, weight: .regular)
-    let baseLineHeight = ceil(abs(baseFont.ascender) + abs(baseFont.descender) + baseFont.leading)
-    let touchBarHeight: CGFloat = 30
-    let reservedPadding: CGFloat = 2
-    let availableHeight = max(1, touchBarHeight - baseLineHeight - reservedPadding)
-    
-    // Use manual furigana font size if set (>0), otherwise calculate from kanji font
-    let idealFuriFontSize: CGFloat
-    if furiganaFontSize > 0 {
-        idealFuriFontSize = max(3, furiganaFontSize)
-    } else {
-        idealFuriFontSize = max(4, fontSize * 0.25)
-    }
-    let furiTestFont = NSFont.systemFont(ofSize: idealFuriFontSize, weight: .medium)
-    let furiLineHeight = ceil(abs(furiTestFont.ascender) + abs(furiTestFont.descender) + furiTestFont.leading)
+    // Determine furigana font size — use user-specified size if set, otherwise auto-calculate
     let computedFuriFontSize: CGFloat
-    if furiLineHeight > availableHeight {
-        let scaleFactor = availableHeight / furiLineHeight
-        computedFuriFontSize = max(3, floor(idealFuriFontSize * scaleFactor))
+    if furiganaFontSize > 0 {
+        computedFuriFontSize = max(3, furiganaFontSize)
     } else {
-        computedFuriFontSize = idealFuriFontSize
+        computedFuriFontSize = max(4, fontSize * 0.25)
     }
     
     return HStack(spacing: 0) {

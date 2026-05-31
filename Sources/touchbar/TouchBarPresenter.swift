@@ -797,27 +797,13 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                     // Uses NSView container so base label height matches plain text height
                     // Both kanji and furigana must fit within the 30pt Touch Bar
                     let baseFont = NSFont.systemFont(ofSize: fontSize, weight: chunk.isBold ? .bold : .regular)
-                    let baseLineHeight = ceil(abs(baseFont.ascender) + abs(baseFont.descender) + baseFont.leading)
                     
-                    // Calculate furigana font size that fits within 30pt Touch Bar
-                    let touchBarHeight: CGFloat = 30
-                    let reservedPadding: CGFloat = 2
-                    let availableHeight = max(1, touchBarHeight - baseLineHeight - reservedPadding)
-                    // Use manual furigana font size if set (>0), otherwise calculate from kanji font
-                    let idealFuriFontSize: CGFloat
-                    if manualFuriFontSize > 0 {
-                        idealFuriFontSize = max(3, manualFuriFontSize)
-                    } else {
-                        idealFuriFontSize = max(4, fontSize * 0.25)
-                    }
-                    let furiTestFont = NSFont.systemFont(ofSize: idealFuriFontSize, weight: .medium)
-                    let furiLineHeight = ceil(abs(furiTestFont.ascender) + abs(furiTestFont.descender) + furiTestFont.leading)
+                    // Determine furigana font size — use user-specified size if set, otherwise auto-calculate
                     let furiFontSize: CGFloat
-                    if furiLineHeight > availableHeight {
-                        let scaleFactor = availableHeight / furiLineHeight
-                        furiFontSize = max(3, floor(idealFuriFontSize * scaleFactor))
+                    if manualFuriFontSize > 0 {
+                        furiFontSize = max(3, manualFuriFontSize)
                     } else {
-                        furiFontSize = idealFuriFontSize
+                        furiFontSize = max(4, fontSize * 0.25)
                     }
                     
                     let container = NSView()
