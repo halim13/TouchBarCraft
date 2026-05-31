@@ -1101,7 +1101,34 @@ struct AnkiConfigView: View {
                 }
                 
                 Divider()
-
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Rating Button Custom Colors")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.gray)
+                    
+                    ratingColorRow(label: "Again Color:", hex: widget.ankiAgainColorHex) { state.widgets[index].ankiAgainColorHex = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                    ratingColorRow(label: "Hard Color:", hex: widget.ankiHardColorHex) { state.widgets[index].ankiHardColorHex = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                    ratingColorRow(label: "Good Color:", hex: widget.ankiGoodColorHex) { state.widgets[index].ankiGoodColorHex = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                    ratingColorRow(label: "Easy Color:", hex: widget.ankiEasyColorHex) { state.widgets[index].ankiEasyColorHex = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                    
+                    Button(action: {
+                        state.widgets[index].ankiAgainColorHex = "#E53333"
+                        state.widgets[index].ankiHardColorHex = "#E58019"
+                        state.widgets[index].ankiGoodColorHex = "#19B24C"
+                        state.widgets[index].ankiEasyColorHex = "#3380E5"
+                        state.saveConfig()
+                        state.ankiState.refreshTouchBar()
+                    }) {
+                        Text("Reset to Default Colors")
+                            .font(.system(size: 9))
+                            .foregroundColor(.orange)
+                    }
+                    .buttonStyle(.plain)
+                }
+                
+                Divider()
+                
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Remaining Cards Display")
                         .font(.system(size: 11, weight: .bold))
@@ -1300,6 +1327,31 @@ struct AnkiConfigView: View {
                 .font(.system(size: 11))
                 .foregroundColor(.gray)
             }
+        }
+    }
+    
+    @ViewBuilder
+    private func ratingColorRow(label: String, hex: String, onChange: @escaping (String) -> Void) -> some View {
+        HStack(spacing: 8) {
+            Text(label)
+                .font(.system(size: 11))
+                .frame(width: 120, alignment: .leading)
+            
+            TextField("#HEX", text: Binding(
+                get: { hex },
+                set: { onChange($0) }
+            ))
+            .textFieldStyle(.roundedBorder)
+            .frame(width: 100)
+            
+            ColorPicker("", selection: Binding(
+                get: { Color(hex: hex) },
+                set: { color in
+                    if let hexString = color.toHex() {
+                        onChange(hexString)
+                    }
+                }
+            ))
         }
     }
 }

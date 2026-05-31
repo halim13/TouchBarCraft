@@ -1091,10 +1091,10 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     private func getRatingButtons(for widget: TouchBarWidget, buttonCount: Int) -> [(title: String, rating: Int, color: NSColor)] {
         var result: [(title: String, rating: Int, color: NSColor)] = []
         
-        let redColor = NSColor(red: 0.9, green: 0.2, blue: 0.2, alpha: 1.0)
-        let orangeColor = NSColor(red: 0.9, green: 0.5, blue: 0.1, alpha: 1.0)
-        let greenColor = NSColor(red: 0.1, green: 0.7, blue: 0.3, alpha: 1.0)
-        let blueColor = NSColor(red: 0.2, green: 0.5, blue: 0.9, alpha: 1.0)
+        let againColor = NSColor(Color(hex: widget.ankiAgainColorHex))
+        let hardColor = NSColor(Color(hex: widget.ankiHardColorHex))
+        let goodColor = NSColor(Color(hex: widget.ankiGoodColorHex))
+        let easyColor = NSColor(Color(hex: widget.ankiEasyColorHex))
         
         // Anki ease ratings di AnkiConnect bersifat 1-indexed sesuai posisi tombol:
         //   2 tombol: 1=Again, 2=Good
@@ -1107,16 +1107,16 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         // buttonCount=2 menggunakan ease=2 (tombol kedua = Good) sebagai fallback.
         
         if widget.ankiShowAgain {
-            result.append((title: "Again", rating: 1, color: redColor))
+            result.append((title: "Again", rating: 1, color: againColor))
         }
         if widget.ankiShowHard && buttonCount >= 2 {
             // ease=2 valid untuk semua buttonCount:
             //   2 tombol -> Good, 3 tombol -> Good, 4 tombol -> Hard
-            result.append((title: "Hard", rating: 2, color: orangeColor))
+            result.append((title: "Hard", rating: 2, color: hardColor))
         }
         if widget.ankiShowGood && buttonCount >= 2 {
             let ease = buttonCount == 2 ? 2 : 3
-            result.append((title: "Good", rating: ease, color: greenColor))
+            result.append((title: "Good", rating: ease, color: goodColor))
         }
         if widget.ankiShowEasy {
             let ease: Int
@@ -1129,7 +1129,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                 // dengan ease=2 (tombol kedua = Good) agar tombol tetap muncul.
                 ease = 2
             }
-            result.append((title: "Easy", rating: ease, color: blueColor))
+            result.append((title: "Easy", rating: ease, color: easyColor))
         }
         
         // Deduplicate: if multiple checked buttons map to the same ease value (happens

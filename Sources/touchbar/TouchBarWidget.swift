@@ -112,6 +112,12 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     // Anki bold custom color
     public var ankiBoldColorHex: String
     
+    // Anki rating button custom colors
+    public var ankiAgainColorHex: String
+    public var ankiHardColorHex: String
+    public var ankiGoodColorHex: String
+    public var ankiEasyColorHex: String
+    
     // Anki show remaining counts toggle
     public var ankiShowRemainingCounts: Bool
     
@@ -176,6 +182,10 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         ankiFuriganaFontSize: Double = 0,
         ankiFuriganaVerticalOffset: Double = 0,
         ankiFuriganaTextOffset: Double = 0,
+        ankiAgainColorHex: String = "#E53333",
+        ankiHardColorHex: String = "#E58019",
+        ankiGoodColorHex: String = "#19B24C",
+        ankiEasyColorHex: String = "#3380E5",
         customGifPath: String = "",
         customWidth: Double = 0.0
     ) {
@@ -221,6 +231,10 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiFuriganaFontSize = ankiFuriganaFontSize
         self.ankiFuriganaVerticalOffset = ankiFuriganaVerticalOffset
         self.ankiFuriganaTextOffset = ankiFuriganaTextOffset
+        self.ankiAgainColorHex = ankiAgainColorHex
+        self.ankiHardColorHex = ankiHardColorHex
+        self.ankiGoodColorHex = ankiGoodColorHex
+        self.ankiEasyColorHex = ankiEasyColorHex
         self.customGifPath = customGifPath
         self.customWidth = customWidth
     }
@@ -238,6 +252,10 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         case ankiFuriganaFontSize
         case ankiFuriganaVerticalOffset
         case ankiFuriganaTextOffset
+        case ankiAgainColorHex
+        case ankiHardColorHex
+        case ankiGoodColorHex
+        case ankiEasyColorHex
         case customGifPath
         case customWidth
     }
@@ -291,6 +309,10 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiFuriganaFontSize = try container.decodeIfPresent(Double.self, forKey: .ankiFuriganaFontSize) ?? 0
         self.ankiFuriganaVerticalOffset = try container.decodeIfPresent(Double.self, forKey: .ankiFuriganaVerticalOffset) ?? 0
         self.ankiFuriganaTextOffset = try container.decodeIfPresent(Double.self, forKey: .ankiFuriganaTextOffset) ?? 0
+        self.ankiAgainColorHex = try container.decodeIfPresent(String.self, forKey: .ankiAgainColorHex) ?? "#E53333"
+        self.ankiHardColorHex = try container.decodeIfPresent(String.self, forKey: .ankiHardColorHex) ?? "#E58019"
+        self.ankiGoodColorHex = try container.decodeIfPresent(String.self, forKey: .ankiGoodColorHex) ?? "#19B24C"
+        self.ankiEasyColorHex = try container.decodeIfPresent(String.self, forKey: .ankiEasyColorHex) ?? "#3380E5"
         
         self.customGifPath = try container.decodeIfPresent(String.self, forKey: .customGifPath) ?? ""
         self.customWidth = try container.decodeIfPresent(Double.self, forKey: .customWidth) ?? 0.0

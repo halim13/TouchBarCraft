@@ -1075,6 +1075,11 @@ public struct WidgetAnkiView: View {
     private func getRatingButtons(for widget: TouchBarWidget, buttonCount: Int) -> [(title: String, rating: Int, color: Color)] {
         var result: [(title: String, rating: Int, color: Color)] = []
         
+        let againColor = Color(hex: widget.ankiAgainColorHex)
+        let hardColor = Color(hex: widget.ankiHardColorHex)
+        let goodColor = Color(hex: widget.ankiGoodColorHex)
+        let easyColor = Color(hex: widget.ankiEasyColorHex)
+        
         // Anki ease ratings di AnkiConnect bersifat 1-indexed sesuai posisi tombol:
         //   2 tombol: 1=Again, 2=Good
         //   3 tombol: 1=Again, 2=Good, 3=Easy
@@ -1086,16 +1091,16 @@ public struct WidgetAnkiView: View {
         // buttonCount=2 menggunakan ease=2 (tombol kedua = Good) sebagai fallback.
         
         if widget.ankiShowAgain {
-            result.append((title: "Again", rating: 1, color: .red))
+            result.append((title: "Again", rating: 1, color: againColor))
         }
         if widget.ankiShowHard && buttonCount >= 2 {
             // ease=2 valid untuk semua buttonCount:
             //   2 tombol -> Good, 3 tombol -> Good, 4 tombol -> Hard
-            result.append((title: "Hard", rating: 2, color: .orange))
+            result.append((title: "Hard", rating: 2, color: hardColor))
         }
         if widget.ankiShowGood && buttonCount >= 2 {
             let ease = buttonCount == 2 ? 2 : 3
-            result.append((title: "Good", rating: ease, color: .green))
+            result.append((title: "Good", rating: ease, color: goodColor))
         }
         if widget.ankiShowEasy {
             let ease: Int
@@ -1108,7 +1113,7 @@ public struct WidgetAnkiView: View {
                 // dengan ease=2 (tombol kedua = Good) agar tombol tetap muncul.
                 ease = 2
             }
-            result.append((title: "Easy", rating: ease, color: .blue))
+            result.append((title: "Easy", rating: ease, color: easyColor))
         }
         
         // Deduplicate: if multiple checked buttons map to the same ease value (happens
