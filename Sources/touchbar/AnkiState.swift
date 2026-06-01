@@ -210,23 +210,21 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
     public func revealAnswer() {
         guard currentCard != nil else { return }
         
-        if isMuted {
-            // Ketika mute aktif, jangan panggil guiShowAnswer agar Anki desktop
-            // tidak otomatis memutar audio. Tampilkan answer secara lokal.
-            self.isShowingAnswer = true
-            refreshTouchBar()
-            Task {
-                // Tetap mulai card timer agar statistik review akurat
-                await AnkiConnectClient.shared.startCardTimer()
+        self.isShowingAnswer = true
+        refreshTouchBar()
+        
+        Task {
+            // Selalu panggil guiShowAnswer agar state Anki tetap sinkron
+            // (diperlukan agar guiAnswerCard berfungsi saat user menekan rating).
+            // Saat mute aktif, audio tidak diputar melalui app ini karena
+            // playAudio/playTouchBarAudio dicegah oleh isMuted.
+            let shown = await AnkiConnectClient.shared.showAnswer()
+            if !shown {
+                // Jika gagal, reset isShowingAnswer agar user bisa coba lagi
+                self.isShowingAnswer = false
+                refreshTouchBar()
             }
-        } else {
-            Task {
-                let shown = await AnkiConnectClient.shared.showAnswer()
-                if shown {
-                    self.isShowingAnswer = true
-                    refreshTouchBar()
-                }
-            }
+            await AnkiConnectClient.shared.startCardTimer()
         }
     }
     
@@ -332,14 +330,14 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
         currentSound?.stop()
         currentSound = nil
         isAudioPlaying = false
-        refreshTouchBar()
+        // refreshTouchBar()
     }
     
     public func stopTouchBarAudio() {
         currentTouchBarSound?.stop()
         currentTouchBarSound = nil
         isTouchBarAudioPlaying = false
-        refreshTouchBar()
+        // refreshTouchBar()
     }
     
     public func toggleTouchBarAudio() {
@@ -371,7 +369,7 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
                             self.currentTouchBarSound = sound
                             self.isTouchBarAudioPlaying = true
                             sound.play()
-                            self.refreshTouchBar()
+                            // self.refreshTouchBar()
                         } catch {
                             print("AnkiState: Failed to play Touch Bar audio using AVAudioPlayer: \(error)")
                         }
@@ -404,7 +402,7 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
                             self.currentSound = sound
                             self.isAudioPlaying = true
                             sound.play()
-                            self.refreshTouchBar()
+                            // self.refreshTouchBar()
                         } catch {
                             print("AnkiState: Failed to play audio using AVAudioPlayer: \(error)")
                         }
@@ -427,7 +425,7 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
                 self.isAudioPlaying = false
                 self.currentSound = nil
             }
-            self.refreshTouchBar()
+            // self.refreshTouchBar()
         }
     }
 }
