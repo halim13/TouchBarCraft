@@ -8,6 +8,10 @@ public final class StatusItemManager: NSObject {
     private var statusItem: NSStatusItem?
     private var settingsWindow: NSWindow?
     private var muteMenuItem: NSMenuItem?
+    private var furiganaMenuItem: NSMenuItem?
+    private var ankiQuestionMenuItem: NSMenuItem?
+    private var ankiAnswerMenuItem: NSMenuItem?
+    private var ankiDeckMenuItem: NSMenuItem?
     
     private override init() {
         super.init()
@@ -53,12 +57,12 @@ public final class StatusItemManager: NSObject {
         settingsItem.target = self
         menu.addItem(settingsItem)
         
+        menu.addItem(NSMenuItem.separator())
+        
         let toggleLayoutItem = NSMenuItem(title: "Toggle Anki Touch Bar Layout", action: #selector(toggleAnkiLayout), keyEquivalent: "t")
         toggleLayoutItem.target = self
         toggleLayoutItem.keyEquivalentModifierMask = [.command]
         menu.addItem(toggleLayoutItem)
-        
-        menu.addItem(NSMenuItem.separator())
         
         // Mute toggle
         let muteItem = NSMenuItem(
@@ -74,6 +78,49 @@ public final class StatusItemManager: NSObject {
         menu.addItem(muteItem)
         self.muteMenuItem = muteItem
         
+        // Furigana toggle
+        let furiganaOn = isFuriganaEnabled()
+        let furiganaItem = NSMenuItem(
+            title: furiganaOn ? "Hide Furigana" : "Show Furigana",
+            action: #selector(toggleFurigana),
+            keyEquivalent: "f"
+        )
+        furiganaItem.target = self
+        furiganaItem.keyEquivalentModifierMask = [.command]
+        if furiganaOn {
+            furiganaItem.state = .on
+        }
+        menu.addItem(furiganaItem)
+        self.furiganaMenuItem = furiganaItem
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        // menu.addItem(NSMenuItem.separator())
+        
+        // Anki Card Info Section
+        // let ankiHeader = NSMenuItem(title: "Anki Card Info", action: nil, keyEquivalent: "")
+        // ankiHeader.isEnabled = false
+        // ankiHeader.attributedTitle = NSAttributedString(
+        //     string: "Anki Card Info",
+        //     attributes: [
+        //         .font: NSFont.boldSystemFont(ofSize: 11),
+        //         .foregroundColor: NSColor.systemPurple
+        //     ]
+        // )
+        // menu.addItem(ankiHeader)
+        
+        // ankiDeckMenuItem = NSMenuItem(title: "No deck selected", action: nil, keyEquivalent: "")
+        // ankiDeckMenuItem?.isEnabled = false
+        // menu.addItem(ankiDeckMenuItem!)
+        
+        // ankiQuestionMenuItem = NSMenuItem(title: "Question: —", action: nil, keyEquivalent: "")
+        // ankiQuestionMenuItem?.isEnabled = false
+        // menu.addItem(ankiQuestionMenuItem!)
+        
+        // ankiAnswerMenuItem = NSMenuItem(title: "Answer: —", action: nil, keyEquivalent: "")
+        // ankiAnswerMenuItem?.isEnabled = false
+        // menu.addItem(ankiAnswerMenuItem!)
+        
         menu.addItem(NSMenuItem.separator())
         
         let quitItem = NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q")
@@ -81,6 +128,9 @@ public final class StatusItemManager: NSObject {
         menu.addItem(quitItem)
         
         statusItem?.menu = menu
+        
+        // Initial refresh of card info
+        refreshAnkiCardInfo()
     }
     
     /// Update the mute menu item and tray icon without fully reconstructing the menu.
@@ -131,6 +181,117 @@ public final class StatusItemManager: NSObject {
         state.ankiState.toggleMute()
         state.saveConfig()
         refreshMuteState()
+    }
+    
+    @objc private func toggleFurigana() {
+        guard let state = AppState.shared else { return }
+        guard let ankiIndex = state.widgets.firstIndex(where: { $0.type == .anki }) else { return }
+        
+        state.widgets[ankiIndex].ankiCombineFurigana.toggle()
+        state.saveConfig()
+        refreshFuriganaState()
+        refreshAnkiCardInfo()
+    }
+    
+    private func isFuriganaEnabled() -> Bool {
+        guard let state = AppState.shared else { return false }
+        return state.widgets.first(where: { $0.type == .anki })?.ankiCombineFurigana ?? false
+    }
+    
+    /// Update the furigana menu item title and state.
+    /// Call this after toggling furigana from anywhere (settings panel, tray, etc.)
+    public func refreshFuriganaState() {
+        let enabled = isFuriganaEnabled()
+        furiganaMenuItem?.title = enabled ? "Hide Furigana" : "Show Furigana"
+        furiganaMenuItem?.state = enabled ? .on : .off
+        // Also refresh card info display in tray
+        refreshAnkiCardInfo()
+    }
+    
+    /// Update the Anki card info menu items with current card data (includes furigana).
+    /// Call this whenever the card changes (load, reveal, rate).
+    public func refreshAnkiCardInfo() {
+        guard let state = AppState.shared else { return }
+        let anki = state.ankiState
+        
+        if let card = anki.currentCard {
+            // Get the active widget for furigana settings
+            let widget = state.widgets.first(where: { $0.type == .anki })
+            let combineFurigana = widget?.ankiCombineFurigana ?? false
+            
+            // Deck name
+            ankiDeckMenuItem?.title = "Deck: \(card.deckName)"
+            ankiDeckMenuItem?.isEnabled = true
+            
+            // Question — strip HTML always; keep furigana [reading] brackets if enabled
+            let qStripped = stripHTML(card.question)
+            let qDisplay: String
+            if combineFurigana {
+                qDisplay = "Q: \(qStripped)"
+            } else {
+                let noFuri = stripFurigana(qStripped)
+                qDisplay = "Q: \(noFuri)"
+            }
+            ankiQuestionMenuItem?.title = truncateMenuText(qDisplay, maxLen: 60)
+            ankiQuestionMenuItem?.isEnabled = true
+            ankiQuestionMenuItem?.toolTip = qDisplay
+            
+            // Answer — strip HTML always; keep furigana [reading] brackets if enabled
+            if anki.isShowingAnswer {
+                let aStripped = stripHTML(card.answer)
+                let aDisplay: String
+                if combineFurigana {
+                    aDisplay = "A: \(aStripped)"
+                } else {
+                    let noFuri = stripFurigana(aStripped)
+                    aDisplay = "A: \(noFuri)"
+                }
+                ankiAnswerMenuItem?.title = truncateMenuText(aDisplay, maxLen: 60)
+                ankiAnswerMenuItem?.isEnabled = true
+                ankiAnswerMenuItem?.toolTip = aDisplay
+            } else {
+                ankiAnswerMenuItem?.title = "Answer: (reveal first)"
+                ankiAnswerMenuItem?.isEnabled = false
+                ankiAnswerMenuItem?.toolTip = nil
+            }
+        } else {
+            ankiDeckMenuItem?.title = anki.isConnected ? "No card loaded" : "Anki disconnected"
+            ankiDeckMenuItem?.isEnabled = false
+            ankiQuestionMenuItem?.title = "Question: —"
+            ankiQuestionMenuItem?.isEnabled = false
+            ankiQuestionMenuItem?.toolTip = nil
+            ankiAnswerMenuItem?.title = "Answer: —"
+            ankiAnswerMenuItem?.isEnabled = false
+            ankiAnswerMenuItem?.toolTip = nil
+        }
+    }
+    
+    /// Truncate text for menu display with ellipsis
+    private func truncateMenuText(_ text: String, maxLen: Int) -> String {
+        if text.count <= maxLen { return text }
+        return String(text.prefix(maxLen - 1)) + "…"
+    }
+    
+    /// Strip HTML tags, keeping furigana [reading] brackets intact
+    private func stripHTML(_ text: String) -> String {
+        var result = text
+        result = result.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+        result = result.replacingOccurrences(of: "&nbsp;", with: " ")
+        result = result.replacingOccurrences(of: "&amp;", with: "&")
+        result = result.replacingOccurrences(of: "&lt;", with: "<")
+        result = result.replacingOccurrences(of: "&gt;", with: ">")
+        result = result.replacingOccurrences(of: "&quot;", with: "\"")
+        result = result.replacingOccurrences(of: "&#39;", with: "'")
+        result = result.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    
+    /// Strip furigana [reading] brackets and their content
+    private func stripFurigana(_ text: String) -> String {
+        var result = text
+        result = result.replacingOccurrences(of: "\\[[^\\]]+\\]", with: "", options: .regularExpression)
+        result = result.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
     @objc private func quitApp() {

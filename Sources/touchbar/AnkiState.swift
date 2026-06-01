@@ -207,8 +207,9 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
             self.reviewCount = 0
         }
         
-        // Refresh touch bar to show new card
+        // Refresh touch bar and system tray menu to show new card
         refreshTouchBar()
+        StatusItemManager.shared.refreshAnkiCardInfo()
     }
     
     /// Reveal the answer for the current card
@@ -217,6 +218,7 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
         
         self.isShowingAnswer = true
         refreshTouchBar()
+        StatusItemManager.shared.refreshAnkiCardInfo()
         
         Task {
             if isMuted {
@@ -232,6 +234,7 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
                     // Jika gagal, reset isShowingAnswer agar user bisa coba lagi
                     self.isShowingAnswer = false
                     refreshTouchBar()
+                    StatusItemManager.shared.refreshAnkiCardInfo()
                 }
             }
             await AnkiConnectClient.shared.startCardTimer()
@@ -263,6 +266,7 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
             } else {
                 self.isLoading = false
                 self.connectionError = "Gagal mengirim rating"
+                StatusItemManager.shared.refreshAnkiCardInfo()
             }
         }
     }

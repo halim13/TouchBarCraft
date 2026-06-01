@@ -1163,6 +1163,7 @@ struct AnkiConfigView: View {
                             state.widgets[index].ankiCombineFurigana = val
                             state.saveConfig()
                             state.ankiState.refreshTouchBar()
+                            StatusItemManager.shared.refreshFuriganaState()
                         }
                     ))
                     .toggleStyle(.checkbox)
