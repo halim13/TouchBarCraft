@@ -39,6 +39,10 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
     public var isTouchBarAudioPlaying: Bool = false
     private var currentTouchBarSound: AVAudioPlayer? = nil
     
+    /// When muted, guiShowAnswer is skipped on reveal to prevent Anki from playing audio natively.
+    /// This flag ensures guiShowAnswer is called right before guiAnswerCard on rating.
+    private var needsGuiShowAnswer: Bool = false
+    
     private var connectionCheckTimer: Timer?
     private var wasConnectedBefore: Bool = false
     private var hasRestoredDeck: Bool = false
@@ -183,6 +187,7 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
         let card = await AnkiConnectClient.shared.getCurrentCard(questionField: qField, answerField: aField, audioField: audioField, touchBarAudioField: touchBarAudioField)
         self.currentCard = card
         self.isShowingAnswer = false
+        self.needsGuiShowAnswer = false
         self.isLoading = false
         
         if let card = card {
@@ -214,15 +219,20 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
         refreshTouchBar()
         
         Task {
-            // Selalu panggil guiShowAnswer agar state Anki tetap sinkron
-            // (diperlukan agar guiAnswerCard berfungsi saat user menekan rating).
-            // Saat mute aktif, audio tidak diputar melalui app ini karena
-            // playAudio/playTouchBarAudio dicegah oleh isMuted.
-            let shown = await AnkiConnectClient.shared.showAnswer()
-            if !shown {
-                // Jika gagal, reset isShowingAnswer agar user bisa coba lagi
-                self.isShowingAnswer = false
-                refreshTouchBar()
+            if isMuted {
+                // Saat mute aktif, skip guiShowAnswer agar Anki tidak memutar audio secara native.
+                // Tandai bahwa guiShowAnswer perlu dipanggil sebelum guiAnswerCard nanti.
+                needsGuiShowAnswer = true
+            } else {
+                needsGuiShowAnswer = false  // pastikan tidak ada stale flag
+                // Panggil guiShowAnswer agar state Anki tetap sinkron
+                // (diperlukan agar guiAnswerCard berfungsi saat user menekan rating).
+                let shown = await AnkiConnectClient.shared.showAnswer()
+                if !shown {
+                    // Jika gagal, reset isShowingAnswer agar user bisa coba lagi
+                    self.isShowingAnswer = false
+                    refreshTouchBar()
+                }
             }
             await AnkiConnectClient.shared.startCardTimer()
         }
@@ -238,6 +248,13 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
         stopTouchBarAudio()
         
         Task {
+            if needsGuiShowAnswer {
+                // Jika reveal sebelumnya di-skip karena mute, panggil guiShowAnswer
+                // sekarang agar guiAnswerCard bisa berfungsi.
+                _ = await AnkiConnectClient.shared.showAnswer()
+                needsGuiShowAnswer = false
+            }
+            
             let answered = await AnkiConnectClient.shared.answerCard(ease: ease)
             if answered {
                 self.cardsReviewed += 1
