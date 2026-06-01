@@ -232,7 +232,7 @@ public final class StatusItemManager: NSObject {
                 let noFuri = stripFurigana(qStripped)
                 qDisplay = "Q: \(noFuri)"
             }
-            ankiQuestionMenuItem?.title = truncateMenuText(qDisplay, maxLen: 60)
+            ankiQuestionMenuItem?.title = combineFurigana ? qDisplay : truncateMenuText(qDisplay, maxLen: 60)
             ankiQuestionMenuItem?.isEnabled = true
             ankiQuestionMenuItem?.toolTip = qDisplay
             
@@ -246,7 +246,7 @@ public final class StatusItemManager: NSObject {
                     let noFuri = stripFurigana(aStripped)
                     aDisplay = "A: \(noFuri)"
                 }
-                ankiAnswerMenuItem?.title = truncateMenuText(aDisplay, maxLen: 60)
+                ankiAnswerMenuItem?.title = combineFurigana ? aDisplay : truncateMenuText(aDisplay, maxLen: 60)
                 ankiAnswerMenuItem?.isEnabled = true
                 ankiAnswerMenuItem?.toolTip = aDisplay
             } else {
