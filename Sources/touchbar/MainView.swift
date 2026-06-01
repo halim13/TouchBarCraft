@@ -1275,6 +1275,29 @@ struct AnkiConfigView: View {
                             .buttonStyle(.plain)
                             .disabled(widget.ankiFuriganaTextOffset == 0)
                         }
+                    } else {
+                        HStack(spacing: 8) {
+                            Text("Answer Text Offset:")
+                                .font(.system(size: 11))
+                                .frame(width: 120, alignment: .leading)
+                            
+                            TextField("0", text: Binding(
+                                get: { String(format: "%.0f", widget.ankiAnswerTextOffset) },
+                                set: { val in
+                                    if let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                                        state.widgets[index].ankiAnswerTextOffset = num
+                                        state.saveConfig()
+                                        state.ankiState.refreshTouchBar()
+                                    }
+                                }
+                            ))
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 80)
+                            
+                            Text("pt")
+                                .font(.system(size: 10))
+                                .foregroundColor(.gray)
+                        }
                     }
                     
                     Text("When enabled, Japanese furigana readings in brackets will be displayed above the kanji text.")
