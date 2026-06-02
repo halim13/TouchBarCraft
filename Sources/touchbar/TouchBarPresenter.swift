@@ -684,8 +684,14 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         let boldColor = NSColor(Color(hex: widget.ankiBoldColorHex))
         let textVerticalOffset = CGFloat(widget.ankiFuriganaTextOffset)
         
+        // Prep card type label
+        let typeLabel = card.cardTypeLabel
+        let hasType = !typeLabel.isEmpty
+        
+        // Build content
+        let contentView: NSView
         if widget.ankiCombineFurigana {
-            return buildFuriganaRichLabel(
+            contentView = buildFuriganaRichLabel(
                 text: card.question,
                 fontSize: CGFloat(widget.fontSize),
                 textColor: textColor,
@@ -696,10 +702,41 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                 textVerticalOffset: textVerticalOffset,
                 ankiTrimText: widget.ankiTrimText
             )
+        } else {
+            let attributed = parseBoldTags(in: card.question, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
+            contentView = makeLabelContainer(attributedString: attributed, textVerticalOffset: textVerticalOffset, ankiTrimText: widget.ankiTrimText)
         }
         
-        let attributed = parseBoldTags(in: card.question, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
-        return makeLabelContainer(attributedString: attributed, textVerticalOffset: textVerticalOffset, ankiTrimText: widget.ankiTrimText)
+        // Wrap in horizontal stack with card type badge
+        if hasType {
+            let hStack = NSStackView()
+            hStack.orientation = .horizontal
+            hStack.spacing = 4
+            hStack.alignment = .centerY
+            
+            let typeField = NSTextField(labelWithString: typeLabel)
+            typeField.font = NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .bold)
+            let typeColor = NSColor(Color(hex: card.cardTypeColorHex)).withAlphaComponent(0.9)
+            typeField.textColor = typeColor
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .bold),
+                .foregroundColor: typeColor,
+                // .underlineStyle: NSUnderlineStyle.single.rawValue
+            ]
+            typeField.attributedStringValue = NSAttributedString(string: typeLabel, attributes: attrs)
+            typeField.isBezeled = false
+            typeField.drawsBackground = false
+            typeField.isEditable = false
+            typeField.isSelectable = false
+            typeField.setContentCompressionResistancePriority(.required, for: .horizontal)
+            typeField.setContentHuggingPriority(.required, for: .horizontal)
+            
+            // hStack.addArrangedSubview(typeField)
+            hStack.addArrangedSubview(contentView)
+            return hStack
+        }
+        
+        return contentView
     }
     
     private func buildAnswerLabel(for widget: TouchBarWidget, card: AnkiCard, anki: AnkiState) -> NSView {
@@ -976,9 +1013,33 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     }
     
     private func buildCountsAndRevealStack(for widget: TouchBarWidget, anki: AnkiState) -> NSStackView {
+        let verticalStack = NSStackView()
+        verticalStack.orientation = .vertical
+        verticalStack.alignment = .centerX
+        verticalStack.distribution = .gravityAreas
+        verticalStack.spacing = 2
+        verticalStack.heightAnchor.constraint(equalToConstant: 28).isActive = true
+
         // Build counts attributed string (N  L  R in blue/orange/green)
+        // Prepend card type label in bold + underline if available
         let countFont = NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .bold)
         let attrStr = NSMutableAttributedString()
+        
+        // Card type indicator: bold + underline with type-specific color
+        if let card = anki.currentCard {
+            let typeLabel = card.cardTypeLabel
+            if !typeLabel.isEmpty {
+                let typeFont = NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .bold)
+                let typeColor = NSColor(Color(hex: card.cardTypeColorHex)).withAlphaComponent(0.9)
+                attrStr.append(NSAttributedString(string: typeLabel, attributes: [
+                    .font: typeFont,
+                    .foregroundColor: typeColor,
+                    // .underlineStyle: NSUnderlineStyle.single.rawValue
+                ]))
+                attrStr.append(NSAttributedString(string: "  ", attributes: [.font: countFont]))
+            }
+        }
+        
         attrStr.append(NSAttributedString(string: "\(anki.newCount)", attributes: [
             .font: countFont, .foregroundColor: NSColor.systemBlue
         ]))
@@ -998,17 +1059,6 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         countsLabel.drawsBackground = false
         countsLabel.isEditable = false
         countsLabel.isSelectable = false
-        countsLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
-        countsLabel.setContentHuggingPriority(.required, for: .horizontal)
-
-        let verticalStack = NSStackView()
-        verticalStack.orientation = .vertical
-        verticalStack.alignment = .centerX
-        verticalStack.distribution = .gravityAreas
-        verticalStack.spacing = 2
-        verticalStack.heightAnchor.constraint(equalToConstant: 28).isActive = true
-
-        countsLabel.alignment = .center
         countsLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
         countsLabel.setContentHuggingPriority(.required, for: .horizontal)
 

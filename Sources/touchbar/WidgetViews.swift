@@ -832,47 +832,65 @@ public struct WidgetAnkiView: View {
     
     @ViewBuilder
     private func questionTextContent(anki: AnkiState) -> some View {
-        if widget.ankiCombineFurigana {
-            parseFuriganaRichText(
-                in: anki.questionPreview,
-                defaultColor: Color(hex: widget.textColorHex),
-                boldColor: Color(hex: widget.ankiBoldColorHex),
-                fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize,
-                furiganaFontSize: CGFloat(widget.ankiFuriganaFontSize),
-                verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
-                textOffset: CGFloat(widget.ankiFuriganaTextOffset)
-            )
-            .frame(maxWidth: .infinity, alignment: .leading)
-        } else {
-            parseBoldTags(in: anki.questionPreview, defaultColor: Color(hex: widget.textColorHex), boldColor: Color(hex: widget.ankiBoldColorHex), fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize)
-                .if(widget.ankiTrimText) { $0.lineLimit(1).truncationMode(.tail) }
+        HStack(spacing: 4) {
+            // Card type indicator: always visible before question text
+            // if let card = anki.currentCard, !card.cardTypeLabel.isEmpty {
+            //     Text(card.cardTypeLabel)
+            //         .font(.system(size: isSimulator ? 7 : 8, weight: .bold, design: .monospaced))
+            //         .foregroundColor(Color(hex: card.cardTypeColorHex).opacity(0.9))
+            //         // .underline(true)
+            // }
+            if widget.ankiCombineFurigana {
+                parseFuriganaRichText(
+                    in: anki.questionPreview,
+                    defaultColor: Color(hex: widget.textColorHex),
+                    boldColor: Color(hex: widget.ankiBoldColorHex),
+                    fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize,
+                    furiganaFontSize: CGFloat(widget.ankiFuriganaFontSize),
+                    verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
+                    textOffset: CGFloat(widget.ankiFuriganaTextOffset)
+                )
                 .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                parseBoldTags(in: anki.questionPreview, defaultColor: Color(hex: widget.textColorHex), boldColor: Color(hex: widget.ankiBoldColorHex), fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize)
+                    .if(widget.ankiTrimText) { $0.lineLimit(1).truncationMode(.tail) }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
     }
     
     @ViewBuilder
     private func answerTextContent(anki: AnkiState) -> some View {
-        if widget.ankiCombineFurigana {
-            parseFuriganaRichText(
-                in: anki.answerPreview,
-                defaultColor: Color(hex: widget.textColorHex),
-                boldColor: Color(hex: widget.ankiBoldColorHex),
-                fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize,
-                furiganaFontSize: CGFloat(widget.ankiFuriganaFontSize),
-                verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
-                textOffset: CGFloat(widget.ankiFuriganaTextOffset)
-            )
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .onTapGesture {
-                anki.toggleTouchBarAudio()
+        HStack(spacing: 4) {
+            // Card type indicator: always visible before answer text
+            if let card = anki.currentCard, !card.cardTypeLabel.isEmpty {
+                Text(card.cardTypeLabel)
+                    .font(.system(size: isSimulator ? 7 : 8, weight: .bold, design: .monospaced))
+                    .foregroundColor(Color(hex: card.cardTypeColorHex).opacity(0.9))
+                    // .underline(true)
             }
-        } else {
-            parseBoldTags(in: anki.answerPreview, defaultColor: Color(hex: widget.textColorHex), boldColor: Color(hex: widget.ankiBoldColorHex), fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize)
-                .if(widget.ankiTrimText) { $0.lineLimit(1).truncationMode(.tail) }
+            if widget.ankiCombineFurigana {
+                parseFuriganaRichText(
+                    in: anki.answerPreview,
+                    defaultColor: Color(hex: widget.textColorHex),
+                    boldColor: Color(hex: widget.ankiBoldColorHex),
+                    fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize,
+                    furiganaFontSize: CGFloat(widget.ankiFuriganaFontSize),
+                    verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
+                    textOffset: CGFloat(widget.ankiFuriganaTextOffset)
+                )
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .onTapGesture {
                     anki.toggleTouchBarAudio()
                 }
+            } else {
+                parseBoldTags(in: anki.answerPreview, defaultColor: Color(hex: widget.textColorHex), boldColor: Color(hex: widget.ankiBoldColorHex), fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize)
+                    .if(widget.ankiTrimText) { $0.lineLimit(1).truncationMode(.tail) }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .onTapGesture {
+                        anki.toggleTouchBarAudio()
+                    }
+            }
         }
     }
     
@@ -880,6 +898,14 @@ public struct WidgetAnkiView: View {
     private func countsAndRevealContent(anki: AnkiState) -> some View {
         VStack(spacing: 2) {
             HStack(spacing: 3) {
+                // Card type indicator: bold + underline inline in counts row
+                if let card = anki.currentCard, !card.cardTypeLabel.isEmpty {
+                    Text(card.cardTypeLabel)
+                        .font(.system(size: isSimulator ? 7 : 8, weight: .bold, design: .monospaced))
+                        .foregroundColor(Color(hex: card.cardTypeColorHex).opacity(0.9))
+                        // .underline(true)
+                }
+                
                 Text("\(anki.newCount)")
                     .font(.system(size: isSimulator ? 7 : 8, weight: .bold, design: .monospaced))
                     .foregroundColor(.blue)

@@ -11,6 +11,29 @@ public struct AnkiCard: Sendable {
     public let audioText: String
     public let touchBarAudioText: String
     public let fields: [String: String]  // all field values keyed by field name
+    public let cardType: Int  // 0=new, 1=learning, 2=review, -1=unknown
+
+    /// Human-readable label for the card type.
+    public var cardTypeLabel: String {
+        switch cardType {
+        case 0: return "N"
+        case 1: return "L"
+        case 2: return "R"
+        case 3: return "Relearn"
+        default: return ""
+        }
+    }
+
+    /// Hex color for the card type: New=blue, Learn=orange, Review=green, Relearn=purple.
+    public var cardTypeColorHex: String {
+        switch cardType {
+        case 0: return "#007AFF"
+        case 1: return "#FF9500"
+        case 2: return "#34C759"
+        case 3: return "#AF52DE"
+        default: return "#FFFFFF"
+        }
+    }
 
     public var soundFilename: String? {
         extractFilename(from: audioText)
@@ -141,6 +164,7 @@ public actor AnkiConnectClient {
             let deckName = result["deckName"] as? String ?? ""
             let buttonCount = result["buttons"] as? Int ??
                               (result["buttons"] as? [Any])?.count ?? 4
+            let cardType = result["type"] as? Int ?? -1
             
             // Extract question and answer fields, strip HTML
             let fieldsDict = result["fields"] as? [String: [String: Any]] ?? [:]
@@ -242,6 +266,12 @@ public actor AnkiConnectClient {
                 }
             }
             
+            // If cardType is unknown, try cardsInfo fallback (more reliable)
+            var resolvedType = cardType
+            if resolvedType < 0 && cardId > 0 {
+                resolvedType = await getCardType(cardId: cardId)
+            }
+
             return AnkiCard(
                 cardId: cardId,
                 question: questionText,
@@ -250,7 +280,8 @@ public actor AnkiConnectClient {
                 buttonCount: buttonCount,
                 audioText: audioText,
                 touchBarAudioText: touchBarAudioText,
-                fields: allFields
+                fields: allFields,
+                cardType: resolvedType
             )
         } catch {
             print("AnkiConnect: Failed to get current card: \(error)")
@@ -300,6 +331,28 @@ public actor AnkiConnectClient {
         }
     }
     
+    /// Get card type by card ID using cardsInfo API (more reliable fallback)
+    public func getCardType(cardId: Int) async -> Int {
+        guard cardId > 0 else { return -1 }
+        do {
+            guard let result = try await request(action: "cardsInfo", params: ["cards": [cardId]]) as? [[String: Any]],
+                  let firstCard = result.first else {
+                return -1
+            }
+            // Try queue first (more accurate for current state), fall back to type
+            if let queue = firstCard["queue"] as? Int {
+                return queue
+            }
+            if let type = firstCard["type"] as? Int {
+                return type
+            }
+            return -1
+        } catch {
+            print("AnkiConnect: Failed to get card type for '\(cardId)': \(error)")
+            return -1
+        }
+    }
+
     /// Retrieve a media file by name from AnkiConnect
     public func retrieveMediaFile(filename: String) async -> Data? {
         do {

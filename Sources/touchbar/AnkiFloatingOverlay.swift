@@ -288,6 +288,8 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
     @Published public var newCount: Int = 0
     @Published public var learnCount: Int = 0
     @Published public var reviewCount: Int = 0
+    @Published public var cardTypeLabel: String = ""
+    @Published public var cardTypeColorHex: String = "#FFFFFF"
 
     // Extra field values for overlay
     @Published public var extraQuestionText: String = ""
@@ -378,6 +380,8 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
         newCount = state.newCount
         learnCount = state.learnCount
         reviewCount = state.reviewCount
+        cardTypeLabel = state.currentCard?.cardTypeLabel ?? ""
+        cardTypeColorHex = state.currentCard?.cardTypeColorHex ?? "#FFFFFF"
 
         if let card = state.currentCard {
             hasCard = true
@@ -642,6 +646,16 @@ public struct FloatingOverlayContentView: View {
 
     private var countsRow: some View {
         HStack(spacing: 6) {
+            // Card type indicator in bold + underline with type color
+            if !host.cardTypeLabel.isEmpty {
+                Text(host.cardTypeLabel)
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundColor(Color(hex: host.cardTypeColorHex).opacity(0.9))
+                    // .underline(true)
+                Divider()
+                    .frame(width: 1, height: 10)
+                    .background(Color.white.opacity(0.3))
+            }
             if host.newCount > 0 {
                 Text("N:\(host.newCount)").font(.system(size: 9, weight: .bold, design: .monospaced)).foregroundColor(.blue)
             }
