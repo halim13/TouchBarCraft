@@ -1230,7 +1230,7 @@ struct AnkiConfigView: View {
                         }
                         
                         HStack(spacing: 8) {
-                            Text("Text Offset:")
+                            Text("Text Offset (Ans):")
                                 .font(.system(size: 11))
                                 .frame(width: 120, alignment: .leading)
                             
@@ -1239,6 +1239,29 @@ struct AnkiConfigView: View {
                                 set: { val in
                                     if let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)) {
                                         state.widgets[index].ankiFuriganaTextOffset = max(0, num)
+                                        state.saveConfig()
+                                        state.ankiState.refreshTouchBar()
+                                    }
+                                }
+                            ))
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 80)
+                            
+                            Text("pt")
+                                .font(.system(size: 10))
+                                .foregroundColor(.gray)
+                        }
+                        
+                        HStack(spacing: 8) {
+                            Text("Text Offset (Q):")
+                                .font(.system(size: 11))
+                                .frame(width: 120, alignment: .leading)
+                            
+                            TextField("0", text: Binding(
+                                get: { String(format: "%.0f", widget.ankiFuriganaQuestionTextOffset) },
+                                set: { val in
+                                    if let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                                        state.widgets[index].ankiFuriganaQuestionTextOffset = max(0, num)
                                         state.saveConfig()
                                         state.ankiState.refreshTouchBar()
                                     }

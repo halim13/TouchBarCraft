@@ -706,8 +706,8 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         
         let contentView: NSView
         if widget.ankiCombineFurigana {
-            // Furigana path uses its own text offset to push kanji down for furigana room
-            let furiganaTextOffset = CGFloat(widget.ankiFuriganaTextOffset)
+            // Furigana path uses question-specific text offset (separate from answer's ankiFuriganaTextOffset)
+            let furiganaTextOffset = CGFloat(widget.ankiFuriganaQuestionTextOffset)
             contentView = buildFuriganaRichLabel(
                 text: displayText,
                 fontSize: CGFloat(widget.fontSize),
