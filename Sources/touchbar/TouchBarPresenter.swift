@@ -659,15 +659,26 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     /// Optionally adds a silent click gesture recognizer for Touch Bar tap events (used on answer labels).
     private func makeLabelContainer(attributedString: NSAttributedString, textVerticalOffset: CGFloat, ankiTrimText: Bool = true, addTapGesture: Bool = false, tapTarget: Any? = nil, tapAction: Selector? = nil) -> NSView {
         let label = NSTextField(labelWithString: "")
-        label.attributedStringValue = attributedString
         // Always enforce single-line mode for consistent intrinsic height and vertical centering.
         // Only lineBreakMode should be conditional on ankiTrimText.
         label.cell?.usesSingleLineMode = true
         label.maximumNumberOfLines = 1
         label.cell?.wraps = false
         if ankiTrimText {
-            label.lineBreakMode = .byTruncatingTail
+            // Embed .byTruncatingTail in the attributed string's paragraph style
+            // because NSTextField with attributedStringValue uses the paragraph
+            // style's lineBreakMode for rendering, overriding the cell's lineBreakMode.
+            let mutable = NSMutableAttributedString(attributedString: attributedString)
+            let fullRange = NSRange(location: 0, length: mutable.length)
+            mutable.enumerateAttribute(.paragraphStyle, in: fullRange, options: []) { value, range, _ in
+                let style = (value as? NSParagraphStyle)?.mutableCopy() as? NSMutableParagraphStyle ?? NSMutableParagraphStyle()
+                style.lineBreakMode = .byTruncatingTail
+                mutable.addAttribute(.paragraphStyle, value: style, range: range)
+            }
+            label.attributedStringValue = mutable
             label.cell?.truncatesLastVisibleLine = true
+        } else {
+            label.attributedStringValue = attributedString
         }
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         label.setContentHuggingPriority(.defaultLow, for: .horizontal)
@@ -918,11 +929,16 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                 }
                     baseLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
                     if chunk.isUnderline {
-                        let attrs: [NSAttributedString.Key: Any] = [
+                        var attrs: [NSAttributedString.Key: Any] = [
                             .font: font,
                             .foregroundColor: chunk.isBold ? boldColor : textColor,
                             .underlineStyle: NSUnderlineStyle.single.rawValue
                         ]
+                        if ankiTrimText {
+                            let style = NSMutableParagraphStyle()
+                            style.lineBreakMode = .byTruncatingTail
+                            attrs[.paragraphStyle] = style
+                        }
                         baseLabel.attributedStringValue = NSAttributedString(string: segment.text, attributes: attrs)
                     }
                     
@@ -997,11 +1013,16 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                     label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
                     
                     if chunk.isUnderline {
-                        let attrs: [NSAttributedString.Key: Any] = [
+                        var attrs: [NSAttributedString.Key: Any] = [
                             .font: baseFont,
                             .foregroundColor: chunk.isBold ? boldColor : textColor,
                             .underlineStyle: NSUnderlineStyle.single.rawValue
                         ]
+                        if ankiTrimText {
+                            let style = NSMutableParagraphStyle()
+                            style.lineBreakMode = .byTruncatingTail
+                            attrs[.paragraphStyle] = style
+                        }
                         label.attributedStringValue = NSAttributedString(string: trimmed, attributes: attrs)
                     }
                     
