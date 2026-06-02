@@ -1794,6 +1794,20 @@ struct AnkiConfigView: View {
                                 ))
                                 .toggleStyle(.checkbox)
                                 
+                                if AnkiFloatingOverlayManager.shared.config.showHeader {
+                                    Toggle("Swap Deck Name & Counter position", isOn: Binding(
+                                        get: { AnkiFloatingOverlayManager.shared.config.swapHeaderDeckAndCounts },
+                                        set: { val in
+                                            var config = AnkiFloatingOverlayManager.shared.config
+                                            config.swapHeaderDeckAndCounts = val
+                                            AnkiFloatingOverlayManager.shared.config = config
+                                            AnkiFloatingOverlayManager.shared.refreshOverlay()
+                                        }
+                                    ))
+                                    .toggleStyle(.checkbox)
+                                    .font(.system(size: 10))
+                                }
+                                
                                 if !AnkiFloatingOverlayManager.shared.config.showHeader {
                                     Toggle("Counts Only (N/L/R) — without header", isOn: Binding(
                                         get: { AnkiFloatingOverlayManager.shared.config.showCounts },

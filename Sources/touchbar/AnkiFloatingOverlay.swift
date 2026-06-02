@@ -28,6 +28,7 @@ public struct AnkiFloatingOverlayConfig: Codable, Sendable {
     public var extraQuestionOnlyOnAnswer: Bool // Show extra question field only on answer phase
     public var extraFieldColorHex: String  // Text color for extra fields
     public var extraFieldFontSize: Double   // Font size for extra fields (0 = use main fontSize - 4)
+    public var swapHeaderDeckAndCounts: Bool // Swap deck name and counter position in header
 
     public static let defaults = AnkiFloatingOverlayConfig(
         isEnabled: false,
@@ -53,7 +54,8 @@ public struct AnkiFloatingOverlayConfig: Codable, Sendable {
         extraAnswerField: "",
         extraQuestionOnlyOnAnswer: false,
         extraFieldColorHex: "#00CED1",
-        extraFieldFontSize: 0
+        extraFieldFontSize: 0,
+        swapHeaderDeckAndCounts: false
     )
 
     private static let userDefaultsKey = "AnkiFloatingOverlayConfig"
@@ -510,24 +512,44 @@ public struct FloatingOverlayContentView: View {
         VStack(spacing: 8) {
             // Header: deck name + counts + sync (optional)
             if host.config.showHeader {
-                HStack {
-                    Text(host.deckName)
-                        .font(.system(size: host.config.fontSize - 4, weight: .semibold))
-                        .foregroundColor(.purple)
-                    Spacer()
-                    countsRow
-                    if host.config.showSyncButton { syncButton }
+                if host.config.swapHeaderDeckAndCounts {
+                    // Swapped: counter on left, deck name on right
+                    HStack {
+                        countsRow
+                        Spacer()
+                        Text(host.deckName)
+                            .font(.system(size: host.config.fontSize - 4, weight: .semibold))
+                            .foregroundColor(.purple)
+                        if host.config.showSyncButton { syncButton }
+                    }
+                } else {
+                    // Default: deck name on left, counter on right
+                    HStack {
+                        Text(host.deckName)
+                            .font(.system(size: host.config.fontSize - 4, weight: .semibold))
+                            .foregroundColor(.purple)
+                        Spacer()
+                        countsRow
+                        if host.config.showSyncButton { syncButton }
+                    }
                 }
-                Divider().background(Color.white.opacity(0.2))
-            } else if host.config.showCounts {
+                Divider().background(Color.white.opacity(0.2))            } else if host.config.showCounts {
                 // Counts only, no header or divider
-                HStack {
-                    Spacer()
-                    countsRow
+                if host.config.swapHeaderDeckAndCounts {
+                    HStack {
+                        countsRow
+                        Spacer()
+                    }
+                } else {
+                    HStack {
+                        Spacer()
+                        countsRow
+                    }
                 }
             }
 
-            ScrollView {
+            ScrollView
+                 {
                 VStack(alignment: .leading, spacing: 4) {
                     cardContentText(host.questionText)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -585,9 +607,16 @@ public struct FloatingOverlayContentView: View {
                 Divider().background(Color.white.opacity(0.2))
             } else if host.config.showCounts {
                 // Counts only, no header or divider
-                HStack {
-                    Spacer()
-                    countsRow
+                if host.config.swapHeaderDeckAndCounts {
+                    HStack {
+                        countsRow
+                        Spacer()
+                    }
+                } else {
+                    HStack {
+                        Spacer()
+                        countsRow
+                    }
                 }
             }
 
