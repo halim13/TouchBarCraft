@@ -660,10 +660,12 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     private func makeLabelContainer(attributedString: NSAttributedString, textVerticalOffset: CGFloat, ankiTrimText: Bool = true, addTapGesture: Bool = false, tapTarget: Any? = nil, tapAction: Selector? = nil) -> NSView {
         let label = NSTextField(labelWithString: "")
         label.attributedStringValue = attributedString
+        // Always enforce single-line mode for consistent intrinsic height and vertical centering.
+        // Only lineBreakMode should be conditional on ankiTrimText.
+        label.cell?.usesSingleLineMode = true
+        label.maximumNumberOfLines = 1
+        label.cell?.wraps = false
         if ankiTrimText {
-            label.cell?.usesSingleLineMode = true
-            label.maximumNumberOfLines = 1
-            label.cell?.wraps = false
             label.lineBreakMode = .byTruncatingTail
             label.cell?.truncatesLastVisibleLine = true
         }
@@ -907,9 +909,13 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                     baseLabel.drawsBackground = false
                     baseLabel.isEditable = false
                     baseLabel.isSelectable = false
-                    if ankiTrimText {
-                        baseLabel.lineBreakMode = .byTruncatingTail
-                    }
+                    // Always single-line for consistent layout
+                baseLabel.cell?.usesSingleLineMode = true
+                baseLabel.maximumNumberOfLines = 1
+                baseLabel.cell?.wraps = false
+                if ankiTrimText {
+                    baseLabel.lineBreakMode = .byTruncatingTail
+                }
                     baseLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
                     if chunk.isUnderline {
                         let attrs: [NSAttributedString.Key: Any] = [
@@ -936,6 +942,9 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                     furiLabel.drawsBackground = false
                     furiLabel.isEditable = false
                     furiLabel.isSelectable = false
+                    furiLabel.cell?.usesSingleLineMode = true
+                    furiLabel.maximumNumberOfLines = 1
+                    furiLabel.cell?.wraps = false
                     if ankiTrimText {
                         furiLabel.lineBreakMode = .byTruncatingTail
                     }
@@ -979,9 +988,12 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                     label.drawsBackground = false
                     label.isEditable = false
                     label.isSelectable = false
-                    if ankiTrimText {
-                        label.lineBreakMode = .byTruncatingTail
-                    }
+                    label.cell?.usesSingleLineMode = true
+                label.maximumNumberOfLines = 1
+                label.cell?.wraps = false
+                if ankiTrimText {
+                    label.lineBreakMode = .byTruncatingTail
+                }
                     label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
                     
                     if chunk.isUnderline {
