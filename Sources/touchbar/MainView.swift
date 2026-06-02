@@ -823,17 +823,30 @@ struct AnkiConfigView: View {
                                     questionField: state.widgets[index].ankiQuestionField,
                                     answerField: state.widgets[index].ankiAnswerField,
                                     audioField: state.widgets[index].ankiAudioField,
-                                    touchBarAudioField: state.widgets[index].ankiTouchBarAudioField
+                                    touchBarAudioField: state.widgets[index].ankiTouchBarAudioField,
+                                    extraQuestionField: state.widgets[index].ankiExtraQuestionField,
+                                    extraAnswerField: state.widgets[index].ankiExtraAnswerField
                                 )
                             }
                             state.widgets[index].ankiDeckName = deck
                             // Restore saved settings for the newly selected deck
+                            // If deck has no saved preset, reset all fields to empty string to avoid ambiguity
                             if !deck.isEmpty {
                                 if let saved = state.widgets[index].ankiDeckSettings[deck] {
                                     state.widgets[index].ankiQuestionField = saved.questionField
                                     state.widgets[index].ankiAnswerField = saved.answerField
                                     state.widgets[index].ankiAudioField = saved.audioField
                                     state.widgets[index].ankiTouchBarAudioField = saved.touchBarAudioField
+                                    state.widgets[index].ankiExtraQuestionField = saved.extraQuestionField
+                                    state.widgets[index].ankiExtraAnswerField = saved.extraAnswerField
+                                } else {
+                                    // No saved preset → reset all fields to empty
+                                    state.widgets[index].ankiQuestionField = ""
+                                    state.widgets[index].ankiAnswerField = ""
+                                    state.widgets[index].ankiAudioField = ""
+                                    state.widgets[index].ankiTouchBarAudioField = ""
+                                    state.widgets[index].ankiExtraQuestionField = ""
+                                    state.widgets[index].ankiExtraAnswerField = ""
                                 }
                             }
                             state.saveConfig()
@@ -1772,11 +1785,20 @@ struct AnkiConfigView: View {
                                         .frame(width: 130, alignment: .leading)
                                     
                                     TextField("e.g. ExtraFront", text: Binding(
-                                        get: { AnkiFloatingOverlayManager.shared.config.extraQuestionField },
+                                        get: { state.widgets[index].ankiExtraQuestionField },
                                         set: { val in
-                                            var config = AnkiFloatingOverlayManager.shared.config
-                                            config.extraQuestionField = val
-                                            AnkiFloatingOverlayManager.shared.config = config
+                                            state.widgets[index].ankiExtraQuestionField = val
+                                            let deck = state.widgets[index].ankiDeckName
+                                            if !deck.isEmpty {
+                                                var settings = state.widgets[index].ankiDeckSettings[deck] ?? AnkiDeckSettings(
+                                                    questionField: state.widgets[index].ankiQuestionField,
+                                                    answerField: state.widgets[index].ankiAnswerField,
+                                                    audioField: state.widgets[index].ankiAudioField
+                                                )
+                                                settings.extraQuestionField = val
+                                                state.widgets[index].ankiDeckSettings[deck] = settings
+                                            }
+                                            state.saveConfig()
                                             AnkiFloatingOverlayManager.shared.refreshOverlay()
                                         }
                                     ))
@@ -1802,11 +1824,20 @@ struct AnkiConfigView: View {
                                         .frame(width: 130, alignment: .leading)
                                     
                                     TextField("e.g. ExtraBack", text: Binding(
-                                        get: { AnkiFloatingOverlayManager.shared.config.extraAnswerField },
+                                        get: { state.widgets[index].ankiExtraAnswerField },
                                         set: { val in
-                                            var config = AnkiFloatingOverlayManager.shared.config
-                                            config.extraAnswerField = val
-                                            AnkiFloatingOverlayManager.shared.config = config
+                                            state.widgets[index].ankiExtraAnswerField = val
+                                            let deck = state.widgets[index].ankiDeckName
+                                            if !deck.isEmpty {
+                                                var settings = state.widgets[index].ankiDeckSettings[deck] ?? AnkiDeckSettings(
+                                                    questionField: state.widgets[index].ankiQuestionField,
+                                                    answerField: state.widgets[index].ankiAnswerField,
+                                                    audioField: state.widgets[index].ankiAudioField
+                                                )
+                                                settings.extraAnswerField = val
+                                                state.widgets[index].ankiDeckSettings[deck] = settings
+                                            }
+                                            state.saveConfig()
                                             AnkiFloatingOverlayManager.shared.refreshOverlay()
                                         }
                                     ))

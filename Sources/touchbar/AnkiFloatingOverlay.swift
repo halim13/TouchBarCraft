@@ -333,10 +333,13 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
             showGood = widget.ankiShowGood
             showEasy = widget.ankiShowEasy
         }
-        // Populate extra fields from the card's raw fields
+        // Populate extra fields from the widget's per-deck settings (not the global config)
+        let widget = getAnkiWidget()
+        let extraQField = widget?.ankiExtraQuestionField ?? config.extraQuestionField
+        let extraAField = widget?.ankiExtraAnswerField ?? config.extraAnswerField
         if let card = state.currentCard {
-            extraQuestionText = extractExtraFieldValue(from: config.extraQuestionField, fields: card.fields)
-            extraAnswerText = extractExtraFieldValue(from: config.extraAnswerField, fields: card.fields)
+            extraQuestionText = extractExtraFieldValue(from: extraQField, fields: card.fields)
+            extraAnswerText = extractExtraFieldValue(from: extraAField, fields: card.fields)
         } else {
             extraQuestionText = ""
             extraAnswerText = ""
