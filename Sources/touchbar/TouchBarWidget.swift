@@ -142,6 +142,9 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     // Anki audio play only after answer is revealed
     public var ankiAudioOnlyOnAnswer: Bool
 
+    // Anki trim text with trailing tail (ellipsis)
+    public var ankiTrimText: Bool
+
     // Animation Custom properties
     public var customGifPath: String
     
@@ -198,6 +201,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         ankiGoodColorHex: String = "#19B24C",
         ankiEasyColorHex: String = "#3380E5",
         ankiAudioOnlyOnAnswer: Bool = true,
+        ankiTrimText: Bool = true,
         customGifPath: String = "",
         customWidth: Double = 0.0
     ) {
@@ -250,6 +254,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiGoodColorHex = ankiGoodColorHex
         self.ankiEasyColorHex = ankiEasyColorHex
         self.ankiAudioOnlyOnAnswer = ankiAudioOnlyOnAnswer
+        self.ankiTrimText = ankiTrimText
         self.customGifPath = customGifPath
         self.customWidth = customWidth
     }
@@ -274,6 +279,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         case ankiGoodColorHex
         case ankiEasyColorHex
         case ankiAudioOnlyOnAnswer
+        case ankiTrimText
         case customGifPath
         case customWidth
     }
@@ -334,6 +340,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiGoodColorHex = try container.decodeIfPresent(String.self, forKey: .ankiGoodColorHex) ?? "#19B24C"
         self.ankiEasyColorHex = try container.decodeIfPresent(String.self, forKey: .ankiEasyColorHex) ?? "#3380E5"
         self.ankiAudioOnlyOnAnswer = try container.decodeIfPresent(Bool.self, forKey: .ankiAudioOnlyOnAnswer) ?? true
+        self.ankiTrimText = try container.decodeIfPresent(Bool.self, forKey: .ankiTrimText) ?? true
         
         self.customGifPath = try container.decodeIfPresent(String.self, forKey: .customGifPath) ?? ""
         self.customWidth = try container.decodeIfPresent(Double.self, forKey: .customWidth) ?? 0.0

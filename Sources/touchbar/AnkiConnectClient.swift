@@ -235,8 +235,8 @@ public actor AnkiConnectClient {
             
             return AnkiCard(
                 cardId: cardId,
-                question: truncateForTouchBar(questionText),
-                answer: truncateForTouchBar(answerText),
+                question: questionText,
+                answer: answerText,
                 deckName: deckName,
                 buttonCount: buttonCount,
                 audioText: audioText,
@@ -342,11 +342,6 @@ public actor AnkiConnectClient {
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
-    /// Truncate text to fit Touch Bar (~55 chars max visible)
-    private func truncateForTouchBar(_ text: String, maxLength: Int = 55) -> String {
-        if text.count <= maxLength { return text }
-        return String(text.prefix(maxLength - 1)) + "…"
-    }
 }
 
 // MARK: - Errors

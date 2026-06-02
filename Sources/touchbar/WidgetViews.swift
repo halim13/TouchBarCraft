@@ -845,8 +845,7 @@ public struct WidgetAnkiView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         } else {
             parseBoldTags(in: anki.questionPreview, defaultColor: Color(hex: widget.textColorHex), boldColor: Color(hex: widget.ankiBoldColorHex), fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize)
-                .lineLimit(1)
-                .truncationMode(.tail)
+                .if(widget.ankiTrimText) { $0.lineLimit(1).truncationMode(.tail) }
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -869,8 +868,7 @@ public struct WidgetAnkiView: View {
             }
         } else {
             parseBoldTags(in: anki.answerPreview, defaultColor: Color(hex: widget.textColorHex), boldColor: Color(hex: widget.ankiBoldColorHex), fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize)
-                .lineLimit(1)
-                .truncationMode(.tail)
+                .if(widget.ankiTrimText) { $0.lineLimit(1).truncationMode(.tail) }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .onTapGesture {
                     anki.toggleTouchBarAudio()

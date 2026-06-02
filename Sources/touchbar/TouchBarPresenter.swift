@@ -643,11 +643,13 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     
     /// Wrap an attributed string text field in a compressible NSView container that applies textVerticalOffset.
     /// Optionally adds a silent click gesture recognizer for Touch Bar tap events (used on answer labels).
-    private func makeLabelContainer(attributedString: NSAttributedString, textVerticalOffset: CGFloat, addTapGesture: Bool = false, tapTarget: Any? = nil, tapAction: Selector? = nil) -> NSView {
+    private func makeLabelContainer(attributedString: NSAttributedString, textVerticalOffset: CGFloat, ankiTrimText: Bool = true, addTapGesture: Bool = false, tapTarget: Any? = nil, tapAction: Selector? = nil) -> NSView {
         let label = NSTextField(labelWithString: "")
         label.attributedStringValue = attributedString
-        label.lineBreakMode = .byTruncatingTail
-        label.cell?.truncatesLastVisibleLine = true
+        if ankiTrimText {
+            label.lineBreakMode = .byTruncatingTail
+            label.cell?.truncatesLastVisibleLine = true
+        }
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         label.setContentHuggingPriority(.defaultLow, for: .horizontal)
         
@@ -691,12 +693,13 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                 isButton: false,
                 manualFuriFontSize: CGFloat(widget.ankiFuriganaFontSize),
                 verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
-                textVerticalOffset: textVerticalOffset
+                textVerticalOffset: textVerticalOffset,
+                ankiTrimText: widget.ankiTrimText
             )
         }
         
         let attributed = parseBoldTags(in: card.question, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
-        return makeLabelContainer(attributedString: attributed, textVerticalOffset: textVerticalOffset)
+        return makeLabelContainer(attributedString: attributed, textVerticalOffset: textVerticalOffset, ankiTrimText: widget.ankiTrimText)
     }
     
     private func buildAnswerLabel(for widget: TouchBarWidget, card: AnkiCard, anki: AnkiState) -> NSView {
@@ -729,6 +732,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         return makeLabelContainer(
             attributedString: attributed,
             textVerticalOffset: CGFloat(widget.ankiAnswerTextOffset),
+            ankiTrimText: widget.ankiTrimText,
             addTapGesture: true,
             tapTarget: self,
             tapAction: #selector(ankiTouchBarAudioTapped(_:))
@@ -738,7 +742,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     /// Build a rich text view with furigana ruby annotations using vertical NSStackView.
     /// Parses both HTML tags (bold/italic/underline) and furigana [furi] patterns.
     /// Uses vertical stacking with zero spacing so furigana sits directly above kanji.
-    private func buildFuriganaRichLabel(text: String, fontSize: CGFloat, textColor: NSColor, boldColor: NSColor, isButton: Bool, buttonAction: Selector? = nil, manualFuriFontSize: CGFloat = 0, verticalOffset: CGFloat = 0, textVerticalOffset: CGFloat = 0) -> NSView {
+    private func buildFuriganaRichLabel(text: String, fontSize: CGFloat, textColor: NSColor, boldColor: NSColor, isButton: Bool, buttonAction: Selector? = nil, manualFuriFontSize: CGFloat = 0, verticalOffset: CGFloat = 0, textVerticalOffset: CGFloat = 0, ankiTrimText: Bool = true) -> NSView {
         // First parse HTML tags into styled chunks (same logic as parseBoldTags)
         struct StyledChunk {
             let text: String
@@ -850,7 +854,9 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                     baseLabel.drawsBackground = false
                     baseLabel.isEditable = false
                     baseLabel.isSelectable = false
-                    baseLabel.lineBreakMode = .byTruncatingTail
+                    if ankiTrimText {
+                        baseLabel.lineBreakMode = .byTruncatingTail
+                    }
                     baseLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
                     if chunk.isUnderline {
                         let attrs: [NSAttributedString.Key: Any] = [
@@ -877,7 +883,9 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                     furiLabel.drawsBackground = false
                     furiLabel.isEditable = false
                     furiLabel.isSelectable = false
-                    furiLabel.lineBreakMode = .byTruncatingTail
+                    if ankiTrimText {
+                        furiLabel.lineBreakMode = .byTruncatingTail
+                    }
                     
                     container.addSubview(furiLabel)
                     furiLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -910,7 +918,9 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                     label.drawsBackground = false
                     label.isEditable = false
                     label.isSelectable = false
-                    label.lineBreakMode = .byTruncatingTail
+                    if ankiTrimText {
+                        label.lineBreakMode = .byTruncatingTail
+                    }
                     label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
                     
                     if chunk.isUnderline {

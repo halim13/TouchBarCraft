@@ -1381,6 +1381,30 @@ struct AnkiConfigView: View {
                 
                 Divider()
                 
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Text Display")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.gray)
+                    
+                    Toggle("Trim long text with trailing ellipsis (...)", isOn: Binding(
+                        get: { widget.ankiTrimText },
+                        set: { val in
+                            state.widgets[index].ankiTrimText = val
+                            state.saveConfig()
+                            state.ankiState.refreshTouchBar()
+                        }
+                    ))
+                    .toggleStyle(.checkbox)
+                    .font(.system(size: 11))
+                    
+                    Text("When enabled, text that exceeds the available width will be cut off with an ellipsis (…). When disabled, text is shown as-is without any trimming.")
+                        .font(.system(size: 9))
+                        .foregroundColor(.gray)
+                        .italic()
+                }
+                
+                Divider()
+                
                 // MARK: - Global Keyboard Shortcuts
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Global Keyboard Shortcuts")
