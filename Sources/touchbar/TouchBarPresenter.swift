@@ -661,15 +661,17 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         let label = NSTextField(labelWithString: "")
         label.attributedStringValue = attributedString
         if ankiTrimText {
+            label.cell?.usesSingleLineMode = true
+            label.maximumNumberOfLines = 1
+            label.cell?.wraps = false
             label.lineBreakMode = .byTruncatingTail
             label.cell?.truncatesLastVisibleLine = true
         }
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         label.setContentHuggingPriority(.defaultLow, for: .horizontal)
         
-        // Wrap in container with top/bottom constraints for consistent vertical positioning
-        // inside the parent NSStackView (matches behavior of furigana path segments)
-        // textVerticalOffset moves the text down (provides more spacing above)
+        // Wrap in container with vertical centering for consistent vertical positioning
+        // inside the parent NSStackView
         let container = NSView()
         container.translatesAutoresizingMaskIntoConstraints = false
         container.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -678,8 +680,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         NSLayoutConstraint.activate([
             label.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             label.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            label.topAnchor.constraint(equalTo: container.topAnchor, constant: textVerticalOffset),
-            label.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+            label.centerYAnchor.constraint(equalTo: container.centerYAnchor, constant: textVerticalOffset)
         ])
         
         if addTapGesture, let target = tapTarget, let action = tapAction {
@@ -696,29 +697,33 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         let font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
         let textColor = NSColor(Color(hex: widget.textColorHex))
         let boldColor = NSColor(Color(hex: widget.ankiBoldColorHex))
-        let textVerticalOffset = CGFloat(widget.ankiFuriganaTextOffset)
-        
         // Prep card type label
         let typeLabel = card.cardTypeLabel
         let hasType = !typeLabel.isEmpty
         
-        // Build content
+        // Build content: strip furigana brackets when combine mode is off
+        let displayText = widget.ankiCombineFurigana ? card.question : stripFuriganaBrackets(card.question)
+        
         let contentView: NSView
         if widget.ankiCombineFurigana {
+            // Furigana path uses its own text offset to push kanji down for furigana room
+            let furiganaTextOffset = CGFloat(widget.ankiFuriganaTextOffset)
             contentView = buildFuriganaRichLabel(
-                text: card.question,
+                text: displayText,
                 fontSize: CGFloat(widget.fontSize),
                 textColor: textColor,
                 boldColor: boldColor,
                 isButton: false,
                 manualFuriFontSize: CGFloat(widget.ankiFuriganaFontSize),
                 verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
-                textVerticalOffset: textVerticalOffset,
+                textVerticalOffset: furiganaTextOffset,
                 ankiTrimText: widget.ankiTrimText
             )
         } else {
-            let attributed = parseBoldTags(in: card.question, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
-            contentView = makeLabelContainer(attributedString: attributed, textVerticalOffset: textVerticalOffset, ankiTrimText: widget.ankiTrimText)
+            // Non-furigana path uses question-specific offset for fine-tuning centering
+            let questionTextOffset = CGFloat(widget.ankiQuestionTextOffset)
+            let attributed = parseBoldTags(in: displayText, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
+            contentView = makeLabelContainer(attributedString: attributed, textVerticalOffset: questionTextOffset, ankiTrimText: widget.ankiTrimText)
         }
         
         // Wrap in horizontal stack with card type badge
@@ -752,10 +757,13 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         let textColor = NSColor(Color(hex: widget.textColorHex))
         let boldColor = NSColor(Color(hex: widget.ankiBoldColorHex))
         
+        // Always use raw answer text — furigana mode parses brackets, non-furigana shows them as-is
+        let displayText = card.answer
+        
         if widget.ankiCombineFurigana {
             let textVerticalOffset = CGFloat(widget.ankiFuriganaTextOffset)
             let container = buildFuriganaRichLabel(
-                text: card.answer,
+                text: displayText,
                 fontSize: CGFloat(widget.fontSize),
                 textColor: textColor,
                 boldColor: boldColor,
@@ -773,7 +781,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         // Gunakan NSTextField dengan NSClickGestureRecognizer agar tap events
         // diterima dengan reliable di Touch Bar (DFR). NSButton dengan isBordered=false
         // tidak konsisten menangani sentuhan di konteks NSTouchBar.
-        let attributed = parseBoldTags(in: card.answer, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
+        let attributed = parseBoldTags(in: displayText, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
         return makeLabelContainer(
             attributedString: attributed,
             textVerticalOffset: CGFloat(widget.ankiAnswerTextOffset),
@@ -917,7 +925,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                     NSLayoutConstraint.activate([
                         baseLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor),
                         baseLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-                        baseLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: textVerticalOffset)
+                        baseLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor, constant: textVerticalOffset)
                     ])
                     
                     let furiLabel = NSTextField(labelWithString: furi)
@@ -935,9 +943,17 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                     container.addSubview(furiLabel)
                     furiLabel.translatesAutoresizingMaskIntoConstraints = false
                     NSLayoutConstraint.activate([
-                        furiLabel.bottomAnchor.constraint(equalTo: container.topAnchor, constant: -verticalOffset),
+                        furiLabel.bottomAnchor.constraint(equalTo: baseLabel.topAnchor, constant: -verticalOffset),
                         furiLabel.centerXAnchor.constraint(equalTo: container.centerXAnchor)
                     ])
+                    
+                    // Ensure container height encompasses both furiLabel and baseLabel
+                    let containerTop = furiLabel.topAnchor.constraint(greaterThanOrEqualTo: container.topAnchor)
+                    containerTop.priority = .required
+                    containerTop.isActive = true
+                    let containerBottom = baseLabel.bottomAnchor.constraint(lessThanOrEqualTo: container.bottomAnchor)
+                    containerBottom.priority = .required
+                    containerBottom.isActive = true
                     
                     hStack.addArrangedSubview(container)
                 } else {
@@ -982,8 +998,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                     NSLayoutConstraint.activate([
                         label.leadingAnchor.constraint(equalTo: container.leadingAnchor),
                         label.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-                        label.topAnchor.constraint(equalTo: container.topAnchor, constant: textVerticalOffset),
-                        label.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+                        label.centerYAnchor.constraint(equalTo: container.centerYAnchor, constant: textVerticalOffset)
                     ])
                     
                     hStack.addArrangedSubview(container)
@@ -1196,6 +1211,27 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         }
         
         return attributed
+    }
+    
+    /// Strip furigana [brackets] from text, returning only the base/kanji text.
+    /// E.g. "勉強[べんきょう]" → "勉強", "が 豊[ゆたか]" → "が 豊"
+    private func stripFuriganaBrackets(_ text: String) -> String {
+        var result = ""
+        var remaining = text[...]
+        while !remaining.isEmpty {
+            if let openBracket = remaining.firstIndex(of: "["),
+               let closeBracket = remaining[openBracket...].firstIndex(of: "]"),
+               openBracket > remaining.startIndex {
+                // Append text before the bracket (the base kanji)
+                result += remaining[..<openBracket]
+                // Skip the bracket and its content
+                remaining = remaining[remaining.index(after: closeBracket)...]
+            } else {
+                result += remaining
+                break
+            }
+        }
+        return result
     }
     
     private func getRatingButtons(for widget: TouchBarWidget, buttonCount: Int) -> [(title: String, rating: Int, color: NSColor)] {

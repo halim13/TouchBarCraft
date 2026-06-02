@@ -1291,6 +1291,29 @@ struct AnkiConfigView: View {
                         }
                     } else {
                         HStack(spacing: 8) {
+                            Text("Question Text Offset:")
+                                .font(.system(size: 11))
+                                .frame(width: 120, alignment: .leading)
+                            
+                            TextField("0", text: Binding(
+                                get: { String(format: "%.0f", widget.ankiQuestionTextOffset) },
+                                set: { val in
+                                    if let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                                        state.widgets[index].ankiQuestionTextOffset = num
+                                        state.saveConfig()
+                                        state.ankiState.refreshTouchBar()
+                                    }
+                                }
+                            ))
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 80)
+                            
+                            Text("pt")
+                                .font(.system(size: 10))
+                                .foregroundColor(.gray)
+                        }
+                        
+                        HStack(spacing: 8) {
                             Text("Answer Text Offset:")
                                 .font(.system(size: 11))
                                 .frame(width: 120, alignment: .leading)
