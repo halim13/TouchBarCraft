@@ -533,6 +533,46 @@ private func parseRichSegments(from text: String) -> [RichSegment] {
     }
 }
 
+/// Strip furigana [brackets] from text, returning only the base/kanji text.
+/// E.g. "勉強[べんきょう]" → "勉強", "が 豊[ゆたか]" → "が 豊"
+public func stripFuriganaBrackets(_ text: String) -> String {
+    var result = ""
+    var remaining = text[...]
+    while !remaining.isEmpty {
+        if let openBracket = remaining.firstIndex(of: "["),
+           let closeBracket = remaining[openBracket...].firstIndex(of: "]"),
+           openBracket > remaining.startIndex {
+            // Append text before the bracket (the base kanji)
+            result += remaining[..<openBracket]
+            // Skip the bracket and its content
+            remaining = remaining[remaining.index(after: closeBracket)...]
+        } else {
+            result += remaining
+            break
+        }
+    }
+    return result
+}
+
+/// Parse HTML bold/italic/underline tags and return a SwiftUI Text view.
+/// Unlike parseFuriganaRichText, this function does NOT parse [furigana] brackets —
+/// they are shown literally as-is in the text.
+@MainActor
+public func parseHTMLTags(in text: String, defaultColor: Color, boldColor: Color, fontSize: CGFloat) -> Text {
+    let chunks = parseHTMLStyledChunks(from: text)
+    var resultText = Text("")
+    for chunk in chunks {
+        var t = Text(chunk.text)
+        if chunk.isBold { t = t.bold() }
+        if chunk.isItalic { t = t.italic() }
+        if chunk.isUnderline { t = t.underline() }
+        t = t.font(.system(size: fontSize))
+        t = t.foregroundColor(chunk.isBold ? boldColor : defaultColor)
+        resultText = resultText + t
+    }
+    return resultText
+}
+
 /// Combines HTML tag parsing (bold/italic/underline) with furigana rendering.
 /// Furigana text (e.g. 私[わたし]) is rendered as ruby text with the reading above the kanji.
 /// Uses VStack with tight spacing so total height fits within Touch Bar constraints.

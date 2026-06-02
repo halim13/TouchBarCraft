@@ -355,9 +355,9 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
         var values: [String] = []
         for name in fieldNames {
             if let val = fields[name] {
-                let stripped = stripHTMLForOverlay(val)
-                if !stripped.isEmpty {
-                    values.append(stripped)
+                if !val.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    // Preserve HTML tags — will be parsed when rendering
+                    values.append(val)
                 }
             }
         }
@@ -534,9 +534,7 @@ public struct FloatingOverlayContentView: View {
                     
                     // Extra question field (hidden if toggle is set to only show in answer)
                     if !host.extraQuestionText.isEmpty && !host.config.extraQuestionOnlyOnAnswer {
-                        Text(host.extraQuestionText)
-                            .font(.system(size: extraFieldFontSize()))
-                            .foregroundColor(Color(hex: host.config.extraFieldColorHex).opacity(host.config.textOpacity))
+                        extraFieldText(host.extraQuestionText)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
@@ -603,9 +601,7 @@ public struct FloatingOverlayContentView: View {
 
             // Extra question field in answer phase
             if !host.extraQuestionText.isEmpty {
-                Text(host.extraQuestionText)
-                    .font(.system(size: extraFieldFontSize()))
-                    .foregroundColor(Color(hex: host.config.extraFieldColorHex).opacity(host.config.textOpacity))
+                extraFieldText(host.extraQuestionText)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .lineLimit(2)
                     .truncationMode(.tail)
@@ -623,9 +619,7 @@ public struct FloatingOverlayContentView: View {
                     
                     // Extra answer field
                     if !host.extraAnswerText.isEmpty {
-                        Text(host.extraAnswerText)
-                            .font(.system(size: extraFieldFontSize()))
-                            .foregroundColor(Color(hex: host.config.extraFieldColorHex).opacity(host.config.textOpacity))
+                        extraFieldText(host.extraAnswerText)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
@@ -753,6 +747,19 @@ public struct FloatingOverlayContentView: View {
         return CGFloat(host.config.fontSize - 4)
     }
 
+    // MARK: - Extra Field Text (HTML-aware)
+
+    @ViewBuilder
+    private func extraFieldText(_ text: String) -> some View {
+        parseHTMLTags(
+            in: text,
+            defaultColor: Color(hex: host.config.extraFieldColorHex).opacity(host.config.textOpacity),
+            boldColor: Color(hex: host.config.extraFieldColorHex).opacity(host.config.textOpacity),
+            fontSize: extraFieldFontSize()
+        )
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
     // MARK: - Card Content Text
 
     @ViewBuilder
@@ -783,10 +790,15 @@ public struct FloatingOverlayContentView: View {
             .fixedSize(horizontal: false, vertical: true)
             .padding(.top, extraTopSpace)
         } else {
-            Text(text)
-                .font(.system(size: host.config.fontSize))
-                .foregroundColor(textColor)
-                .fixedSize(horizontal: false, vertical: true)
+            // Parse HTML tags (bold/italic/underline) without furigana.
+            // [furigana] brackets are shown literally as-is.
+            parseHTMLTags(
+                in: text,
+                defaultColor: textColor,
+                boldColor: Color(hex: host.boldColorHex).opacity(host.config.textOpacity),
+                fontSize: host.config.fontSize
+            )
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
 }

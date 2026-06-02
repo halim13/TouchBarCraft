@@ -1246,26 +1246,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         return attributed
     }
     
-    /// Strip furigana [brackets] from text, returning only the base/kanji text.
-    /// E.g. "勉強[べんきょう]" → "勉強", "が 豊[ゆたか]" → "が 豊"
-    private func stripFuriganaBrackets(_ text: String) -> String {
-        var result = ""
-        var remaining = text[...]
-        while !remaining.isEmpty {
-            if let openBracket = remaining.firstIndex(of: "["),
-               let closeBracket = remaining[openBracket...].firstIndex(of: "]"),
-               openBracket > remaining.startIndex {
-                // Append text before the bracket (the base kanji)
-                result += remaining[..<openBracket]
-                // Skip the bracket and its content
-                remaining = remaining[remaining.index(after: closeBracket)...]
-            } else {
-                result += remaining
-                break
-            }
-        }
-        return result
-    }
+
     
     private func getRatingButtons(for widget: TouchBarWidget, buttonCount: Int) -> [(title: String, rating: Int, color: NSColor)] {
         var result: [(title: String, rating: Int, color: NSColor)] = []
