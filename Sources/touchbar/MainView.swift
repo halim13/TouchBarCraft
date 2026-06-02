@@ -1356,6 +1356,27 @@ struct AnkiConfigView: View {
                         .font(.system(size: 9))
                         .foregroundColor(.gray)
                         .italic()
+                    
+                    Divider()
+                    
+                    Text("Audio Play Restrictions")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.gray)
+                    
+                    Toggle("Only play audio after answer is revealed", isOn: Binding(
+                        get: { state.widgets[index].ankiAudioOnlyOnAnswer },
+                        set: { val in
+                            state.widgets[index].ankiAudioOnlyOnAnswer = val
+                            state.saveConfig()
+                        }
+                    ))
+                    .toggleStyle(.checkbox)
+                    .font(.system(size: 11))
+                    
+                    Text("When enabled, audio (Play/Stop button and Touch Bar audio) will not play until you reveal the answer first. Prevents hearing the answer audio while still on the question.")
+                        .font(.system(size: 9))
+                        .foregroundColor(.gray)
+                        .italic()
                 }
                 
                 Divider()

@@ -372,6 +372,12 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
     public func playTouchBarAudio() {
         guard !isMuted, let card = currentCard, let filename = card.touchBarSoundFilename else { return }
         
+        // Jika audioOnlyOnAnswer aktif dan answer belum ditampilkan, jangan play
+        if let widget = getActiveAnkiWidget(), widget.ankiAudioOnlyOnAnswer, !isShowingAnswer {
+            print("AnkiState: Touch Bar audio ditahan karena answer belum direveal (audioOnlyOnAnswer aktif)")
+            return
+        }
+        
         // Stop currently playing sound if any
         currentTouchBarSound?.stop()
         currentTouchBarSound = nil
@@ -404,6 +410,12 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
     
     public func playAudio() {
         guard !isMuted, let card = currentCard, let filename = card.soundFilename else { return }
+        
+        // Jika audioOnlyOnAnswer aktif dan answer belum ditampilkan, jangan play
+        if let widget = getActiveAnkiWidget(), widget.ankiAudioOnlyOnAnswer, !isShowingAnswer {
+            print("AnkiState: Audio ditahan karena answer belum direveal (audioOnlyOnAnswer aktif)")
+            return
+        }
         
         // Stop currently playing sound if any
         currentSound?.stop()

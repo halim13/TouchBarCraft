@@ -138,6 +138,9 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
 
     // Anki answer text vertical offset when furigana is disabled (pt). Separate from ankiFuriganaTextOffset.
     public var ankiAnswerTextOffset: Double
+    
+    // Anki audio play only after answer is revealed
+    public var ankiAudioOnlyOnAnswer: Bool
 
     // Animation Custom properties
     public var customGifPath: String
@@ -194,6 +197,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         ankiHardColorHex: String = "#E58019",
         ankiGoodColorHex: String = "#19B24C",
         ankiEasyColorHex: String = "#3380E5",
+        ankiAudioOnlyOnAnswer: Bool = true,
         customGifPath: String = "",
         customWidth: Double = 0.0
     ) {
@@ -245,6 +249,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiHardColorHex = ankiHardColorHex
         self.ankiGoodColorHex = ankiGoodColorHex
         self.ankiEasyColorHex = ankiEasyColorHex
+        self.ankiAudioOnlyOnAnswer = ankiAudioOnlyOnAnswer
         self.customGifPath = customGifPath
         self.customWidth = customWidth
     }
@@ -268,6 +273,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         case ankiHardColorHex
         case ankiGoodColorHex
         case ankiEasyColorHex
+        case ankiAudioOnlyOnAnswer
         case customGifPath
         case customWidth
     }
@@ -327,6 +333,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiHardColorHex = try container.decodeIfPresent(String.self, forKey: .ankiHardColorHex) ?? "#E58019"
         self.ankiGoodColorHex = try container.decodeIfPresent(String.self, forKey: .ankiGoodColorHex) ?? "#19B24C"
         self.ankiEasyColorHex = try container.decodeIfPresent(String.self, forKey: .ankiEasyColorHex) ?? "#3380E5"
+        self.ankiAudioOnlyOnAnswer = try container.decodeIfPresent(Bool.self, forKey: .ankiAudioOnlyOnAnswer) ?? true
         
         self.customGifPath = try container.decodeIfPresent(String.self, forKey: .customGifPath) ?? ""
         self.customWidth = try container.decodeIfPresent(Double.self, forKey: .customWidth) ?? 0.0
