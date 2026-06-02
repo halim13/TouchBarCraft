@@ -12,6 +12,8 @@ public final class StatusItemManager: NSObject {
     private var ankiQuestionMenuItem: NSMenuItem?
     private var ankiAnswerMenuItem: NSMenuItem?
     private var ankiDeckMenuItem: NSMenuItem?
+    private var hotkeyHeaderMenuItem: NSMenuItem?
+    private var hotkeySeparatorMenuItem: NSMenuItem?
     
     private override init() {
         super.init()
@@ -93,9 +95,23 @@ public final class StatusItemManager: NSObject {
         menu.addItem(furiganaItem)
         self.furiganaMenuItem = furiganaItem
         
+        // Global Shortcuts Section
         menu.addItem(NSMenuItem.separator())
         
-        // menu.addItem(NSMenuItem.separator())
+        let hkHeader = NSMenuItem(title: "Global Shortcuts", action: nil, keyEquivalent: "")
+        hkHeader.isEnabled = false
+        hkHeader.attributedTitle = NSAttributedString(
+            string: "Global Shortcuts",
+            attributes: [
+                .font: NSFont.boldSystemFont(ofSize: 11),
+                .foregroundColor: NSColor.systemPurple
+            ]
+        )
+        menu.addItem(hkHeader)
+        self.hotkeyHeaderMenuItem = hkHeader
+        
+        // Populate active shortcuts
+        buildGlobalShortcutItems(menu: menu)
         
         // Anki Card Info Section
         // let ankiHeader = NSMenuItem(title: "Anki Card Info", action: nil, keyEquivalent: "")
@@ -121,7 +137,9 @@ public final class StatusItemManager: NSObject {
         // ankiAnswerMenuItem?.isEnabled = false
         // menu.addItem(ankiAnswerMenuItem!)
         
-        menu.addItem(NSMenuItem.separator())
+        let quitSeparator = NSMenuItem.separator()
+        menu.addItem(quitSeparator)
+        self.hotkeySeparatorMenuItem = quitSeparator
         
         let quitItem = NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q")
         quitItem.target = self
@@ -196,6 +214,100 @@ public final class StatusItemManager: NSObject {
     private func isFuriganaEnabled() -> Bool {
         guard let state = AppState.shared else { return false }
         return state.widgets.first(where: { $0.type == .anki })?.ankiCombineFurigana ?? false
+    }
+    
+    /// Build menu items for active global shortcuts and add them to the menu.
+    /// Items are inserted right after the header item.
+    private func buildGlobalShortcutItems(menu: NSMenu) {
+        guard let headerItem = hotkeyHeaderMenuItem else { return }
+        
+        let bindings = GlobalHotkeyManager.shared.allBindings
+        let activeBindings = bindings.filter { $0.binding.isEnabled && $0.binding.isValid }
+        let headerIndex = menu.index(of: headerItem)
+        
+        if activeBindings.isEmpty {
+            let emptyItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+            emptyItem.isEnabled = false
+            emptyItem.attributedTitle = NSAttributedString(
+                string: "No shortcuts set",
+                attributes: [
+                    .font: NSFont.systemFont(ofSize: 11),
+                    .foregroundColor: NSColor.gray
+                ]
+            )
+            menu.insertItem(emptyItem, at: headerIndex + 1)
+        } else {
+            var insertIndex = headerIndex + 1
+            for (action, binding) in activeBindings {
+                let item = NSMenuItem(
+                    title: "\(action.displayName): \(binding.displayString)",
+                    action: nil,
+                    keyEquivalent: ""
+                )
+                item.isEnabled = false
+                item.attributedTitle = NSAttributedString(
+                    string: "\(action.displayName): \(binding.displayString)",
+                    attributes: [
+                        .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .regular),
+                        .foregroundColor: NSColor.white
+                    ]
+                )
+                item.toolTip = "Global shortcut for \(action.displayName)"
+                menu.insertItem(item, at: insertIndex)
+                insertIndex += 1
+            }
+        }
+    }
+    
+    /// Clean and rebuild the global shortcut items in the menu.
+    /// Call this whenever a hotkey binding changes (add, remove, toggle, update) so the menu stays in sync.
+    public func refreshGlobalShortcuts() {
+        guard let menu = statusItem?.menu, let headerItem = hotkeyHeaderMenuItem else { return }
+        
+        // Remove all items between header and the separator before Quit
+        let headerIndex = menu.index(of: headerItem)
+        // Keep removing items after header until we hit the separator before Quit
+        while menu.item(at: headerIndex + 1) !== hotkeySeparatorMenuItem && menu.item(at: headerIndex + 1) != nil {
+            menu.removeItem(at: headerIndex + 1)
+        }
+        
+        // Rebuild
+        let bindings = GlobalHotkeyManager.shared.allBindings
+        let activeBindings = bindings.filter { $0.binding.isEnabled && $0.binding.isValid }
+        
+        if activeBindings.isEmpty {
+            let emptyItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+            emptyItem.isEnabled = false
+            emptyItem.attributedTitle = NSAttributedString(
+                string: "No shortcuts set",
+                attributes: [
+                    .font: NSFont.systemFont(ofSize: 11),
+                    .foregroundColor: NSColor.gray
+                ]
+            )
+            let idx = menu.index(of: headerItem)
+            menu.insertItem(emptyItem, at: idx + 1)
+        } else {
+            var insertIndex = menu.index(of: headerItem) + 1
+            for (action, binding) in activeBindings {
+                let item = NSMenuItem(
+                    title: "\(action.displayName): \(binding.displayString)",
+                    action: nil,
+                    keyEquivalent: ""
+                )
+                item.isEnabled = false
+                item.attributedTitle = NSAttributedString(
+                    string: "\(action.displayName): \(binding.displayString)",
+                    attributes: [
+                        .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .regular),
+                        .foregroundColor: NSColor.white
+                    ]
+                )
+                item.toolTip = "Global shortcut for \(action.displayName)"
+                menu.insertItem(item, at: insertIndex)
+                insertIndex += 1
+            }
+        }
     }
     
     /// Update the furigana menu item title and state.

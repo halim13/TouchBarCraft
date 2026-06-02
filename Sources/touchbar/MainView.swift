@@ -1360,6 +1360,26 @@ struct AnkiConfigView: View {
                 
                 Divider()
                 
+                // MARK: - Global Keyboard Shortcuts
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Global Keyboard Shortcuts")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.gray)
+                    
+                    Text("Set global hotkeys that work even when TouchBarCraft is in the background. Requires Accessibility permission (already requested on first launch).")
+                        .font(.system(size: 9))
+                        .foregroundColor(.gray)
+                        .italic()
+                    
+                    VStack(spacing: 4) {
+                        ForEach(AnkiHotkeyAction.allCases, id: \.rawValue) { action in
+                            HotkeyRecorderRow(action: action)
+                        }
+                    }
+                }
+                
+                Divider()
+                
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Review Stats:")
                         .font(.system(size: 11, weight: .bold))
@@ -2064,6 +2084,147 @@ struct BrightnessOptionsView: View {
                     .font(.system(size: 11))
                     .foregroundColor(.gray)
             }
+        }
+    }
+}
+
+// MARK: - Global Hotkey Recorder Views
+
+struct HotkeyRecorderRow: View {
+    let action: AnkiHotkeyAction
+    @State private var isRecording = false
+    @State private var eventMonitor: Any?
+    @State private var cachedBinding: HotkeyBinding = .empty
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: action.iconName)
+                .font(.system(size: 10))
+                .foregroundColor(.purple)
+                .frame(width: 16)
+
+            Text(action.displayName)
+                .font(.system(size: 10))
+                .foregroundColor(.white)
+                .frame(width: 100, alignment: .leading)
+
+            Spacer()
+
+            Button(action: {
+                if isRecording {
+                    cancelRecording()
+                } else {
+                    startRecording()
+                }
+            }) {
+                Text(displayString)
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundColor(isRecording ? .white : .purple)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(isRecording ? Color.red.opacity(0.6) : Color.purple.opacity(0.15))
+                    .cornerRadius(4)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4)
+                            .stroke(isRecording ? Color.red : Color.purple.opacity(0.3), lineWidth: 1)
+                    )
+            }
+            .buttonStyle(.plain)
+            .help(isRecording ? "Press a key combination..." : "Click to record")
+
+            if cachedBinding.isValid {
+                Toggle("", isOn: Binding(
+                    get: { cachedBinding.isEnabled },
+                    set: { newVal in
+                        if newVal {
+                            let binding = cachedBinding
+                            GlobalHotkeyManager.shared.setBinding(HotkeyBinding(keyCode: binding.keyCode, modifiers: binding.modifiers, isEnabled: true), for: action)
+                        } else {
+                            GlobalHotkeyManager.shared.toggleEnabled(for: action)
+                        }
+                        syncBinding()
+                    }
+                ))
+                .toggleStyle(.checkbox)
+                .controlSize(.small)
+
+                Button(action: {
+                    cancelRecording()
+                    GlobalHotkeyManager.shared.clearBinding(for: action)
+                    syncBinding()
+                }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 10))
+                        .foregroundColor(.red.opacity(0.6))
+                }
+                .buttonStyle(.plain)
+                .help("Clear shortcut")
+            }
+        }
+        .padding(.vertical, 2)
+        .padding(.horizontal, 6)
+        .background(isRecording ? Color.red.opacity(0.08) : Color.clear)
+        .cornerRadius(4)
+        .onAppear { syncBinding() }
+        .onDisappear { cancelRecording() }
+    }
+
+    private var displayString: String {
+        if isRecording {
+            return "Press keys..."
+        }
+        return cachedBinding.isValid ? cachedBinding.displayString : "Set"
+    }
+
+    private func syncBinding() {
+        cachedBinding = GlobalHotkeyManager.shared.binding(for: action)
+    }
+
+    private func startRecording() {
+        cancelRecording()
+        isRecording = true
+
+        let monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { [self] event in
+            guard self.isRecording else { return event }
+
+            let keyCode = Int(event.keyCode)
+
+            let isModifierOnly: Bool = {
+                switch keyCode {
+                case 0x36, 0x37, 0x38, 0x39, 0x3A, 0x3B, 0x3C, 0x3D, 0x3E:
+                    return true
+                default:
+                    return false
+                }
+            }()
+
+            if isModifierOnly {
+                return nil
+            }
+
+            let flags = event.modifierFlags
+            let hasModifier = flags.contains(.command) ||
+                               flags.contains(.shift) ||
+                               flags.contains(.option) ||
+                               flags.contains(.control)
+
+            if hasModifier {
+                let binding = GlobalHotkeyManager.binding(from: event)
+                GlobalHotkeyManager.shared.setBinding(binding, for: self.action)
+                self.cancelRecording()
+                self.syncBinding()
+            }
+
+            return nil
+        }
+        eventMonitor = monitor
+    }
+
+    private func cancelRecording() {
+        isRecording = false
+        if let monitor = eventMonitor {
+            NSEvent.removeMonitor(monitor)
+            eventMonitor = nil
         }
     }
 }

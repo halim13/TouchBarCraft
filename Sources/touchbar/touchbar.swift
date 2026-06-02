@@ -26,6 +26,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
         
         // Setup the Menu Bar status item
         StatusItemManager.shared.setupStatusItem()
+        
+        // Initialize global keyboard shortcuts for Anki actions
+        GlobalHotkeyManager.shared.setup()
     }
     
     @MainActor
@@ -33,6 +36,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
         // Clean up tray item and dismiss system modal override cleanly on exit
         TouchBarPresenter.shared.dismissGlobalTouchBar()
         TouchBarPresenter.shared.removeSystemTrayItem()
+        GlobalHotkeyManager.shared.tearDown()
     }
     
     public func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
