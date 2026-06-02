@@ -1427,7 +1427,7 @@ struct AnkiConfigView: View {
                 
                 // MARK: - Game Controller Support
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Game Controller / Joystick Support")
+                    Text("Game Controller / Joystick Support (EXPERIMENTAL)")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.gray)
                     
@@ -1469,18 +1469,23 @@ struct AnkiConfigView: View {
                             .foregroundColor(.gray)
                     }
                     
-                    // Button mapping reference
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Button Mapping:")
+                    // Custom button mapping
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Custom Button Mapping:")
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.gray)
-                        Text(GameControllerManager.buttonMappingDescription)
-                            .font(.system(size: 9, design: .monospaced))
-                            .foregroundColor(.gray)
-                            .lineSpacing(2)
+                        
+                        Text("Assign each controller button to an Anki action. Defaults are used if not customized.")
+                            .font(.system(size: 8))
+                            .foregroundColor(.gray.opacity(0.7))
+                            .italic()
+                        
+                        ForEach(GameControllerButton.allCases, id: \.rawValue) { button in
+                            ControllerMappingRow(button: button)
+                        }
                     }
                     .padding(8)
-                    .background(Color.white.opacity(0.05))
+                    .background(Color.white.opacity(0.03))
                     .cornerRadius(6)
                     
                     Text("Connect a PS4, PS5, Xbox, or MFi controller via Bluetooth or USB. Supports most standard gamepads out of the box.")
@@ -2200,6 +2205,73 @@ struct BrightnessOptionsView: View {
 }
 
 // MARK: - Global Hotkey Recorder Views
+// MARK: - Game Controller Mapping Row
+
+struct ControllerMappingRow: View {
+    let button: GameControllerButton
+    @State private var selectedAction: AnkiHotkeyAction? = nil
+    
+    private var defaultActionName: String {
+        GameControllerManager.defaultAction(for: button)?.displayName ?? "—"
+    }
+    
+    var body: some View {
+        HStack(spacing: 6) {
+            HStack(spacing: 4) {
+                Image(systemName: button.iconName)
+                    .font(.system(size: 10))
+                    .foregroundColor(.green)
+                    .frame(width: 16)
+                
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(button.rawValue)
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundColor(.white)
+                    
+                    Text("Default: " + defaultActionName)
+                        .font(.system(size: 8))
+                        .foregroundColor(.gray.opacity(0.6))
+                }
+            }
+            .frame(width: 110, alignment: .leading)
+            
+            Image(systemName: "arrow.right")
+                .font(.system(size: 8))
+                .foregroundColor(.gray)
+            
+            Picker("", selection: Binding(
+                get: { selectedAction?.rawValue ?? -1 },
+                set: { newRawValue in
+                    let action = newRawValue >= 0 ? AnkiHotkeyAction(rawValue: newRawValue) : nil
+                    selectedAction = action
+                    GameControllerManager.shared.setMapping(for: button, action: action)
+                }
+            )) {
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.system(size: 9))
+                    Text("Default: " + defaultActionName)
+                        .font(.system(size: 10))
+                }.tag(-1)
+                ForEach(AnkiHotkeyAction.allCases, id: \.rawValue) { action in
+                    HStack(spacing: 4) {
+                        Image(systemName: action.iconName)
+                            .font(.system(size: 9))
+                        Text(action.displayName)
+                            .font(.system(size: 10))
+                    }.tag(action.rawValue)
+                }
+            }
+            .pickerStyle(.menu)
+            .frame(maxWidth: 130)
+        }
+        .padding(.vertical, 2)
+        .onAppear {
+            selectedAction = GameControllerManager.shared.loadedAction(for: button)
+        }
+    }
+}
+
 
 struct HotkeyRecorderRow: View {
     let action: AnkiHotkeyAction

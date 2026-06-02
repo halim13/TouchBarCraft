@@ -6,6 +6,98 @@ import AppKit
 
 private let udGameControllerEnabled = "AnkiGameControllerEnabled"
 private let udGameControllerGamingMode = "AnkiGameControllerGamingMode"
+private let udGameControllerMappingPrefix = "GameControllerMapping_"
+
+// MARK: - Game Controller Button Enum
+
+/// Physical buttons available on an extended gamepad.
+public enum GameControllerButton: String, Codable, CaseIterable, Sendable {
+    case buttonA = "A"
+    case buttonB = "B"
+    case buttonX = "X"
+    case buttonY = "Y"
+    case leftShoulder = "L1"
+    case dpadUp = "D-Pad ↑"
+    case dpadRight = "D-Pad →"
+    case dpadDown = "D-Pad ↓"
+    case dpadLeft = "D-Pad ←"
+    
+    /// Buttons available on micro gamepad (Siri Remote, etc.)
+    public static let microButtons: Set<GameControllerButton> = [.buttonA, .buttonX, .dpadUp, .dpadRight, .dpadDown, .dpadLeft]
+    
+    /// SF Symbol icon name for display
+    public var iconName: String {
+        switch self {
+        case .buttonA: return "a.circle.fill"
+        case .buttonB: return "b.circle.fill"
+        case .buttonX: return "x.circle.fill"
+        case .buttonY: return "y.circle.fill"
+        case .leftShoulder: return "l.rectangle.roundedbottom.fill"
+        case .dpadUp: return "arrowtriangle.up.fill"
+        case .dpadRight: return "arrowtriangle.right.fill"
+        case .dpadDown: return "arrowtriangle.down.fill"
+        case .dpadLeft: return "arrowtriangle.left.fill"
+        }
+    }
+}
+
+// MARK: - UserDefaults Helpers
+
+private extension GameControllerManager {
+    func saveMapping(for button: GameControllerButton, action: AnkiHotkeyAction?) {
+        let key = udGameControllerMappingPrefix + button.rawValue
+        if let action = action {
+            UserDefaults.standard.set(action.rawValue, forKey: key)
+        } else {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+    }
+    
+    func loadMapping(for button: GameControllerButton) -> AnkiHotkeyAction? {
+        let key = udGameControllerMappingPrefix + button.rawValue
+        guard let rawValue = UserDefaults.standard.object(forKey: key) as? Int else {
+            return nil
+        }
+        return AnkiHotkeyAction(rawValue: rawValue)
+    }
+    
+    /// Get the mapped action for a button, falling back to default if none saved.
+    func actionForButton(_ button: GameControllerButton) -> AnkiHotkeyAction? {
+        if let saved = loadMapping(for: button) {
+            return saved
+        }
+        // Fall back to default mapping
+        return Self.defaultMapping[button] ?? nil
+    }
+    
+    /// Build a mapping description string for the settings UI.
+    func buildMappingDescription() -> String {
+        return GameControllerButton.allCases.compactMap { button -> String? in
+            // Hide micro-only buttons from extended description? No, show all.
+            guard let action = actionForButton(button) else { return nil }
+            let actionName = action.displayName
+            // Pad button names for alignment
+            let padded = button.rawValue.padding(toLength: 8, withPad: " ", startingAt: 0)
+            return "\(padded) → \(actionName)"
+        }.joined(separator: "\n")
+    }
+    
+    private static let defaultMapping: [GameControllerButton: AnkiHotkeyAction] = [
+        // Extended gamepad (Xbox, PS, etc.)
+        .buttonA: .connect,
+        .buttonB: .reveal,
+        .buttonX: .audio,
+        .buttonY: .sync,
+        .leftShoulder: .touchBarAudio,
+        .dpadUp: .rating1,
+        .dpadRight: .rating2,
+        .dpadDown: .rating3,
+        .dpadLeft: .rating4,
+    ]
+    
+}
+
+// MARK: - Game Controller Manager
 
 // MARK: - Game Controller Manager
 
@@ -137,7 +229,7 @@ public final class GameControllerManager: NSObject {
         setupController(controller)
         updateConnectedControllers()
         refreshMenu()
-        print("GameControllerManager: Controller connected: \(controller.productCategory ?? "Unknown")")
+        print("GameControllerManager: Controller connected: \(controller.productCategory)")
     }
 
     @objc private func controllerDidDisconnect(_ notification: Notification) {
@@ -206,49 +298,42 @@ public final class GameControllerManager: NSObject {
 
     // MARK: - Button Mapping
 
-    private func mapExtendedButton(_ button: GCControllerButtonInput, on gamepad: GCExtendedGamepad) -> AnkiHotkeyAction? {
+    /// Convert a GCControllerButtonInput to our GameControllerButton enum.
+    private func identifyExtendedButton(_ button: GCControllerButtonInput, on gamepad: GCExtendedGamepad) -> GameControllerButton? {
         switch button {
-        case gamepad.buttonA:
-            return .connect
-        case gamepad.buttonB:
-            return .reveal
-        case gamepad.buttonX:
-            return .audio
-        case gamepad.buttonY:
-            return .sync
-        case gamepad.leftShoulder:
-            return .touchBarAudio
-        case gamepad.dpad.up:
-            return .rating1  // Again
-        case gamepad.dpad.right:
-            return .rating2  // Hard
-        case gamepad.dpad.down:
-            return .rating3  // Good
-        case gamepad.dpad.left:
-            return .rating4  // Easy
-        default:
-            return nil
+        case gamepad.buttonA: return .buttonA
+        case gamepad.buttonB: return .buttonB
+        case gamepad.buttonX: return .buttonX
+        case gamepad.buttonY: return .buttonY
+        case gamepad.leftShoulder: return .leftShoulder
+        case gamepad.dpad.up: return .dpadUp
+        case gamepad.dpad.right: return .dpadRight
+        case gamepad.dpad.down: return .dpadDown
+        case gamepad.dpad.left: return .dpadLeft
+        default: return nil
         }
+    }
+    
+    private func identifyMicroButton(_ button: GCControllerButtonInput, on gamepad: GCMicroGamepad) -> GameControllerButton? {
+        switch button {
+        case gamepad.buttonA: return .buttonA
+        case gamepad.buttonX: return .buttonX
+        case gamepad.dpad.up: return .dpadUp
+        case gamepad.dpad.right: return .dpadRight
+        case gamepad.dpad.down: return .dpadDown
+        case gamepad.dpad.left: return .dpadLeft
+        default: return nil
+        }
+    }
+    
+    private func mapExtendedButton(_ button: GCControllerButtonInput, on gamepad: GCExtendedGamepad) -> AnkiHotkeyAction? {
+        guard let identified = identifyExtendedButton(button, on: gamepad) else { return nil }
+        return actionForButton(identified)
     }
 
     private func mapMicroButton(_ button: GCControllerButtonInput, on gamepad: GCMicroGamepad) -> AnkiHotkeyAction? {
-        // Micro gamepad (Siri Remote, etc.) has fewer buttons
-        switch button {
-        case gamepad.buttonA:
-            return .reveal
-        case gamepad.buttonX:
-            return .audio
-        case gamepad.dpad.up:
-            return .rating1
-        case gamepad.dpad.right:
-            return .rating2
-        case gamepad.dpad.down:
-            return .rating3
-        case gamepad.dpad.left:
-            return .rating4
-        default:
-            return nil
-        }
+        guard let identified = identifyMicroButton(button, on: gamepad) else { return nil }
+        return actionForButton(identified)
     }
 
     // MARK: - Action Dispatch
@@ -290,14 +375,24 @@ public final class GameControllerManager: NSObject {
     // MARK: - Settings Display
 
     /// Human-readable button mapping description for the settings UI.
-    public static var buttonMappingDescription: String {
-        """
-        A → Connect
-        B → Reveal
-        X → Toggle Audio
-        Y → Sync
-        D-pad → Ratings (↑ Again, → Hard, ↓ Good, ← Easy)
-        L1 → Toggle Touch Bar Audio
-        """
+    public var buttonMappingDescription: String {
+        buildMappingDescription()
+    }
+    
+    // MARK: - Public Mapping API
+    
+    /// Set the mapping for a given button and persist to UserDefaults.
+    public func setMapping(for button: GameControllerButton, action: AnkiHotkeyAction?) {
+        saveMapping(for: button, action: action)
+    }
+    
+    /// Load a saved mapping for a given button (if any), or nil if using default.
+    public func loadedAction(for button: GameControllerButton) -> AnkiHotkeyAction? {
+        loadMapping(for: button)
+    }
+    
+    /// Get the default action for a controller button.
+    public static func defaultAction(for button: GameControllerButton) -> AnkiHotkeyAction? {
+        defaultMapping[button]
     }
 }
