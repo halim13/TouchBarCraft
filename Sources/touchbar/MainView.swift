@@ -1590,48 +1590,48 @@ struct AnkiConfigView: View {
                             }
                             
                             // Window Width
-                            HStack(spacing: 8) {
-                                Text("Window Width:")
-                                    .font(.system(size: 11))
-                                    .frame(width: 100, alignment: .leading)
+                            // HStack(spacing: 8) {
+                            //     Text("Window Width:")
+                            //         .font(.system(size: 11))
+                            //         .frame(width: 100, alignment: .leading)
                                 
-                                Slider(value: Binding(
-                                    get: { AnkiFloatingOverlayManager.shared.config.windowWidth },
-                                    set: { val in
-                                        var config = AnkiFloatingOverlayManager.shared.config
-                                        config.windowWidth = val
-                                        AnkiFloatingOverlayManager.shared.config = config
-                                    }
-                                ), in: 200...2000, step: 10)
+                            //     Slider(value: Binding(
+                            //         get: { AnkiFloatingOverlayManager.shared.config.windowWidth },
+                            //         set: { val in
+                            //             var config = AnkiFloatingOverlayManager.shared.config
+                            //             config.windowWidth = val
+                            //             AnkiFloatingOverlayManager.shared.config = config
+                            //         }
+                            //     ), in: 200...2000, step: 10)
                                 
-                                Text("\(Int(AnkiFloatingOverlayManager.shared.config.windowWidth))px")
-                                    .font(.system(size: 10, design: .monospaced))
-                                    .foregroundColor(.gray)
-                                    .frame(width: 45, alignment: .trailing)
-                            }
+                            //     Text("\(Int(AnkiFloatingOverlayManager.shared.config.windowWidth))px")
+                            //         .font(.system(size: 10, design: .monospaced))
+                            //         .foregroundColor(.gray)
+                            //         .frame(width: 45, alignment: .trailing)
+                            // }
                             
                             // Window Height
-                            HStack(spacing: 8) {
-                                Text("Window Height:")
-                                    .font(.system(size: 11))
-                                    .frame(width: 100, alignment: .leading)
+                            // HStack(spacing: 8) {
+                            //     Text("Window Height:")
+                            //         .font(.system(size: 11))
+                            //         .frame(width: 100, alignment: .leading)
                                 
-                                Slider(value: Binding(
-                                    get: { AnkiFloatingOverlayManager.shared.config.windowHeight },
-                                    set: { val in
-                                        var config = AnkiFloatingOverlayManager.shared.config
-                                        config.windowHeight = val
-                                        AnkiFloatingOverlayManager.shared.config = config
-                                    }
-                                ), in: 150...1200, step: 10)
+                            //     Slider(value: Binding(
+                            //         get: { AnkiFloatingOverlayManager.shared.config.windowHeight },
+                            //         set: { val in
+                            //             var config = AnkiFloatingOverlayManager.shared.config
+                            //             config.windowHeight = val
+                            //             AnkiFloatingOverlayManager.shared.config = config
+                            //         }
+                            //     ), in: 150...1200, step: 10)
                                 
-                                Text("\(Int(AnkiFloatingOverlayManager.shared.config.windowHeight))px")
-                                    .font(.system(size: 10, design: .monospaced))
-                                    .foregroundColor(.gray)
-                                    .frame(width: 45, alignment: .trailing)
-                            }
+                            //     Text("\(Int(AnkiFloatingOverlayManager.shared.config.windowHeight))px")
+                            //         .font(.system(size: 10, design: .monospaced))
+                            //         .foregroundColor(.gray)
+                            //         .frame(width: 45, alignment: .trailing)
+                            // }
                             
-                            Divider()
+                            // Divider()
                             
                             // Text Color
                             HStack(spacing: 8) {
