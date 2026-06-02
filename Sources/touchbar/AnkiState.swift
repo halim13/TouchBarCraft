@@ -86,7 +86,7 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
                     }
                 }
             } else {
-                self.connectionError = "Anki tidak terbuka atau AnkiConnect belum terinstal"
+                self.connectionError = "Anki is not open or AnkiConnect is not installed"
                 self.hasRestoredDeck = false // Reset so we restore next time we connect
             }
         }
@@ -114,7 +114,7 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
                     let config = NSWorkspace.OpenConfiguration()
                     NSWorkspace.shared.openApplication(at: ankiURL, configuration: config) { _, error in
                         if let error = error {
-                            print("Gagal membuka Anki: \(error.localizedDescription)")
+                            print("Failed to open Anki: \(error.localizedDescription)")
                         }
                     }
                 } else {
@@ -124,7 +124,7 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
                     process.arguments = ["-a", "Anki"]
                     try? process.run()
                 }
-                self.connectionError = "Membuka Anki... Klik Connect lagi setelah aplikasi Anki terbuka."
+                self.connectionError = "Opening Anki... Click Connect again after Anki is open."
             }
         }
     }
@@ -158,7 +158,7 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
                 await loadCurrentCard()
             } else {
                 self.isLoading = false
-                self.connectionError = "Gagal memulai review deck '\(deck)'"
+                self.connectionError = "Failed to start review for deck '\(deck)'"
             }
         }
     }
@@ -224,16 +224,16 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
         
         Task {
             if isMuted {
-                // Saat mute aktif, skip guiShowAnswer agar Anki tidak memutar audio secara native.
-                // Tandai bahwa guiShowAnswer perlu dipanggil sebelum guiAnswerCard nanti.
+                // When mute is active, skip guiShowAnswer to prevent Anki from playing audio natively.
+                // Mark that guiShowAnswer needs to be called before guiAnswerCard later.
                 needsGuiShowAnswer = true
             } else {
-                needsGuiShowAnswer = false  // pastikan tidak ada stale flag
-                // Panggil guiShowAnswer agar state Anki tetap sinkron
-                // (diperlukan agar guiAnswerCard berfungsi saat user menekan rating).
+                needsGuiShowAnswer = false  // ensure no stale flag
+                // Call guiShowAnswer to keep Anki state in sync
+                // (needed for guiAnswerCard to work when user presses rating).
                 let shown = await AnkiConnectClient.shared.showAnswer()
                 if !shown {
-                    // Jika gagal, reset isShowingAnswer agar user bisa coba lagi
+                    // If failed, reset isShowingAnswer so user can try again
                     self.isShowingAnswer = false
                     refreshTouchBar()
                     StatusItemManager.shared.refreshAnkiCardInfo()
@@ -255,8 +255,8 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
         
         Task {
             if needsGuiShowAnswer {
-                // Jika reveal sebelumnya di-skip karena mute, panggil guiShowAnswer
-                // sekarang agar guiAnswerCard bisa berfungsi.
+                // If reveal was skipped due to mute, call guiShowAnswer
+                // now for guiAnswerCard to work.
                 _ = await AnkiConnectClient.shared.showAnswer()
                 needsGuiShowAnswer = false
             }
@@ -268,7 +268,7 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
                 await loadCurrentCard()
             } else {
                 self.isLoading = false
-                self.connectionError = "Gagal mengirim rating"
+                self.connectionError = "Failed to submit rating"
                 StatusItemManager.shared.refreshAnkiCardInfo()
             }
         }
@@ -289,7 +289,7 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
                 fetchDecks()
                 await loadCurrentCard()
             } else {
-                self.connectionError = "Gagal melakukan sinkronisasi dengan AnkiWeb"
+                self.connectionError = "Failed to sync with AnkiWeb"
                 refreshTouchBar()
             }
         }
@@ -331,8 +331,8 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
     public func toggleMute() {
         isMuted.toggle()
         if isMuted {
-            // Hentikan audio langsung tanpa refreshTouchBar() agar tidak
-            // mengganggu layout Touch Bar (stopAudio/stopTouchBarAudio memicu refresh)
+            // Stop audio immediately without refreshTouchBar() to avoid
+            // disrupting Touch Bar layout (stopAudio/stopTouchBarAudio triggers refresh)
             currentSound?.stop()
             currentSound = nil
             isAudioPlaying = false
@@ -375,7 +375,7 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
     public func playTouchBarAudio() {
         guard !isMuted, let card = currentCard, let filename = card.touchBarSoundFilename else { return }
         
-        // Jika audioOnlyOnAnswer aktif dan answer belum ditampilkan, jangan play
+        // If audioOnlyOnAnswer is active and answer is not yet shown, don't play
         if let widget = getActiveAnkiWidget(), widget.ankiAudioOnlyOnAnswer, !isShowingAnswer {
             print("AnkiState: Touch Bar audio ditahan karena answer belum direveal (audioOnlyOnAnswer aktif)")
             return
@@ -414,7 +414,7 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
     public func playAudio() {
         guard !isMuted, let card = currentCard, let filename = card.soundFilename else { return }
         
-        // Jika audioOnlyOnAnswer aktif dan answer belum ditampilkan, jangan play
+        // If audioOnlyOnAnswer is active and answer is not yet shown, don't play
         if let widget = getActiveAnkiWidget(), widget.ankiAudioOnlyOnAnswer, !isShowingAnswer {
             print("AnkiState: Audio ditahan karena answer belum direveal (audioOnlyOnAnswer aktif)")
             return

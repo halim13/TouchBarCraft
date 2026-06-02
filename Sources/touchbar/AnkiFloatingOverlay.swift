@@ -23,6 +23,10 @@ public struct AnkiFloatingOverlayConfig: Codable, Sendable {
     public var showCounts: Bool
     public var positionX: Double
     public var positionY: Double
+    public var extraQuestionField: String  // Additional question field for overlay (comma-separated)
+    public var extraAnswerField: String    // Additional answer field for overlay (comma-separated)
+    public var extraFieldColorHex: String  // Text color for extra fields
+    public var extraFieldFontSize: Double   // Font size for extra fields (0 = use main fontSize - 4)
 
     public static let defaults = AnkiFloatingOverlayConfig(
         isEnabled: false,
@@ -43,7 +47,11 @@ public struct AnkiFloatingOverlayConfig: Codable, Sendable {
         showHeader: true,
         showCounts: false,
         positionX: 0,
-        positionY: 0
+        positionY: 0,
+        extraQuestionField: "",
+        extraAnswerField: "",
+        extraFieldColorHex: "#00CED1",
+        extraFieldFontSize: 0
     )
 
     private static let userDefaultsKey = "AnkiFloatingOverlayConfig"
@@ -281,6 +289,10 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
     @Published public var learnCount: Int = 0
     @Published public var reviewCount: Int = 0
 
+    // Extra field values for overlay
+    @Published public var extraQuestionText: String = ""
+    @Published public var extraAnswerText: String = ""
+
     // Anki actions
     public var revealAnswerAction: (() -> Void)?
     public var submitRatingAction: ((Int) -> Void)?
@@ -317,6 +329,32 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
             showGood = widget.ankiShowGood
             showEasy = widget.ankiShowEasy
         }
+        // Populate extra fields from the card's raw fields
+        if let card = state.currentCard {
+            extraQuestionText = extractExtraFieldValue(from: config.extraQuestionField, fields: card.fields)
+            extraAnswerText = extractExtraFieldValue(from: config.extraAnswerField, fields: card.fields)
+        } else {
+            extraQuestionText = ""
+            extraAnswerText = ""
+        }
+    }
+
+    /// Parse comma-separated field names, extract and join their values
+    private func extractExtraFieldValue(from fieldString: String, fields: [String: String]) -> String {
+        guard !fieldString.trimmingCharacters(in: .whitespaces).isEmpty else { return "" }
+        let fieldNames = fieldString.split(separator: ",").map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        var values: [String] = []
+        for name in fieldNames {
+            if let val = fields[name] {
+                let stripped = stripHTMLForOverlay(val)
+                if !stripped.isEmpty {
+                    values.append(stripped)
+                }
+            }
+        }
+        return values.joined(separator: " / ")
     }
 
     private func getAnkiWidget() -> TouchBarWidget? {
@@ -353,6 +391,8 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
             deckName = ""
         }
     }
+
+
 }
 
 // MARK: - Helper: Strip HTML for plain text display
@@ -412,17 +452,17 @@ public struct FloatingOverlayContentView: View {
                 .font(.system(size: 32))
                 .foregroundColor(.gray)
 
-            Text("Anki Tidak Terhubung")
+            Text("Anki Not Connected")
                 .font(.system(size: host.config.fontSize, weight: .medium))
                 .foregroundColor(textColor)
 
-            Text("Pastikan Anki terbuka dan AnkiConnect terinstal")
+            Text("Make sure Anki is open and AnkiConnect is installed")
                 .font(.system(size: host.config.fontSize - 4))
                 .foregroundColor(.gray)
                 .multilineTextAlignment(.center)
 
             Button(action: { host.connectAction?() }) {
-                Text("Hubungkan")
+                Text("Connect")
                     .font(.system(size: 14, weight: .semibold))
                     .padding(.horizontal, 20).padding(.vertical, 8)
                     .background(Color.blue)
@@ -440,14 +480,14 @@ public struct FloatingOverlayContentView: View {
         VStack(spacing: 12) {
             if host.isLoading {
                 ProgressView().scaleEffect(1.2)
-                Text("Memuat kartu...")
+                Text("Loading card...")
                     .font(.system(size: host.config.fontSize - 2))
                     .foregroundColor(.gray)
             } else {
                 Image(systemName: "tray.full")
                     .font(.system(size: 28))
                     .foregroundColor(.gray)
-                Text("Pilih Dek untuk Memulai")
+                Text("Select a Deck to Start")
                     .font(.system(size: host.config.fontSize, weight: .medium))
                     .foregroundColor(textColor)
             }
@@ -479,8 +519,18 @@ public struct FloatingOverlayContentView: View {
             }
 
             ScrollView {
-                cardContentText(host.questionText)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: 4) {
+                    cardContentText(host.questionText)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    // Extra question field
+                    if !host.extraQuestionText.isEmpty {
+                        Text(host.extraQuestionText)
+                            .font(.system(size: extraFieldFontSize()))
+                            .foregroundColor(Color(hex: host.config.extraFieldColorHex).opacity(host.config.textOpacity))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
             }
             .frame(maxWidth: .infinity)
 
@@ -491,7 +541,7 @@ public struct FloatingOverlayContentView: View {
                 Button(action: { host.revealAnswerAction?() }) {
                     HStack(spacing: 6) {
                         Image(systemName: "eye.fill").font(.system(size: 12))
-                        Text("Tampilkan Jawaban")
+                        Text("Show Answer")
                             .font(.system(size: 14, weight: .semibold))
                     }
                     .frame(maxWidth: .infinity)
@@ -542,14 +592,34 @@ public struct FloatingOverlayContentView: View {
                 .lineLimit(2)
                 .truncationMode(.tail)
 
+            // Extra question field in answer phase
+            if !host.extraQuestionText.isEmpty {
+                Text(host.extraQuestionText)
+                    .font(.system(size: extraFieldFontSize()))
+                    .foregroundColor(Color(hex: host.config.extraFieldColorHex).opacity(host.config.textOpacity))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .lineLimit(2)
+                    .truncationMode(.tail)
+            }
+
             Divider()
                 .background(Color.white.opacity(0.2))
                 .padding(.vertical, 2)
 
             // Answer
             ScrollView {
-                cardContentText(host.answerText)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: 4) {
+                    cardContentText(host.answerText)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    // Extra answer field
+                    if !host.extraAnswerText.isEmpty {
+                        Text(host.extraAnswerText)
+                            .font(.system(size: extraFieldFontSize()))
+                            .foregroundColor(Color(hex: host.config.extraFieldColorHex).opacity(host.config.textOpacity))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
             }
             .frame(maxWidth: .infinity)
 
@@ -644,6 +714,25 @@ public struct FloatingOverlayContentView: View {
             .padding(.horizontal, 10).padding(.vertical, 6)
             .background(color)
             .cornerRadius(6)
+    }
+
+    // MARK: - Extra Field Label
+
+    private func extraFieldLabel(_ label: String) -> some View {
+        Text(label)
+            .font(.system(size: host.config.fontSize - 6, weight: .semibold))
+            .foregroundColor(Color(hex: host.config.extraFieldColorHex).opacity(0.7))
+            .font(.system(size: extraFieldFontSize(), weight: .semibold))
+            .padding(.top, 2)
+    }
+
+    // MARK: - Extra Field Font Size Helper
+
+    private func extraFieldFontSize() -> CGFloat {
+        if host.config.extraFieldFontSize > 0 {
+            return CGFloat(host.config.extraFieldFontSize)
+        }
+        return CGFloat(host.config.fontSize - 4)
     }
 
     // MARK: - Card Content Text

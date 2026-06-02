@@ -1083,8 +1083,8 @@ public struct WidgetAnkiView: View {
         //   3 tombol: 1=Again, 2=Good, 3=Easy
         //   4 tombol: 1=Again, 2=Hard, 3=Good, 4=Easy
         //
-        // Tampilkan tombol sesuai preferensi user. Untuk buttonCount < 4, ease value
-        // disesuaikan agar mapping-nya benar di Anki. Hard (ease=2) valid untuk semua
+        // Display buttons according to user preference. For buttonCount < 4, ease value
+        // is adjusted so the mapping is correct in Anki. Hard (ease=2) valid untuk semua
         // jumlah tombol (meski di 2/3 tombol artinya "Good" di Anki). Easy untuk
         // buttonCount=2 menggunakan ease=2 (tombol kedua = Good) sebagai fallback.
         

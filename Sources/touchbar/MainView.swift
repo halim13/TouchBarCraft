@@ -1411,17 +1411,17 @@ struct AnkiConfigView: View {
                         Image(systemName: "rectangle.3.group.fill")
                             .font(.system(size: 12))
                             .foregroundColor(.teal)
-                        Text("Floating Overlay — Alternatif Touch Bar Fisik")
+                        Text("Floating Overlay — Physical Touch Bar Alternative")
                             .font(.system(size: 11, weight: .bold))
                             .foregroundColor(.teal)
                     }
                     
-                    Text("Jika Touch Bar fisik tidak berfungsi/rusak, aktifkan overlay jendela mengambang yang menampilkan konten kartu Anki di layar.")
+                    Text("If the physical Touch Bar is not working/broken, enable the floating overlay window that displays Anki card content on screen.")
                         .font(.system(size: 9))
                         .foregroundColor(.gray)
                         .italic()
                     
-                    Toggle("Aktifkan Floating Overlay", isOn: Binding(
+                    Toggle("Enable Floating Overlay", isOn: Binding(
                         get: { AnkiFloatingOverlayManager.shared.config.isEnabled },
                         set: { val in
                             var config = AnkiFloatingOverlayManager.shared.config
@@ -1443,7 +1443,7 @@ struct AnkiConfigView: View {
                         VStack(alignment: .leading, spacing: 10) {
                             // Font Size
                             HStack(spacing: 8) {
-                                Text("Ukuran Font:")
+                                Text("Font Size:")
                                     .font(.system(size: 11))
                                     .frame(width: 100, alignment: .leading)
                                 
@@ -1465,7 +1465,7 @@ struct AnkiConfigView: View {
                             
                             // Furigana Font Size
                             HStack(spacing: 8) {
-                                Text("Font Furigana:")
+                                Text("Furigana Font:")
                                     .font(.system(size: 11))
                                     .frame(width: 100, alignment: .leading)
                                 
@@ -1489,7 +1489,7 @@ struct AnkiConfigView: View {
                             
                             // Window Transparency
                             HStack(spacing: 8) {
-                                Text("Transp. Jendela:")
+                                Text("Window Opacity:")
                                     .font(.system(size: 11))
                                     .frame(width: 100, alignment: .leading)
                                 
@@ -1510,7 +1510,7 @@ struct AnkiConfigView: View {
                             
                             // Text Transparency
                             HStack(spacing: 8) {
-                                Text("Transp. Teks:")
+                                Text("Text Opacity:")
                                     .font(.system(size: 11))
                                     .frame(width: 100, alignment: .leading)
                                 
@@ -1532,7 +1532,7 @@ struct AnkiConfigView: View {
                             
                             // Window Width
                             HStack(spacing: 8) {
-                                Text("Lebar Jendela:")
+                                Text("Window Width:")
                                     .font(.system(size: 11))
                                     .frame(width: 100, alignment: .leading)
                                 
@@ -1553,7 +1553,7 @@ struct AnkiConfigView: View {
                             
                             // Window Height
                             HStack(spacing: 8) {
-                                Text("Tinggi Jendela:")
+                                Text("Window Height:")
                                     .font(.system(size: 11))
                                     .frame(width: 100, alignment: .leading)
                                 
@@ -1576,7 +1576,7 @@ struct AnkiConfigView: View {
                             
                             // Text Color
                             HStack(spacing: 8) {
-                                Text("Warna Teks:")
+                                Text("Text Color:")
                                     .font(.system(size: 11))
                                     .frame(width: 100, alignment: .leading)
                                 
@@ -1607,7 +1607,7 @@ struct AnkiConfigView: View {
                             
                             // Background Color
                             HStack(spacing: 8) {
-                                Text("Warna Background:")
+                                Text("Background Color:")
                                     .font(.system(size: 11))
                                     .frame(width: 100, alignment: .leading)
                                 
@@ -1638,7 +1638,7 @@ struct AnkiConfigView: View {
                             
                             // Question Answer Color
                             HStack(spacing: 8) {
-                                Text("Warna Preview Soal:")
+                                Text("Question Preview Color:")
                                     .font(.system(size: 11))
                                     .frame(width: 100, alignment: .leading)
                                 
@@ -1667,7 +1667,7 @@ struct AnkiConfigView: View {
                                 ))
                             }
                             
-                            Text("Warna Preview Soal mengubah warna teks pertanyaan yang muncul di layar jawaban (sebelumnya abu-abu).")
+                            Text("Question Preview Color changes the question text color shown in the answer view (previously gray).")
                                 .font(.system(size: 9))
                                 .foregroundColor(.gray)
                                 .italic()
@@ -1676,11 +1676,11 @@ struct AnkiConfigView: View {
                             
                             // Show/Hide Toggles
                             VStack(alignment: .leading, spacing: 6) {
-                                Text("Kontrol yang Ditampilkan:")
+                                Text("Displayed Controls:")
                                     .font(.system(size: 11, weight: .bold))
                                     .foregroundColor(.gray)
                                 
-                                Toggle("Tombol Rating (Again/Hard/Good/Easy)", isOn: Binding(
+                                Toggle("Rating Buttons (Again/Hard/Good/Easy)", isOn: Binding(
                                     get: { AnkiFloatingOverlayManager.shared.config.showRatingButtons },
                                     set: { val in
                                         var config = AnkiFloatingOverlayManager.shared.config
@@ -1691,7 +1691,7 @@ struct AnkiConfigView: View {
                                 ))
                                 .toggleStyle(.checkbox)
                                 
-                                Toggle("Tombol Audio (Play/Stop)", isOn: Binding(
+                                Toggle("Audio Button (Play/Stop)", isOn: Binding(
                                     get: { AnkiFloatingOverlayManager.shared.config.showAudioButton },
                                     set: { val in
                                         var config = AnkiFloatingOverlayManager.shared.config
@@ -1702,7 +1702,7 @@ struct AnkiConfigView: View {
                                 ))
                                 .toggleStyle(.checkbox)
                                 
-                                Toggle("Tombol Sinkronisasi (Sync)", isOn: Binding(
+                                Toggle("Sync Button", isOn: Binding(
                                     get: { AnkiFloatingOverlayManager.shared.config.showSyncButton },
                                     set: { val in
                                         var config = AnkiFloatingOverlayManager.shared.config
@@ -1713,7 +1713,7 @@ struct AnkiConfigView: View {
                                 ))
                                 .toggleStyle(.checkbox)
                                 
-                                Toggle("Tombol Tampilkan Jawaban", isOn: Binding(
+                                Toggle("Reveal Answer Button", isOn: Binding(
                                     get: { AnkiFloatingOverlayManager.shared.config.showRevealButton },
                                     set: { val in
                                         var config = AnkiFloatingOverlayManager.shared.config
@@ -1724,7 +1724,7 @@ struct AnkiConfigView: View {
                                 ))
                                 .toggleStyle(.checkbox)
                                 
-                                Toggle("Header (Judul Deck & Counter)", isOn: Binding(
+                                Toggle("Header (Deck Name & Counter)", isOn: Binding(
                                     get: { AnkiFloatingOverlayManager.shared.config.showHeader },
                                     set: { val in
                                         var config = AnkiFloatingOverlayManager.shared.config
@@ -1736,7 +1736,7 @@ struct AnkiConfigView: View {
                                 .toggleStyle(.checkbox)
                                 
                                 if !AnkiFloatingOverlayManager.shared.config.showHeader {
-                                    Toggle("Counter Saja (N/L/R) — tanpa header", isOn: Binding(
+                                    Toggle("Counts Only (N/L/R) — without header", isOn: Binding(
                                         get: { AnkiFloatingOverlayManager.shared.config.showCounts },
                                         set: { val in
                                             var config = AnkiFloatingOverlayManager.shared.config
@@ -1753,13 +1753,122 @@ struct AnkiConfigView: View {
                             
                             Divider()
                             
-                            // Focus Mode
+                            // Extra Fields Configuration
                             VStack(alignment: .leading, spacing: 6) {
-                                Text("Mode Fokus:")
+                                Text("Extra Fields (Overlay):")
                                     .font(.system(size: 11, weight: .bold))
                                     .foregroundColor(.gray)
                                 
-                                Toggle("Sembunyikan Title Bar & Tombol Tutup", isOn: Binding(
+                                Text("Extra fields displayed below the main content in the overlay. To combine multiple fields, separate with commas (e.g. Word, Reading).")
+                                    .font(.system(size: 9))
+                                    .foregroundColor(.gray)
+                                    .italic()
+                                    .lineLimit(nil)
+                                    .padding(.bottom, 4)
+                                
+                                HStack(spacing: 8) {
+                                    Text("Extra Question Field:")
+                                        .font(.system(size: 11))
+                                        .frame(width: 130, alignment: .leading)
+                                    
+                                    TextField("e.g. ExtraFront", text: Binding(
+                                        get: { AnkiFloatingOverlayManager.shared.config.extraQuestionField },
+                                        set: { val in
+                                            var config = AnkiFloatingOverlayManager.shared.config
+                                            config.extraQuestionField = val
+                                            AnkiFloatingOverlayManager.shared.config = config
+                                            AnkiFloatingOverlayManager.shared.refreshOverlay()
+                                        }
+                                    ))
+                                    .textFieldStyle(.roundedBorder)
+                                    .font(.system(size: 11))
+                                }
+                                
+                                HStack(spacing: 8) {
+                                    Text("Extra Answer Field:")
+                                        .font(.system(size: 11))
+                                        .frame(width: 130, alignment: .leading)
+                                    
+                                    TextField("e.g. ExtraBack", text: Binding(
+                                        get: { AnkiFloatingOverlayManager.shared.config.extraAnswerField },
+                                        set: { val in
+                                            var config = AnkiFloatingOverlayManager.shared.config
+                                            config.extraAnswerField = val
+                                            AnkiFloatingOverlayManager.shared.config = config
+                                            AnkiFloatingOverlayManager.shared.refreshOverlay()
+                                        }
+                                    ))
+                                    .textFieldStyle(.roundedBorder)
+                                    .font(.system(size: 11))
+                                }
+                                
+                                HStack(spacing: 8) {
+                                    Text("Field Text Color:")
+                                        .font(.system(size: 11))
+                                        .frame(width: 130, alignment: .leading)
+                                    
+                                    TextField("#HEX", text: Binding(
+                                        get: { AnkiFloatingOverlayManager.shared.config.extraFieldColorHex },
+                                        set: { val in
+                                            var config = AnkiFloatingOverlayManager.shared.config
+                                            config.extraFieldColorHex = val
+                                            AnkiFloatingOverlayManager.shared.config = config
+                                            AnkiFloatingOverlayManager.shared.refreshOverlay()
+                                        }
+                                    ))
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(width: 90)
+                                    
+                                    ColorPicker("", selection: Binding(
+                                        get: { Color(hex: AnkiFloatingOverlayManager.shared.config.extraFieldColorHex) },
+                                        set: { color in
+                                            if let hexString = color.toHex() {
+                                                var config = AnkiFloatingOverlayManager.shared.config
+                                                config.extraFieldColorHex = hexString
+                                                AnkiFloatingOverlayManager.shared.config = config
+                                                AnkiFloatingOverlayManager.shared.refreshOverlay()
+                                            }
+                                        }
+                                    ))
+                                }
+                                
+                                HStack(spacing: 8) {
+                                    Text("Field Font Size:")
+                                        .font(.system(size: 11))
+                                        .frame(width: 130, alignment: .leading)
+                                    
+                                    Slider(value: Binding(
+                                        get: { AnkiFloatingOverlayManager.shared.config.extraFieldFontSize },
+                                        set: { val in
+                                            var config = AnkiFloatingOverlayManager.shared.config
+                                            config.extraFieldFontSize = val
+                                            AnkiFloatingOverlayManager.shared.config = config
+                                            AnkiFloatingOverlayManager.shared.refreshOverlay()
+                                        }
+                                    ), in: 0...28, step: 1)
+                                    
+                                    Text(AnkiFloatingOverlayManager.shared.config.extraFieldFontSize > 0 ? "\(Int(AnkiFloatingOverlayManager.shared.config.extraFieldFontSize))pt" : "Auto")
+                                        .font(.system(size: 10, design: .monospaced))
+                                        .foregroundColor(.gray)
+                                        .frame(width: 40, alignment: .trailing)
+                                }
+                                
+                                Text("Leave question/answer fields empty to hide extra fields. These fields only appear in the overlay (not on the physical Touch Bar). Set font size to 0 to follow the main font size minus 4pt.")
+                                    .font(.system(size: 9))
+                                    .foregroundColor(.gray)
+                                    .italic()
+                                    .lineLimit(nil)
+                            }
+                            
+                            Divider()
+                            
+                            // Focus Mode
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Focus Mode:")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(.gray)
+                                
+                                Toggle("Hide Title Bar & Close Button", isOn: Binding(
                                     get: { AnkiFloatingOverlayManager.shared.config.hideTitleBar },
                                     set: { val in
                                         var config = AnkiFloatingOverlayManager.shared.config
@@ -1770,7 +1879,7 @@ struct AnkiConfigView: View {
                                 .toggleStyle(.checkbox)
                                 .font(.system(size: 11))
                                 
-                                Text("Menyembunyikan title bar dan tombol tutup (X) agar tampilan lebih fokus. Geser jendela dengan cara drag area konten.")
+                                Text("Hides the title bar and close button (X) for a more focused view. Drag the window by grabbing the content area.")
                                     .font(.system(size: 9))
                                     .foregroundColor(.gray)
                                     .italic()
@@ -1789,7 +1898,7 @@ struct AnkiConfigView: View {
                                     HStack(spacing: 4) {
                                         Image(systemName: "eye.fill")
                                             .font(.system(size: 10))
-                                        Text("Tampilkan Overlay")
+                                        Text("Show Overlay")
                                             .font(.system(size: 10))
                                     }
                                     .padding(.vertical, 5)
@@ -1806,7 +1915,7 @@ struct AnkiConfigView: View {
                                     HStack(spacing: 4) {
                                         Image(systemName: "eye.slash.fill")
                                             .font(.system(size: 10))
-                                        Text("Sembunyikan")
+                                        Text("Hide")
                                             .font(.system(size: 10))
                                     }
                                     .padding(.vertical, 5)

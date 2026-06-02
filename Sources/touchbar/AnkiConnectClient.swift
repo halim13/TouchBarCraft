@@ -10,6 +10,7 @@ public struct AnkiCard: Sendable {
     public let buttonCount: Int  // number of answer buttons (typically 2-4)
     public let audioText: String
     public let touchBarAudioText: String
+    public let fields: [String: String]  // all field values keyed by field name
 
     public var soundFilename: String? {
         extractFilename(from: audioText)
@@ -233,6 +234,14 @@ public actor AnkiConnectClient {
                 }
             }
             
+            // Build a dictionary of all field values
+            var allFields: [String: String] = [:]
+            for (name, fieldDict) in fieldsDict {
+                if let value = fieldDict["value"] as? String {
+                    allFields[name] = value
+                }
+            }
+            
             return AnkiCard(
                 cardId: cardId,
                 question: questionText,
@@ -240,7 +249,8 @@ public actor AnkiConnectClient {
                 deckName: deckName,
                 buttonCount: buttonCount,
                 audioText: audioText,
-                touchBarAudioText: touchBarAudioText
+                touchBarAudioText: touchBarAudioText,
+                fields: allFields
             )
         } catch {
             print("AnkiConnect: Failed to get current card: \(error)")

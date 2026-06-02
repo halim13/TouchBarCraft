@@ -177,7 +177,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             if presenter.globalTouchBar != nil {
                 presenter.presentGlobalTouchBar()
             }
-            // Pastikan tombol close tetap tersembunyi
+            // Ensure close button stays hidden
             presenter.dfrSystemModalShowsCloseBoxWhenFrontMost?(false)
         }
     }
