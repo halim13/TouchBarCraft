@@ -714,24 +714,18 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             hStack.spacing = 4
             hStack.alignment = .centerY
             
-            let typeField = NSTextField(labelWithString: typeLabel)
-            typeField.font = NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .bold)
+            // Colored circle for card type
             let typeColor = NSColor(Color(hex: card.cardTypeColorHex)).withAlphaComponent(0.9)
-            typeField.textColor = typeColor
-            let attrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .bold),
-                .foregroundColor: typeColor,
-                // .underlineStyle: NSUnderlineStyle.single.rawValue
-            ]
-            typeField.attributedStringValue = NSAttributedString(string: typeLabel, attributes: attrs)
-            typeField.isBezeled = false
-            typeField.drawsBackground = false
-            typeField.isEditable = false
-            typeField.isSelectable = false
-            typeField.setContentCompressionResistancePriority(.required, for: .horizontal)
-            typeField.setContentHuggingPriority(.required, for: .horizontal)
-            
-            // hStack.addArrangedSubview(typeField)
+            let dotView = NSView()
+            dotView.wantsLayer = true
+            dotView.layer?.cornerRadius = 3
+            dotView.layer?.backgroundColor = typeColor.cgColor
+            dotView.translatesAutoresizingMaskIntoConstraints = false
+            dotView.widthAnchor.constraint(equalToConstant: 6).isActive = true
+            dotView.heightAnchor.constraint(equalToConstant: 6).isActive = true
+            dotView.setContentCompressionResistancePriority(.required, for: .horizontal)
+            dotView.setContentHuggingPriority(.required, for: .horizontal)
+            // hStack.addArrangedSubview(dotView)
             hStack.addArrangedSubview(contentView)
             return hStack
         }
@@ -1025,19 +1019,14 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         let countFont = NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .bold)
         let attrStr = NSMutableAttributedString()
         
-        // Card type indicator: bold + underline with type-specific color
-        if let card = anki.currentCard {
-            let typeLabel = card.cardTypeLabel
-            if !typeLabel.isEmpty {
-                let typeFont = NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .bold)
-                let typeColor = NSColor(Color(hex: card.cardTypeColorHex)).withAlphaComponent(0.9)
-                attrStr.append(NSAttributedString(string: typeLabel, attributes: [
-                    .font: typeFont,
-                    .foregroundColor: typeColor,
-                    // .underlineStyle: NSUnderlineStyle.single.rawValue
-                ]))
-                attrStr.append(NSAttributedString(string: "  ", attributes: [.font: countFont]))
-            }
+        // Card type indicator: colored dot with type-specific color
+        if let card = anki.currentCard, !card.cardTypeLabel.isEmpty {
+            let typeColor = NSColor(Color(hex: card.cardTypeColorHex)).withAlphaComponent(0.9)
+            attrStr.append(NSAttributedString(string: "●", attributes: [
+                .font: NSFont.systemFont(ofSize: 8),
+                .foregroundColor: typeColor
+            ]))
+            attrStr.append(NSAttributedString(string: "  ", attributes: [.font: countFont]))
         }
         
         attrStr.append(NSAttributedString(string: "\(anki.newCount)", attributes: [

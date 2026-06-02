@@ -25,6 +25,7 @@ public struct AnkiFloatingOverlayConfig: Codable, Sendable {
     public var positionY: Double
     public var extraQuestionField: String  // Additional question field for overlay (comma-separated)
     public var extraAnswerField: String    // Additional answer field for overlay (comma-separated)
+    public var extraQuestionOnlyOnAnswer: Bool // Show extra question field only on answer phase
     public var extraFieldColorHex: String  // Text color for extra fields
     public var extraFieldFontSize: Double   // Font size for extra fields (0 = use main fontSize - 4)
 
@@ -50,6 +51,7 @@ public struct AnkiFloatingOverlayConfig: Codable, Sendable {
         positionY: 0,
         extraQuestionField: "",
         extraAnswerField: "",
+        extraQuestionOnlyOnAnswer: false,
         extraFieldColorHex: "#00CED1",
         extraFieldFontSize: 0
     )
@@ -527,8 +529,8 @@ public struct FloatingOverlayContentView: View {
                     cardContentText(host.questionText)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     
-                    // Extra question field
-                    if !host.extraQuestionText.isEmpty {
+                    // Extra question field (hidden if toggle is set to only show in answer)
+                    if !host.extraQuestionText.isEmpty && !host.config.extraQuestionOnlyOnAnswer {
                         Text(host.extraQuestionText)
                             .font(.system(size: extraFieldFontSize()))
                             .foregroundColor(Color(hex: host.config.extraFieldColorHex).opacity(host.config.textOpacity))
@@ -646,12 +648,11 @@ public struct FloatingOverlayContentView: View {
 
     private var countsRow: some View {
         HStack(spacing: 6) {
-            // Card type indicator in bold + underline with type color
+            // Card type indicator: colored circle
             if !host.cardTypeLabel.isEmpty {
-                Text(host.cardTypeLabel)
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .foregroundColor(Color(hex: host.cardTypeColorHex).opacity(0.9))
-                    // .underline(true)
+                Circle()
+                    .fill(Color(hex: host.cardTypeColorHex))
+                    .frame(width: 8, height: 8)
                 Divider()
                     .frame(width: 1, height: 10)
                     .background(Color.white.opacity(0.3))

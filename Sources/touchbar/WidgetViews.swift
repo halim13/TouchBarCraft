@@ -862,12 +862,11 @@ public struct WidgetAnkiView: View {
     @ViewBuilder
     private func answerTextContent(anki: AnkiState) -> some View {
         HStack(spacing: 4) {
-            // Card type indicator: always visible before answer text
+            // Card type indicator: colored circle before answer text
             if let card = anki.currentCard, !card.cardTypeLabel.isEmpty {
-                Text(card.cardTypeLabel)
-                    .font(.system(size: isSimulator ? 7 : 8, weight: .bold, design: .monospaced))
-                    .foregroundColor(Color(hex: card.cardTypeColorHex).opacity(0.9))
-                    // .underline(true)
+                Circle()
+                    .fill(Color(hex: card.cardTypeColorHex))
+                    .frame(width: 6, height: 6)
             }
             if widget.ankiCombineFurigana {
                 parseFuriganaRichText(
@@ -898,12 +897,11 @@ public struct WidgetAnkiView: View {
     private func countsAndRevealContent(anki: AnkiState) -> some View {
         VStack(spacing: 2) {
             HStack(spacing: 3) {
-                // Card type indicator: bold + underline inline in counts row
+                // Card type indicator: colored circle inline in counts row
                 if let card = anki.currentCard, !card.cardTypeLabel.isEmpty {
-                    Text(card.cardTypeLabel)
-                        .font(.system(size: isSimulator ? 7 : 8, weight: .bold, design: .monospaced))
-                        .foregroundColor(Color(hex: card.cardTypeColorHex).opacity(0.9))
-                        // .underline(true)
+                    Circle()
+                        .fill(Color(hex: card.cardTypeColorHex))
+                        .frame(width: 6, height: 6)
                 }
                 
                 Text("\(anki.newCount)")

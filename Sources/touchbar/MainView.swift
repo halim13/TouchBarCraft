@@ -1784,6 +1784,18 @@ struct AnkiConfigView: View {
                                     .font(.system(size: 11))
                                 }
                                 
+                                Toggle("Show extra question field only on answer phase", isOn: Binding(
+                                    get: { AnkiFloatingOverlayManager.shared.config.extraQuestionOnlyOnAnswer },
+                                    set: { val in
+                                        var config = AnkiFloatingOverlayManager.shared.config
+                                        config.extraQuestionOnlyOnAnswer = val
+                                        AnkiFloatingOverlayManager.shared.config = config
+                                        AnkiFloatingOverlayManager.shared.refreshOverlay()
+                                    }
+                                ))
+                                .toggleStyle(.checkbox)
+                                .font(.system(size: 11))
+                                
                                 HStack(spacing: 8) {
                                     Text("Extra Answer Field:")
                                         .font(.system(size: 11))
