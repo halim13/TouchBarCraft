@@ -512,34 +512,48 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                     stack.addArrangedSubview(controls)
                 }
             } else {
-                // Gunakan NSTextField dengan gesture recognizer (tanpa suara klik sistem)
+                // Container view with background & corner radius (acts as silent button)
+                let container = NSView()
+                container.wantsLayer = true
+                container.layer?.backgroundColor = NSColor(Color(hex: widget.backgroundColorHex)).cgColor
+                container.layer?.cornerRadius = 6
+                container.setAccessibilityLabel("Reveal Answer")
+                container.setContentCompressionResistancePriority(.required, for: .horizontal)
+                container.setContentHuggingPriority(.required, for: .horizontal)
+                container.translatesAutoresizingMaskIntoConstraints = false
+                NSLayoutConstraint.activate([
+                    container.widthAnchor.constraint(greaterThanOrEqualToConstant: 70),
+                    container.heightAnchor.constraint(equalToConstant: 24)
+                ])
+                
+                // Centered text label inside container
                 let revealLabel = NSTextField(labelWithString: "Reveal ▶")
                 revealLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
                 revealLabel.textColor = NSColor(Color(hex: widget.textColorHex))
                 revealLabel.alignment = .center
-                revealLabel.wantsLayer = true
-                revealLabel.layer?.backgroundColor = NSColor(Color(hex: widget.backgroundColorHex)).cgColor
-                revealLabel.layer?.cornerRadius = 6
-                revealLabel.setAccessibilityLabel("Reveal Answer")
-                revealLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
-                revealLabel.setContentHuggingPriority(.required, for: .horizontal)
+                revealLabel.isBezeled = false
+                revealLabel.drawsBackground = false
+                revealLabel.isEditable = false
+                revealLabel.isSelectable = false
                 revealLabel.translatesAutoresizingMaskIntoConstraints = false
+                
+                container.addSubview(revealLabel)
                 NSLayoutConstraint.activate([
-                    revealLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 70),
-                    revealLabel.heightAnchor.constraint(equalToConstant: 24)
+                    revealLabel.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+                    revealLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor)
                 ])
                 
                 let clickGesture = NSClickGestureRecognizer(target: self, action: #selector(ankiRevealTapped(_:)))
                 clickGesture.buttonMask = 1
                 clickGesture.allowedTouchTypes = .direct
-                revealLabel.addGestureRecognizer(clickGesture)
+                container.addGestureRecognizer(clickGesture)
                 
                 if config.isMediaOnLeft {
                     // Left: Reveal | Label | Spacer | Sync
                     let labelSpacer = NSView()
                     labelSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
                     labelSpacer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-                    stack.addArrangedSubview(revealLabel)
+                    stack.addArrangedSubview(container)
                     stack.addArrangedSubview(questionLabel)
                     stack.addArrangedSubview(labelSpacer)
                     stack.addArrangedSubview(syncButton)
@@ -547,7 +561,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                     // Default: Sync | Label | Reveal
                     stack.addArrangedSubview(syncButton)
                     stack.addArrangedSubview(questionLabel)
-                    stack.addArrangedSubview(revealLabel)
+                    stack.addArrangedSubview(container)
                 }
             }
         } else {
