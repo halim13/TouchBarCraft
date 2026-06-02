@@ -32,6 +32,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
         
         // Initialize game controller support for Anki actions
         _ = GameControllerManager.shared
+        
+        // Initialize floating overlay manager (loads config, doesn't show until toggled)
+        _ = AnkiFloatingOverlayManager.shared
     }
     
     @MainActor

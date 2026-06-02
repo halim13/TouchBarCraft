@@ -356,6 +356,8 @@ public final class GameControllerManager: NSObject {
             state.ankiState.toggleAudio()
         case .touchBarAudio:
             state.ankiState.toggleTouchBarAudio()
+        case .toggleOverlay:
+            AnkiFloatingOverlayManager.shared.toggle()
         }
     }
 

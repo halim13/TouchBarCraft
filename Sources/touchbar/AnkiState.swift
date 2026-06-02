@@ -207,9 +207,10 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
             self.reviewCount = 0
         }
         
-        // Refresh touch bar and system tray menu to show new card
+        // Refresh touch bar, system tray menu, and floating overlay to show new card
         refreshTouchBar()
         StatusItemManager.shared.refreshAnkiCardInfo()
+        AnkiFloatingOverlayManager.shared.refreshOverlay()
     }
     
     /// Reveal the answer for the current card
@@ -219,6 +220,7 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
         self.isShowingAnswer = true
         refreshTouchBar()
         StatusItemManager.shared.refreshAnkiCardInfo()
+        AnkiFloatingOverlayManager.shared.refreshOverlay()
         
         Task {
             if isMuted {
@@ -235,6 +237,7 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
                     self.isShowingAnswer = false
                     refreshTouchBar()
                     StatusItemManager.shared.refreshAnkiCardInfo()
+                    AnkiFloatingOverlayManager.shared.refreshOverlay()
                 }
             }
             await AnkiConnectClient.shared.startCardTimer()

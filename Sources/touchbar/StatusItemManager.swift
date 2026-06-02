@@ -15,6 +15,7 @@ public final class StatusItemManager: NSObject {
     private var hotkeyHeaderMenuItem: NSMenuItem?
     private var hotkeySeparatorMenuItem: NSMenuItem?
     private var gameControllerMenuItem: NSMenuItem?
+    private var floatingOverlayMenuItem: NSMenuItem?
     
     private override init() {
         super.init()
@@ -95,6 +96,23 @@ public final class StatusItemManager: NSObject {
         }
         menu.addItem(furiganaItem)
         self.furiganaMenuItem = furiganaItem
+        
+        // Floating Overlay toggle
+        let overlayEnabled = AnkiFloatingOverlayManager.shared.config.isEnabled
+        let overlayShowing = AnkiFloatingOverlayManager.shared.isShowing
+        let overlayItem = NSMenuItem(
+            title: overlayShowing ? "Hide Floating Overlay" : "Show Floating Overlay",
+            action: #selector(toggleFloatingOverlay),
+            keyEquivalent: "o"
+        )
+        overlayItem.target = self
+        overlayItem.keyEquivalentModifierMask = [.command]
+        overlayItem.isEnabled = overlayEnabled
+        if overlayShowing {
+            overlayItem.state = .on
+        }
+        menu.addItem(overlayItem)
+        self.floatingOverlayMenuItem = overlayItem
         
         // Global Shortcuts Section
         menu.addItem(NSMenuItem.separator())
@@ -358,6 +376,18 @@ public final class StatusItemManager: NSObject {
     public func refreshGameControllerStatus() {
         guard let item = gameControllerMenuItem else { return }
         updateGameControllerMenuItem(item)
+    }
+    
+    @objc private func toggleFloatingOverlay() {
+        AnkiFloatingOverlayManager.shared.toggle()
+    }
+    
+    public func refreshFloatingOverlayState() {
+        let enabled = AnkiFloatingOverlayManager.shared.config.isEnabled
+        let showing = AnkiFloatingOverlayManager.shared.isShowing
+        floatingOverlayMenuItem?.title = showing ? "Hide Floating Overlay" : "Show Floating Overlay"
+        floatingOverlayMenuItem?.state = showing ? .on : .off
+        floatingOverlayMenuItem?.isEnabled = enabled
     }
     
     /// Update the furigana menu item title and state.

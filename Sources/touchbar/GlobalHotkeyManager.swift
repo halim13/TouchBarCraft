@@ -14,18 +14,20 @@ public enum AnkiHotkeyAction: Int, CaseIterable, Codable, Sendable {
     case rating4    = 7 // Easy
     case audio      = 8
     case touchBarAudio = 9
+    case toggleOverlay = 10
 
     public var displayName: String {
         switch self {
-        case .connect:      return "Connect"
-        case .reveal:       return "Reveal Answer"
-        case .sync:         return "Sync"
-        case .rating1:      return "Rating: Again"
-        case .rating2:      return "Rating: Hard"
-        case .rating3:      return "Rating: Good"
-        case .rating4:      return "Rating: Easy"
-        case .audio:        return "Toggle Audio"
+        case .connect:       return "Connect"
+        case .reveal:        return "Reveal Answer"
+        case .sync:          return "Sync"
+        case .rating1:       return "Rating: Again"
+        case .rating2:       return "Rating: Hard"
+        case .rating3:       return "Rating: Good"
+        case .rating4:       return "Rating: Easy"
+        case .audio:         return "Toggle Audio"
         case .touchBarAudio: return "Toggle Touch Bar Audio"
+        case .toggleOverlay: return "Toggle Floating Overlay"
         }
     }
 
@@ -40,6 +42,7 @@ public enum AnkiHotkeyAction: Int, CaseIterable, Codable, Sendable {
         case .rating4:       return "4.circle.fill"
         case .audio:         return "speaker.wave.2.fill"
         case .touchBarAudio: return "speaker.wave.2"
+        case .toggleOverlay: return "rectangle.3.group.fill"
         }
     }
 
@@ -409,6 +412,8 @@ public final class GlobalHotkeyManager: NSObject {
             state.ankiState.toggleAudio()
         case .touchBarAudio:
             state.ankiState.toggleTouchBarAudio()
+        case .toggleOverlay:
+            AnkiFloatingOverlayManager.shared.toggle()
         }
     }
 

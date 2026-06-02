@@ -1405,6 +1405,425 @@ struct AnkiConfigView: View {
                 
                 Divider()
                 
+                // MARK: - Floating Overlay (Alternatif Touch Bar Fisik)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Image(systemName: "rectangle.3.group.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(.teal)
+                        Text("Floating Overlay — Alternatif Touch Bar Fisik")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.teal)
+                    }
+                    
+                    Text("Jika Touch Bar fisik tidak berfungsi/rusak, aktifkan overlay jendela mengambang yang menampilkan konten kartu Anki di layar.")
+                        .font(.system(size: 9))
+                        .foregroundColor(.gray)
+                        .italic()
+                    
+                    Toggle("Aktifkan Floating Overlay", isOn: Binding(
+                        get: { AnkiFloatingOverlayManager.shared.config.isEnabled },
+                        set: { val in
+                            var config = AnkiFloatingOverlayManager.shared.config
+                            config.isEnabled = val
+                            AnkiFloatingOverlayManager.shared.config = config
+                            if val {
+                                AnkiFloatingOverlayManager.shared.show()
+                            } else {
+                                AnkiFloatingOverlayManager.shared.hide()
+                            }
+                        }
+                    ))
+                    .toggleStyle(.checkbox)
+                    .font(.system(size: 11))
+                    
+                    if AnkiFloatingOverlayManager.shared.config.isEnabled {
+                        Divider()
+                        
+                        VStack(alignment: .leading, spacing: 10) {
+                            // Font Size
+                            HStack(spacing: 8) {
+                                Text("Ukuran Font:")
+                                    .font(.system(size: 11))
+                                    .frame(width: 100, alignment: .leading)
+                                
+                                Slider(value: Binding(
+                                    get: { AnkiFloatingOverlayManager.shared.config.fontSize },
+                                    set: { val in
+                                        var config = AnkiFloatingOverlayManager.shared.config
+                                        config.fontSize = val
+                                        AnkiFloatingOverlayManager.shared.config = config
+                                        AnkiFloatingOverlayManager.shared.refreshOverlay()
+                                    }
+                                ), in: 10...32, step: 1)
+                                
+                                Text("\(Int(AnkiFloatingOverlayManager.shared.config.fontSize))pt")
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundColor(.gray)
+                                    .frame(width: 35, alignment: .trailing)
+                            }
+                            
+                            // Furigana Font Size
+                            HStack(spacing: 8) {
+                                Text("Font Furigana:")
+                                    .font(.system(size: 11))
+                                    .frame(width: 100, alignment: .leading)
+                                
+                                Slider(value: Binding(
+                                    get: { AnkiFloatingOverlayManager.shared.config.overlayFuriganaFontSize },
+                                    set: { val in
+                                        var config = AnkiFloatingOverlayManager.shared.config
+                                        config.overlayFuriganaFontSize = val
+                                        AnkiFloatingOverlayManager.shared.config = config
+                                        AnkiFloatingOverlayManager.shared.refreshOverlay()
+                                    }
+                                ), in: 0...20, step: 1)
+                                
+                                Text(AnkiFloatingOverlayManager.shared.config.overlayFuriganaFontSize > 0 ? "\(Int(AnkiFloatingOverlayManager.shared.config.overlayFuriganaFontSize))pt" : "Auto")
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundColor(.gray)
+                                    .frame(width: 40, alignment: .trailing)
+                            }
+                            
+                            Divider()
+                            
+                            // Window Transparency
+                            HStack(spacing: 8) {
+                                Text("Transp. Jendela:")
+                                    .font(.system(size: 11))
+                                    .frame(width: 100, alignment: .leading)
+                                
+                                Slider(value: Binding(
+                                    get: { AnkiFloatingOverlayManager.shared.config.windowOpacity },
+                                    set: { val in
+                                        var config = AnkiFloatingOverlayManager.shared.config
+                                        config.windowOpacity = val
+                                        AnkiFloatingOverlayManager.shared.config = config
+                                    }
+                                ), in: 0.1...1.0, step: 0.05)
+                                
+                                Text("\(Int(AnkiFloatingOverlayManager.shared.config.windowOpacity * 100))%")
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundColor(.gray)
+                                    .frame(width: 35, alignment: .trailing)
+                            }
+                            
+                            // Text Transparency
+                            HStack(spacing: 8) {
+                                Text("Transp. Teks:")
+                                    .font(.system(size: 11))
+                                    .frame(width: 100, alignment: .leading)
+                                
+                                Slider(value: Binding(
+                                    get: { AnkiFloatingOverlayManager.shared.config.textOpacity },
+                                    set: { val in
+                                        var config = AnkiFloatingOverlayManager.shared.config
+                                        config.textOpacity = val
+                                        AnkiFloatingOverlayManager.shared.config = config
+                                        AnkiFloatingOverlayManager.shared.refreshOverlay()
+                                    }
+                                ), in: 0.1...1.0, step: 0.05)
+                                
+                                Text("\(Int(AnkiFloatingOverlayManager.shared.config.textOpacity * 100))%")
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundColor(.gray)
+                                    .frame(width: 35, alignment: .trailing)
+                            }
+                            
+                            // Window Width
+                            HStack(spacing: 8) {
+                                Text("Lebar Jendela:")
+                                    .font(.system(size: 11))
+                                    .frame(width: 100, alignment: .leading)
+                                
+                                Slider(value: Binding(
+                                    get: { AnkiFloatingOverlayManager.shared.config.windowWidth },
+                                    set: { val in
+                                        var config = AnkiFloatingOverlayManager.shared.config
+                                        config.windowWidth = val
+                                        AnkiFloatingOverlayManager.shared.config = config
+                                    }
+                                ), in: 200...2000, step: 10)
+                                
+                                Text("\(Int(AnkiFloatingOverlayManager.shared.config.windowWidth))px")
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundColor(.gray)
+                                    .frame(width: 45, alignment: .trailing)
+                            }
+                            
+                            // Window Height
+                            HStack(spacing: 8) {
+                                Text("Tinggi Jendela:")
+                                    .font(.system(size: 11))
+                                    .frame(width: 100, alignment: .leading)
+                                
+                                Slider(value: Binding(
+                                    get: { AnkiFloatingOverlayManager.shared.config.windowHeight },
+                                    set: { val in
+                                        var config = AnkiFloatingOverlayManager.shared.config
+                                        config.windowHeight = val
+                                        AnkiFloatingOverlayManager.shared.config = config
+                                    }
+                                ), in: 150...1200, step: 10)
+                                
+                                Text("\(Int(AnkiFloatingOverlayManager.shared.config.windowHeight))px")
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundColor(.gray)
+                                    .frame(width: 45, alignment: .trailing)
+                            }
+                            
+                            Divider()
+                            
+                            // Text Color
+                            HStack(spacing: 8) {
+                                Text("Warna Teks:")
+                                    .font(.system(size: 11))
+                                    .frame(width: 100, alignment: .leading)
+                                
+                                TextField("#HEX", text: Binding(
+                                    get: { AnkiFloatingOverlayManager.shared.config.textColorHex },
+                                    set: { val in
+                                        var config = AnkiFloatingOverlayManager.shared.config
+                                        config.textColorHex = val
+                                        AnkiFloatingOverlayManager.shared.config = config
+                                        AnkiFloatingOverlayManager.shared.refreshOverlay()
+                                    }
+                                ))
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 90)
+                                
+                                ColorPicker("", selection: Binding(
+                                    get: { Color(hex: AnkiFloatingOverlayManager.shared.config.textColorHex) },
+                                    set: { color in
+                                        if let hexString = color.toHex() {
+                                            var config = AnkiFloatingOverlayManager.shared.config
+                                            config.textColorHex = hexString
+                                            AnkiFloatingOverlayManager.shared.config = config
+                                            AnkiFloatingOverlayManager.shared.refreshOverlay()
+                                        }
+                                    }
+                                ))
+                            }
+                            
+                            // Background Color
+                            HStack(spacing: 8) {
+                                Text("Warna Background:")
+                                    .font(.system(size: 11))
+                                    .frame(width: 100, alignment: .leading)
+                                
+                                TextField("#HEX", text: Binding(
+                                    get: { AnkiFloatingOverlayManager.shared.config.backgroundColorHex },
+                                    set: { val in
+                                        var config = AnkiFloatingOverlayManager.shared.config
+                                        config.backgroundColorHex = val
+                                        AnkiFloatingOverlayManager.shared.config = config
+                                        AnkiFloatingOverlayManager.shared.refreshOverlay()
+                                    }
+                                ))
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 90)
+                                
+                                ColorPicker("", selection: Binding(
+                                    get: { Color(hex: AnkiFloatingOverlayManager.shared.config.backgroundColorHex) },
+                                    set: { color in
+                                        if let hexString = color.toHex() {
+                                            var config = AnkiFloatingOverlayManager.shared.config
+                                            config.backgroundColorHex = hexString
+                                            AnkiFloatingOverlayManager.shared.config = config
+                                            AnkiFloatingOverlayManager.shared.refreshOverlay()
+                                        }
+                                    }
+                                ))
+                            }
+                            
+                            // Question Answer Color
+                            HStack(spacing: 8) {
+                                Text("Warna Preview Soal:")
+                                    .font(.system(size: 11))
+                                    .frame(width: 100, alignment: .leading)
+                                
+                                TextField("#HEX", text: Binding(
+                                    get: { AnkiFloatingOverlayManager.shared.config.questionAnswerColorHex },
+                                    set: { val in
+                                        var config = AnkiFloatingOverlayManager.shared.config
+                                        config.questionAnswerColorHex = val
+                                        AnkiFloatingOverlayManager.shared.config = config
+                                        AnkiFloatingOverlayManager.shared.refreshOverlay()
+                                    }
+                                ))
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 90)
+                                
+                                ColorPicker("", selection: Binding(
+                                    get: { Color(hex: AnkiFloatingOverlayManager.shared.config.questionAnswerColorHex) },
+                                    set: { color in
+                                        if let hexString = color.toHex() {
+                                            var config = AnkiFloatingOverlayManager.shared.config
+                                            config.questionAnswerColorHex = hexString
+                                            AnkiFloatingOverlayManager.shared.config = config
+                                            AnkiFloatingOverlayManager.shared.refreshOverlay()
+                                        }
+                                    }
+                                ))
+                            }
+                            
+                            Text("Warna Preview Soal mengubah warna teks pertanyaan yang muncul di layar jawaban (sebelumnya abu-abu).")
+                                .font(.system(size: 9))
+                                .foregroundColor(.gray)
+                                .italic()
+                            
+                            Divider()
+                            
+                            // Show/Hide Toggles
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Kontrol yang Ditampilkan:")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(.gray)
+                                
+                                Toggle("Tombol Rating (Again/Hard/Good/Easy)", isOn: Binding(
+                                    get: { AnkiFloatingOverlayManager.shared.config.showRatingButtons },
+                                    set: { val in
+                                        var config = AnkiFloatingOverlayManager.shared.config
+                                        config.showRatingButtons = val
+                                        AnkiFloatingOverlayManager.shared.config = config
+                                        AnkiFloatingOverlayManager.shared.refreshOverlay()
+                                    }
+                                ))
+                                .toggleStyle(.checkbox)
+                                
+                                Toggle("Tombol Audio (Play/Stop)", isOn: Binding(
+                                    get: { AnkiFloatingOverlayManager.shared.config.showAudioButton },
+                                    set: { val in
+                                        var config = AnkiFloatingOverlayManager.shared.config
+                                        config.showAudioButton = val
+                                        AnkiFloatingOverlayManager.shared.config = config
+                                        AnkiFloatingOverlayManager.shared.refreshOverlay()
+                                    }
+                                ))
+                                .toggleStyle(.checkbox)
+                                
+                                Toggle("Tombol Sinkronisasi (Sync)", isOn: Binding(
+                                    get: { AnkiFloatingOverlayManager.shared.config.showSyncButton },
+                                    set: { val in
+                                        var config = AnkiFloatingOverlayManager.shared.config
+                                        config.showSyncButton = val
+                                        AnkiFloatingOverlayManager.shared.config = config
+                                        AnkiFloatingOverlayManager.shared.refreshOverlay()
+                                    }
+                                ))
+                                .toggleStyle(.checkbox)
+                                
+                                Toggle("Tombol Tampilkan Jawaban", isOn: Binding(
+                                    get: { AnkiFloatingOverlayManager.shared.config.showRevealButton },
+                                    set: { val in
+                                        var config = AnkiFloatingOverlayManager.shared.config
+                                        config.showRevealButton = val
+                                        AnkiFloatingOverlayManager.shared.config = config
+                                        AnkiFloatingOverlayManager.shared.refreshOverlay()
+                                    }
+                                ))
+                                .toggleStyle(.checkbox)
+                                
+                                Toggle("Header (Judul Deck & Counter)", isOn: Binding(
+                                    get: { AnkiFloatingOverlayManager.shared.config.showHeader },
+                                    set: { val in
+                                        var config = AnkiFloatingOverlayManager.shared.config
+                                        config.showHeader = val
+                                        AnkiFloatingOverlayManager.shared.config = config
+                                        AnkiFloatingOverlayManager.shared.refreshOverlay()
+                                    }
+                                ))
+                                .toggleStyle(.checkbox)
+                                
+                                if !AnkiFloatingOverlayManager.shared.config.showHeader {
+                                    Toggle("Counter Saja (N/L/R) — tanpa header", isOn: Binding(
+                                        get: { AnkiFloatingOverlayManager.shared.config.showCounts },
+                                        set: { val in
+                                            var config = AnkiFloatingOverlayManager.shared.config
+                                            config.showCounts = val
+                                            AnkiFloatingOverlayManager.shared.config = config
+                                            AnkiFloatingOverlayManager.shared.refreshOverlay()
+                                        }
+                                    ))
+                                    .toggleStyle(.checkbox)
+                                    .font(.system(size: 10))
+                                }
+                            }
+                            .font(.system(size: 11))
+                            
+                            Divider()
+                            
+                            // Focus Mode
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Mode Fokus:")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(.gray)
+                                
+                                Toggle("Sembunyikan Title Bar & Tombol Tutup", isOn: Binding(
+                                    get: { AnkiFloatingOverlayManager.shared.config.hideTitleBar },
+                                    set: { val in
+                                        var config = AnkiFloatingOverlayManager.shared.config
+                                        config.hideTitleBar = val
+                                        AnkiFloatingOverlayManager.shared.config = config
+                                    }
+                                ))
+                                .toggleStyle(.checkbox)
+                                .font(.system(size: 11))
+                                
+                                Text("Menyembunyikan title bar dan tombol tutup (X) agar tampilan lebih fokus. Geser jendela dengan cara drag area konten.")
+                                    .font(.system(size: 9))
+                                    .foregroundColor(.gray)
+                                    .italic()
+                                    .lineLimit(nil)
+                            }
+                            
+                            Divider()
+                            
+                            // Test buttons
+                            HStack(spacing: 8) {
+                                Button(action: {
+                                    if AnkiFloatingOverlayManager.shared.config.isEnabled {
+                                        AnkiFloatingOverlayManager.shared.show()
+                                    }
+                                }) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "eye.fill")
+                                            .font(.system(size: 10))
+                                        Text("Tampilkan Overlay")
+                                            .font(.system(size: 10))
+                                    }
+                                    .padding(.vertical, 5)
+                                    .padding(.horizontal, 10)
+                                    .background(Color.teal.opacity(0.2))
+                                    .foregroundColor(.teal)
+                                    .cornerRadius(6)
+                                }
+                                .buttonStyle(.plain)
+                                
+                                Button(action: {
+                                    AnkiFloatingOverlayManager.shared.hide()
+                                }) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "eye.slash.fill")
+                                            .font(.system(size: 10))
+                                        Text("Sembunyikan")
+                                            .font(.system(size: 10))
+                                    }
+                                    .padding(.vertical, 5)
+                                    .padding(.horizontal, 10)
+                                    .background(Color.red.opacity(0.2))
+                                    .foregroundColor(.red)
+                                    .cornerRadius(6)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+                
+                Divider()
+                
                 // MARK: - Global Keyboard Shortcuts
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Global Keyboard Shortcuts")
