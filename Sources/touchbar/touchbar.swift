@@ -29,6 +29,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
         
         // Initialize global keyboard shortcuts for Anki actions
         GlobalHotkeyManager.shared.setup()
+        
+        // Initialize game controller support for Anki actions
+        _ = GameControllerManager.shared
     }
     
     @MainActor
@@ -37,6 +40,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
         TouchBarPresenter.shared.dismissGlobalTouchBar()
         TouchBarPresenter.shared.removeSystemTrayItem()
         GlobalHotkeyManager.shared.tearDown()
+        GameControllerManager.shared.stopMonitoring()
     }
     
     public func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

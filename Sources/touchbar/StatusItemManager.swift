@@ -14,6 +14,7 @@ public final class StatusItemManager: NSObject {
     private var ankiDeckMenuItem: NSMenuItem?
     private var hotkeyHeaderMenuItem: NSMenuItem?
     private var hotkeySeparatorMenuItem: NSMenuItem?
+    private var gameControllerMenuItem: NSMenuItem?
     
     private override init() {
         super.init()
@@ -112,6 +113,13 @@ public final class StatusItemManager: NSObject {
         
         // Populate active shortcuts
         buildGlobalShortcutItems(menu: menu)
+        
+        // Game Controller Status Section
+        let gcItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        gcItem.isEnabled = false
+        updateGameControllerMenuItem(gcItem)
+        menu.addItem(gcItem)
+        self.gameControllerMenuItem = gcItem
         
         // Anki Card Info Section
         // let ankiHeader = NSMenuItem(title: "Anki Card Info", action: nil, keyEquivalent: "")
@@ -308,6 +316,48 @@ public final class StatusItemManager: NSObject {
                 insertIndex += 1
             }
         }
+    }
+    
+    /// Update a game controller menu item with current status.
+    private func updateGameControllerMenuItem(_ item: NSMenuItem) {
+        let gm = GameControllerManager.shared
+        if gm.isEnabled && !gm.isGamingMode {
+            let status: String
+            if gm.hasConnectedController {
+                status = "✅ Gamepad: \(gm.connectedControllers.joined(separator: ", "))"
+            } else {
+                status = "🎮 No controller connected"
+            }
+            item.attributedTitle = NSAttributedString(
+                string: status,
+                attributes: [
+                    .font: NSFont.systemFont(ofSize: 11),
+                    .foregroundColor: gm.hasConnectedController ? NSColor.green : NSColor.gray
+                ]
+            )
+        } else if gm.isGamingMode {
+            item.attributedTitle = NSAttributedString(
+                string: "🎮 Gaming mode — Anki controller disabled",
+                attributes: [
+                    .font: NSFont.systemFont(ofSize: 11),
+                    .foregroundColor: NSColor.orange
+                ]
+            )
+        } else {
+            item.attributedTitle = NSAttributedString(
+                string: "🎮 Controller support disabled",
+                attributes: [
+                    .font: NSFont.systemFont(ofSize: 11),
+                    .foregroundColor: NSColor.gray
+                ]
+            )
+        }
+    }
+    
+    /// Refresh game controller status in the menu bar.
+    public func refreshGameControllerStatus() {
+        guard let item = gameControllerMenuItem else { return }
+        updateGameControllerMenuItem(item)
     }
     
     /// Update the furigana menu item title and state.

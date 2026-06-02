@@ -14,7 +14,8 @@ let package = Package(
             dependencies: [],
             linkerSettings: [
                 .linkedFramework("IOKit"),
-                .linkedFramework("AVFoundation")
+                .linkedFramework("AVFoundation"),
+                .linkedFramework("GameController")
             ]
         ),
     ]

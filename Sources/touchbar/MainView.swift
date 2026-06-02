@@ -1401,6 +1401,72 @@ struct AnkiConfigView: View {
                 
                 Divider()
                 
+                // MARK: - Game Controller Support
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Game Controller / Joystick Support")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.gray)
+                    
+                    HStack(spacing: 6) {
+                        Image(systemName: "gamecontroller.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(.green)
+                        Text(GameControllerManager.shared.controllerStatusString)
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundColor(GameControllerManager.shared.hasConnectedController ? .green : .gray)
+                    }
+                    
+                    Toggle("Enable Game Controller Support", isOn: Binding(
+                        get: { GameControllerManager.shared.isEnabled },
+                        set: { GameControllerManager.shared.isEnabled = $0 }
+                    ))
+                    .toggleStyle(.checkbox)
+                    .font(.system(size: 11))
+                    
+                    Toggle("Gaming Mode (disable controller while playing games)", isOn: Binding(
+                        get: { GameControllerManager.shared.isGamingMode },
+                        set: { GameControllerManager.shared.isGamingMode = $0 }
+                    ))
+                    .toggleStyle(.checkbox)
+                    .font(.system(size: 11))
+                    .disabled(!GameControllerManager.shared.isEnabled)
+                    
+                    if GameControllerManager.shared.isEnabled && !GameControllerManager.shared.isGamingMode {
+                        Text("✓ Controller input active — buttons are mapped to Anki actions")
+                            .font(.system(size: 9))
+                            .foregroundColor(.green)
+                    } else if GameControllerManager.shared.isGamingMode {
+                        Text("⚠ Gaming mode ON — controller input for Anki is disabled")
+                            .font(.system(size: 9))
+                            .foregroundColor(.orange)
+                    } else {
+                        Text("Controller support is disabled")
+                            .font(.system(size: 9))
+                            .foregroundColor(.gray)
+                    }
+                    
+                    // Button mapping reference
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Button Mapping:")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.gray)
+                        Text(GameControllerManager.buttonMappingDescription)
+                            .font(.system(size: 9, design: .monospaced))
+                            .foregroundColor(.gray)
+                            .lineSpacing(2)
+                    }
+                    .padding(8)
+                    .background(Color.white.opacity(0.05))
+                    .cornerRadius(6)
+                    
+                    Text("Connect a PS4, PS5, Xbox, or MFi controller via Bluetooth or USB. Supports most standard gamepads out of the box.")
+                        .font(.system(size: 9))
+                        .foregroundColor(.gray)
+                        .italic()
+                }
+                
+                Divider()
+                
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Review Stats:")
                         .font(.system(size: 11, weight: .bold))
