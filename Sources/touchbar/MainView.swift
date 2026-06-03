@@ -264,6 +264,7 @@ public struct MainView: View {
                                         Button(action: {
                                             state.widgets[index].isHidden.toggle()
                                             state.saveConfig()
+                                            StatusItemManager.shared.rebuildMenu()
                                         }) {
                                             Image(systemName: widget.isHidden ? "eye.slash" : "eye")
                                                 .font(.system(size: 9))

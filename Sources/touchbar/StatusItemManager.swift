@@ -13,7 +13,6 @@ public final class StatusItemManager: NSObject {
     private var ankiAnswerMenuItem: NSMenuItem?
     private var ankiDeckMenuItem: NSMenuItem?
     private var hotkeyHeaderMenuItem: NSMenuItem?
-    private var hotkeySeparatorMenuItem: NSMenuItem?
     private var gameControllerMenuItem: NSMenuItem?
     private var floatingOverlayMenuItem: NSMenuItem?
     
@@ -53,127 +52,150 @@ public final class StatusItemManager: NSObject {
         }
     }
     
+    public func rebuildMenu() {
+        constructMenu()
+    }
+
     private func constructMenu() {
         let menu = NSMenu()
-        let isMuted = AppState.shared?.ankiState.isMuted ?? false
-        
+
         let settingsItem = NSMenuItem(title: "Open Settings", action: #selector(openSettings), keyEquivalent: "")
         settingsItem.target = self
         menu.addItem(settingsItem)
-        
+
         menu.addItem(NSMenuItem.separator())
-        
-        let toggleLayoutItem = NSMenuItem(title: "Toggle Anki Touch Bar Layout", action: #selector(toggleAnkiLayout), keyEquivalent: "t")
-        toggleLayoutItem.target = self
-        toggleLayoutItem.keyEquivalentModifierMask = [.command]
-        menu.addItem(toggleLayoutItem)
-        
-        // Mute toggle
-        let muteItem = NSMenuItem(
-            title: isMuted ? "Unmute Anki Audio" : "Mute Anki Audio",
-            action: #selector(toggleMute),
-            keyEquivalent: "m"
-        )
-        muteItem.target = self
-        muteItem.keyEquivalentModifierMask = [.command]
-        if isMuted {
-            muteItem.state = .on
+
+        let state = AppState.shared
+        let ankiVisible = state?.widgets.contains { $0.type == .anki && !$0.isHidden } ?? false
+        let nhkVisible = state?.widgets.contains { $0.type == .nhkNews && !$0.isHidden } ?? false
+
+        if ankiVisible {
+            let ankiMenu = NSMenu()
+            ankiMenu.autoenablesItems = false
+
+            let isMuted = state?.ankiState.isMuted ?? false
+
+            let toggleLayoutItem = NSMenuItem(title: "Toggle Layout", action: #selector(toggleAnkiLayout), keyEquivalent: "t")
+            toggleLayoutItem.target = self
+            toggleLayoutItem.keyEquivalentModifierMask = [.command]
+            ankiMenu.addItem(toggleLayoutItem)
+
+            let muteItem = NSMenuItem(
+                title: isMuted ? "Unmute Audio" : "Mute Audio",
+                action: #selector(toggleMute),
+                keyEquivalent: "m"
+            )
+            muteItem.target = self
+            muteItem.keyEquivalentModifierMask = [.command]
+            if isMuted { muteItem.state = .on }
+            ankiMenu.addItem(muteItem)
+            self.muteMenuItem = muteItem
+
+            let furiganaOn = isFuriganaEnabled()
+            let furiganaItem = NSMenuItem(
+                title: furiganaOn ? "Hide Furigana" : "Show Furigana",
+                action: #selector(toggleFurigana),
+                keyEquivalent: "f"
+            )
+            furiganaItem.target = self
+            furiganaItem.keyEquivalentModifierMask = [.command]
+            if furiganaOn { furiganaItem.state = .on }
+            ankiMenu.addItem(furiganaItem)
+            self.furiganaMenuItem = furiganaItem
+
+            let overlayEnabled = AnkiFloatingOverlayManager.shared.config.isEnabled
+            let overlayShowing = AnkiFloatingOverlayManager.shared.isShowing
+            let overlayItem = NSMenuItem(
+                title: overlayShowing ? "Hide Floating Overlay" : "Show Floating Overlay",
+                action: #selector(toggleFloatingOverlay),
+                keyEquivalent: "o"
+            )
+            overlayItem.target = self
+            overlayItem.keyEquivalentModifierMask = [.command]
+            overlayItem.isEnabled = overlayEnabled
+            if overlayShowing { overlayItem.state = .on }
+            ankiMenu.addItem(overlayItem)
+            self.floatingOverlayMenuItem = overlayItem
+
+            ankiMenu.addItem(NSMenuItem.separator())
+
+            let hkHeader = NSMenuItem(title: "Global Shortcuts", action: nil, keyEquivalent: "")
+            hkHeader.isEnabled = false
+            hkHeader.attributedTitle = NSAttributedString(
+                string: "Global Shortcuts",
+                attributes: [
+                    .font: NSFont.boldSystemFont(ofSize: 11),
+                    .foregroundColor: NSColor.systemPurple
+                ]
+            )
+            ankiMenu.addItem(hkHeader)
+            self.hotkeyHeaderMenuItem = hkHeader
+
+            buildGlobalShortcutItems(menu: ankiMenu)
+
+            let gcItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+            gcItem.isEnabled = false
+            updateGameControllerMenuItem(gcItem)
+            ankiMenu.addItem(gcItem)
+            self.gameControllerMenuItem = gcItem
+
+            let ankiMenuItem = NSMenuItem(title: "Anki", action: nil, keyEquivalent: "")
+            ankiMenuItem.submenu = ankiMenu
+            menu.addItem(ankiMenuItem)
         }
-        menu.addItem(muteItem)
-        self.muteMenuItem = muteItem
-        
-        // Furigana toggle
-        let furiganaOn = isFuriganaEnabled()
-        let furiganaItem = NSMenuItem(
-            title: furiganaOn ? "Hide Furigana" : "Show Furigana",
-            action: #selector(toggleFurigana),
-            keyEquivalent: "f"
-        )
-        furiganaItem.target = self
-        furiganaItem.keyEquivalentModifierMask = [.command]
-        if furiganaOn {
-            furiganaItem.state = .on
+
+        if nhkVisible {
+            let nhkMenu = NSMenu()
+            nhkMenu.autoenablesItems = false
+
+            let nhkState = state?.nhkNewsState
+            let articleCount = nhkState?.articles.count ?? 0
+            let statusText: String
+            if nhkState?.isLoading ?? false {
+                statusText = "Loading..."
+            } else if articleCount > 0 {
+                statusText = "\(articleCount) articles loaded"
+            } else {
+                statusText = "No articles"
+            }
+
+            let statusItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+            statusItem.isEnabled = false
+            statusItem.attributedTitle = NSAttributedString(
+                string: statusText,
+                attributes: [
+                    .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .regular),
+                    .foregroundColor: articleCount > 0 ? NSColor.green : NSColor.gray
+                ]
+            )
+            nhkMenu.addItem(statusItem)
+
+            let refreshItem = NSMenuItem(title: "Refresh News", action: #selector(nhkRefreshFromMenu), keyEquivalent: "r")
+            refreshItem.target = self
+            refreshItem.keyEquivalentModifierMask = [.command, .shift]
+            nhkMenu.addItem(refreshItem)
+
+            if nhkState?.mode == .reading {
+                let returnItem = NSMenuItem(title: "Return to List", action: #selector(nhkReturnToListFromMenu), keyEquivalent: "l")
+                returnItem.target = self
+                returnItem.keyEquivalentModifierMask = [.command, .shift]
+                nhkMenu.addItem(returnItem)
+            }
+
+            let nhkMenuItem = NSMenuItem(title: "NHK Easy News", action: nil, keyEquivalent: "")
+            nhkMenuItem.submenu = nhkMenu
+            menu.addItem(nhkMenuItem)
         }
-        menu.addItem(furiganaItem)
-        self.furiganaMenuItem = furiganaItem
-        
-        // Floating Overlay toggle
-        let overlayEnabled = AnkiFloatingOverlayManager.shared.config.isEnabled
-        let overlayShowing = AnkiFloatingOverlayManager.shared.isShowing
-        let overlayItem = NSMenuItem(
-            title: overlayShowing ? "Hide Floating Overlay" : "Show Floating Overlay",
-            action: #selector(toggleFloatingOverlay),
-            keyEquivalent: "o"
-        )
-        overlayItem.target = self
-        overlayItem.keyEquivalentModifierMask = [.command]
-        overlayItem.isEnabled = overlayEnabled
-        if overlayShowing {
-            overlayItem.state = .on
-        }
-        menu.addItem(overlayItem)
-        self.floatingOverlayMenuItem = overlayItem
-        
-        // Global Shortcuts Section
-        menu.addItem(NSMenuItem.separator())
-        
-        let hkHeader = NSMenuItem(title: "Global Shortcuts", action: nil, keyEquivalent: "")
-        hkHeader.isEnabled = false
-        hkHeader.attributedTitle = NSAttributedString(
-            string: "Global Shortcuts",
-            attributes: [
-                .font: NSFont.boldSystemFont(ofSize: 11),
-                .foregroundColor: NSColor.systemPurple
-            ]
-        )
-        menu.addItem(hkHeader)
-        self.hotkeyHeaderMenuItem = hkHeader
-        
-        // Populate active shortcuts
-        buildGlobalShortcutItems(menu: menu)
-        
-        // Game Controller Status Section
-        let gcItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-        gcItem.isEnabled = false
-        updateGameControllerMenuItem(gcItem)
-        menu.addItem(gcItem)
-        self.gameControllerMenuItem = gcItem
-        
-        // Anki Card Info Section
-        // let ankiHeader = NSMenuItem(title: "Anki Card Info", action: nil, keyEquivalent: "")
-        // ankiHeader.isEnabled = false
-        // ankiHeader.attributedTitle = NSAttributedString(
-        //     string: "Anki Card Info",
-        //     attributes: [
-        //         .font: NSFont.boldSystemFont(ofSize: 11),
-        //         .foregroundColor: NSColor.systemPurple
-        //     ]
-        // )
-        // menu.addItem(ankiHeader)
-        
-        // ankiDeckMenuItem = NSMenuItem(title: "No deck selected", action: nil, keyEquivalent: "")
-        // ankiDeckMenuItem?.isEnabled = false
-        // menu.addItem(ankiDeckMenuItem!)
-        
-        // ankiQuestionMenuItem = NSMenuItem(title: "Question: —", action: nil, keyEquivalent: "")
-        // ankiQuestionMenuItem?.isEnabled = false
-        // menu.addItem(ankiQuestionMenuItem!)
-        
-        // ankiAnswerMenuItem = NSMenuItem(title: "Answer: —", action: nil, keyEquivalent: "")
-        // ankiAnswerMenuItem?.isEnabled = false
-        // menu.addItem(ankiAnswerMenuItem!)
-        
+
         let quitSeparator = NSMenuItem.separator()
         menu.addItem(quitSeparator)
-        self.hotkeySeparatorMenuItem = quitSeparator
-        
+
         let quitItem = NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
-        
+
         statusItem?.menu = menu
-        
-        // Initial refresh of card info
+
         refreshAnkiCardInfo()
     }
     
@@ -288,19 +310,18 @@ public final class StatusItemManager: NSObject {
     /// Clean and rebuild the global shortcut items in the menu.
     /// Call this whenever a hotkey binding changes (add, remove, toggle, update) so the menu stays in sync.
     public func refreshGlobalShortcuts() {
-        guard let menu = statusItem?.menu, let headerItem = hotkeyHeaderMenuItem else { return }
-        
-        // Remove all items between header and the separator before Quit
+        guard let headerItem = hotkeyHeaderMenuItem, let menu = headerItem.menu else { return }
+
+        // Remove all items after header up to gameControllerMenuItem
         let headerIndex = menu.index(of: headerItem)
-        // Keep removing items after header until we hit the separator before Quit
-        while menu.item(at: headerIndex + 1) !== hotkeySeparatorMenuItem && menu.item(at: headerIndex + 1) != nil {
+        while let item = menu.item(at: headerIndex + 1), item !== gameControllerMenuItem {
             menu.removeItem(at: headerIndex + 1)
         }
-        
+
         // Rebuild
         let bindings = GlobalHotkeyManager.shared.allBindings
         let activeBindings = bindings.filter { $0.binding.isEnabled && $0.binding.isValid }
-        
+
         if activeBindings.isEmpty {
             let emptyItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
             emptyItem.isEnabled = false
@@ -311,10 +332,9 @@ public final class StatusItemManager: NSObject {
                     .foregroundColor: NSColor.gray
                 ]
             )
-            let idx = menu.index(of: headerItem)
-            menu.insertItem(emptyItem, at: idx + 1)
+            menu.insertItem(emptyItem, at: headerIndex + 1)
         } else {
-            var insertIndex = menu.index(of: headerItem) + 1
+            var insertIndex = headerIndex + 1
             for (action, binding) in activeBindings {
                 let item = NSMenuItem(
                     title: "\(action.displayName): \(binding.displayString)",
@@ -381,7 +401,17 @@ public final class StatusItemManager: NSObject {
     @objc private func toggleFloatingOverlay() {
         AnkiFloatingOverlayManager.shared.toggle()
     }
-    
+
+    @objc private func nhkRefreshFromMenu() {
+        Task { @MainActor in
+            await AppState.shared?.nhkNewsState.fetchArticles()
+        }
+    }
+
+    @objc private func nhkReturnToListFromMenu() {
+        AppState.shared?.nhkNewsState.returnToList()
+    }
+
     public func refreshFloatingOverlayState() {
         let enabled = AnkiFloatingOverlayManager.shared.config.isEnabled
         let showing = AnkiFloatingOverlayManager.shared.isShowing
