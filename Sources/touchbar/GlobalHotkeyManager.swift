@@ -400,10 +400,10 @@ public final class GlobalHotkeyManager: NSObject {
     private func executeAction(_ action: AnkiHotkeyAction) {
         guard let state = AppState.shared else { return }
 
-        // For NHK actions, check NHK widget visibility (isHidden or hideFromTouchBar)
+        // For NHK actions, check NHK widget visibility
         if action == .toggleNHKFloatingWindow {
             let nhkWidget = state.widgets.first { $0.type == .nhkNews }
-            guard let nhkWidget, !nhkWidget.isHidden, !nhkWidget.hideFromTouchBar else { return }
+            guard let nhkWidget, !nhkWidget.isHidden else { return }
             NHKFloatingWindowManager.shared.toggle()
             return
         }
