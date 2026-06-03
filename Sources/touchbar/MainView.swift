@@ -2366,6 +2366,26 @@ struct NHKNewsConfigView: View {
                 ))
                 .font(.system(size: 11))
                 .toggleStyle(.switch)
+
+                HStack(spacing: 8) {
+                    Text("Max Width:")
+                        .font(.system(size: 11))
+                        .frame(width: 100, alignment: .leading)
+                    TextField("0 = auto", text: Binding(
+                        get: { widget.customWidth > 0 ? String(Int(widget.customWidth)) : "" },
+                        set: { val in
+                            state.widgets[index].customWidth = Double(val) ?? 0
+                            state.saveConfig()
+                        }
+                    ))
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 60)
+                    Stepper("", value: Binding(
+                        get: { widget.customWidth },
+                        set: { state.widgets[index].customWidth = $0; state.saveConfig() }
+                    ), in: 0...500, step: 10)
+                    .labelsHidden()
+                }
             }
 
             Divider()
