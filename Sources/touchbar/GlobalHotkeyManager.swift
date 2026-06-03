@@ -15,6 +15,7 @@ public enum AnkiHotkeyAction: Int, CaseIterable, Codable, Sendable {
     case audio      = 8
     case touchBarAudio = 9
     case toggleOverlay = 10
+    case toggleNHKFloatingWindow = 11
 
     public var displayName: String {
         switch self {
@@ -28,6 +29,7 @@ public enum AnkiHotkeyAction: Int, CaseIterable, Codable, Sendable {
         case .audio:         return "Toggle Audio"
         case .touchBarAudio: return "Toggle Touch Bar Audio"
         case .toggleOverlay: return "Toggle Floating Overlay"
+        case .toggleNHKFloatingWindow: return "Toggle NHK Floating Window"
         }
     }
 
@@ -43,6 +45,7 @@ public enum AnkiHotkeyAction: Int, CaseIterable, Codable, Sendable {
         case .audio:         return "speaker.wave.2.fill"
         case .touchBarAudio: return "speaker.wave.2"
         case .toggleOverlay: return "rectangle.3.group.fill"
+        case .toggleNHKFloatingWindow: return "newspaper.fill"
         }
     }
 
@@ -397,6 +400,14 @@ public final class GlobalHotkeyManager: NSObject {
     private func executeAction(_ action: AnkiHotkeyAction) {
         guard let state = AppState.shared else { return }
 
+        // For NHK actions, check NHK widget visibility (isHidden or hideFromTouchBar)
+        if action == .toggleNHKFloatingWindow {
+            let nhkWidget = state.widgets.first { $0.type == .nhkNews }
+            guard let nhkWidget, !nhkWidget.isHidden, !nhkWidget.hideFromTouchBar else { return }
+            NHKFloatingWindowManager.shared.toggle()
+            return
+        }
+
         // Don't execute if all Anki widgets are hidden
         let hasVisibleAnkiWidget = state.widgets.contains { $0.type == .anki && !$0.isHidden }
         guard hasVisibleAnkiWidget else { return }
@@ -418,6 +429,8 @@ public final class GlobalHotkeyManager: NSObject {
             state.ankiState.toggleTouchBarAudio()
         case .toggleOverlay:
             AnkiFloatingOverlayManager.shared.toggle()
+        case .toggleNHKFloatingWindow:
+            break // handled above
         }
     }
 

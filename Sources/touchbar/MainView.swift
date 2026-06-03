@@ -92,7 +92,7 @@ public struct MainView: View {
                 GeometryReader { geometry in
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
-                            ForEach(state.widgets.filter { !$0.isHidden }) { widget in
+                            ForEach(state.widgets.filter { !$0.isHidden && !$0.hideFromTouchBar }) { widget in
                                 Group {
                                     switch widget.type {
                                     case .label:
@@ -813,8 +813,15 @@ struct AnkiConfigView: View {
                     .foregroundColor(.gray)
             }
             
+            Toggle("Hide from Touch Bar (keep keyboard & floating window)", isOn: Binding(
+                get: { widget.hideFromTouchBar },
+                set: { state.widgets[index].hideFromTouchBar = $0; state.saveConfig() }
+            ))
+            .toggleStyle(.switch)
+            .font(.system(size: 11))
+
             Divider()
-            
+
             HStack {
                 Text("Connection Status:")
                     .font(.system(size: 11, weight: .bold))
@@ -2091,7 +2098,7 @@ struct AnkiConfigView: View {
                         .italic()
                     
                     VStack(spacing: 4) {
-                        ForEach(AnkiHotkeyAction.allCases, id: \.rawValue) { action in
+                        ForEach(AnkiHotkeyAction.allCases.filter { $0 != .toggleNHKFloatingWindow }, id: \.rawValue) { action in
                             HotkeyRecorderRow(action: action)
                         }
                     }
@@ -2310,6 +2317,13 @@ struct NHKNewsConfigView: View {
                 }
             }
             
+            Toggle("Hide from Touch Bar (keep keyboard & floating window)", isOn: Binding(
+                get: { widget.hideFromTouchBar },
+                set: { state.widgets[index].hideFromTouchBar = $0; state.saveConfig() }
+            ))
+            .toggleStyle(.switch)
+            .font(.system(size: 11))
+
             Divider()
 
             VStack(alignment: .leading, spacing: 8) {
@@ -2478,6 +2492,22 @@ struct NHKNewsConfigView: View {
                         }
                     ))
                 }
+            }
+
+            Divider()
+
+            // MARK: - NHK Keyboard Shortcut
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Keyboard Shortcut")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.gray)
+
+                Text("Set a global hotkey to toggle the NHK floating window even when TouchBarCraft is in the background.")
+                    .font(.system(size: 9))
+                    .foregroundColor(.gray)
+                    .italic()
+
+                HotkeyRecorderRow(action: .toggleNHKFloatingWindow)
             }
 
             Divider()

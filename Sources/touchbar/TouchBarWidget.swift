@@ -173,6 +173,9 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     // Hidden state (hide from Touch Bar without deleting config)
     public var isHidden: Bool
 
+    // Hide only from Touch Bar but keep keyboard shortcuts & floating windows
+    public var hideFromTouchBar: Bool
+
     // Custom Width setting
     public var customWidth: Double
     
@@ -236,6 +239,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         ankiTrimText: Bool = true,
         customGifPath: String = "",
         isHidden: Bool = false,
+        hideFromTouchBar: Bool = false,
         customWidth: Double = 0.0
     ) {
         self.id = id
@@ -297,6 +301,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiTrimText = ankiTrimText
         self.customGifPath = customGifPath
         self.isHidden = isHidden
+        self.hideFromTouchBar = hideFromTouchBar
         self.customWidth = customWidth
     }
     
@@ -328,6 +333,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         case ankiTrimText
         case customGifPath
         case isHidden
+        case hideFromTouchBar
         case customWidth
     }
 
@@ -398,6 +404,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         
         self.customGifPath = try container.decodeIfPresent(String.self, forKey: .customGifPath) ?? ""
         self.isHidden = try container.decodeIfPresent(Bool.self, forKey: .isHidden) ?? false
+        self.hideFromTouchBar = try container.decodeIfPresent(Bool.self, forKey: .hideFromTouchBar) ?? false
         self.customWidth = try container.decodeIfPresent(Double.self, forKey: .customWidth) ?? 0.0
     }
 }

@@ -56,6 +56,7 @@ public final class NHKFloatingWindowManager: NSObject {
         if isShowing {
             hide()
         } else {
+            if !isEnabled { isEnabled = true }
             show()
         }
     }
@@ -182,6 +183,7 @@ public final class NHKFloatingOverlayHost: ObservableObject {
     @Published public var currentArticleIndex: Int = 0
     @Published public var isReadingMode: Bool = false
     @Published public var articleTitles: [(index: Int, title: String, description: String)] = []
+    @Published public var articleURL: URL?
 
     public var nhkState: NHKNewsState? {
         AppState.shared?.nhkNewsState
@@ -200,6 +202,7 @@ public final class NHKFloatingOverlayHost: ObservableObject {
         articleTitles = nhk.articles.enumerated().map {
             (index: $0.offset, title: $0.element.title, description: $0.element.description)
         }
+        articleURL = nhk.currentArticle?.url
     }
 
     private func isFooterChunk(_ chunk: String) -> Bool {
@@ -312,6 +315,15 @@ public struct NHKFloatingContentView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundColor(fColor.opacity(0.7))
+            }
+
+            if host.isReadingMode, let url = host.articleURL {
+                Button(action: { NSWorkspace.shared.open(url) }) {
+                    Image(systemName: "safari")
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(fColor.opacity(0.7))
+                .help("Open in Browser")
             }
 
             Button(action: { host.returnToList() }) {

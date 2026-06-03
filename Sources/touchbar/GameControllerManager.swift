@@ -341,6 +341,14 @@ public final class GameControllerManager: NSObject {
     private func executeAnkiAction(_ action: AnkiHotkeyAction) {
         guard let state = AppState.shared else { return }
 
+        // For NHK actions, check NHK widget visibility (isHidden or hideFromTouchBar)
+        if action == .toggleNHKFloatingWindow {
+            let nhkWidget = state.widgets.first { $0.type == .nhkNews }
+            guard let nhkWidget, !nhkWidget.isHidden, !nhkWidget.hideFromTouchBar else { return }
+            NHKFloatingWindowManager.shared.toggle()
+            return
+        }
+
         // Don't execute if all Anki widgets are hidden
         let hasVisibleAnkiWidget = state.widgets.contains { $0.type == .anki && !$0.isHidden }
         guard hasVisibleAnkiWidget else { return }
@@ -362,6 +370,8 @@ public final class GameControllerManager: NSObject {
             state.ankiState.toggleTouchBarAudio()
         case .toggleOverlay:
             AnkiFloatingOverlayManager.shared.toggle()
+        case .toggleNHKFloatingWindow:
+            break // handled above
         }
     }
 

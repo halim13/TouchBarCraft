@@ -305,7 +305,9 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     public func touchBar(_ touchBar: NSTouchBar, makeItemForIdentifier identifier: NSTouchBarItem.Identifier) -> NSTouchBarItem? {
         guard let state = AppState.shared else { return nil }
         guard let widget = state.widgets.first(where: { $0.id.uuidString == identifier.rawValue }) else { return nil }
-        
+
+        if widget.hideFromTouchBar { return nil }
+
         let item = NSCustomTouchBarItem(identifier: identifier)
         
         switch widget.type {
