@@ -394,7 +394,7 @@ public struct NHKFloatingContentView: View {
                 .foregroundColor(.gray)
                 .padding(16)
         } else {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 14) {
                 ForEach(Array(host.chunks.enumerated()), id: \.offset) { idx, chunk in
                     chunkRow(idx: idx, chunk: chunk)
                 }
@@ -406,16 +406,7 @@ public struct NHKFloatingContentView: View {
     private func chunkRow(idx: Int, chunk: String) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             if chunk.contains("[") && chunk.contains("]") {
-                parseFuriganaRichText(
-                    in: chunk,
-                    defaultColor: fColor,
-                    boldColor: Color(hex: "#FFD60A"),
-                    fontSize: fSize,
-                    furiganaFontSize: furiSize,
-                    furiganaColor: furiColor
-                )
-                .lineLimit(nil)
-                .fixedSize(horizontal: false, vertical: true)
+                parseFuriganaWrappingView(in: chunk)
             } else {
                 Text(chunk)
                     .font(.system(size: fSize))
@@ -423,6 +414,37 @@ public struct NHKFloatingContentView: View {
             }
         }
         .padding(10)
+    }
+
+    private func parseFuriganaWrappingView(in text: String) -> some View {
+        let segments = parseRichSegments(from: text)
+        let computedFuriFontSize: CGFloat = furiSize > 0 ? max(3, furiSize) : max(4, fSize * 0.25)
+        let furiHeight = computedFuriFontSize * 1.4
+        return WrappingHStack(spacing: 2, lineSpacing: 4) {
+            ForEach(segments) { item in
+                if let furi = item.furigana {
+                    VStack(spacing: 0) {
+                        Text(furi)
+                            .font(.system(size: computedFuriFontSize, weight: .medium))
+                            .foregroundColor(furiColor.opacity(0.85))
+                            .multilineTextAlignment(.center)
+                            .fixedSize()
+                        Text(item.text)
+                            .font(.system(size: fSize, weight: item.isBold ? .bold : .regular))
+                            .foregroundColor(item.isBold ? Color(hex: "#FFD60A") : fColor)
+                            .if(item.isItalic) { $0.italic() }
+                            .if(item.isUnderline) { $0.underline() }
+                    }
+                } else {
+                    Text(item.text)
+                        .font(.system(size: fSize, weight: item.isBold ? .bold : .regular))
+                        .foregroundColor(item.isBold ? Color(hex: "#FFD60A") : fColor)
+                        .if(item.isItalic) { $0.italic() }
+                        .if(item.isUnderline) { $0.underline() }
+                        .padding(.top, furiHeight)
+                }
+            }
+        }
     }
 
     @ViewBuilder
@@ -465,4 +487,51 @@ private extension CGFloat {
 private extension Double {
     /// Returns self if non-zero, otherwise returns the given fallback.
     var nonZero: Double? { self == 0 ? nil : self }
+}
+
+// MARK: - Wrapping HStack Layout
+
+struct WrappingHStack: Layout {
+    var spacing: CGFloat = 4
+    var lineSpacing: CGFloat = 4
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        var totalHeight: CGFloat = 0
+        var currentX: CGFloat = 0
+        var currentRowHeight: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if currentX + size.width > maxWidth, currentX > 0 {
+                totalHeight += currentRowHeight + lineSpacing
+                currentX = size.width
+                currentRowHeight = size.height
+            } else {
+                currentX += size.width + spacing
+                currentRowHeight = max(currentRowHeight, size.height)
+            }
+        }
+        totalHeight += currentRowHeight
+        return CGSize(width: maxWidth, height: totalHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let maxWidth = bounds.width
+        var x = bounds.minX
+        var y = bounds.minY
+        var rowHeight: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > maxWidth + bounds.minX, x > bounds.minX {
+                x = bounds.minX
+                y += rowHeight + lineSpacing
+                rowHeight = 0
+            }
+            subview.place(at: CGPoint(x: x, y: y), proposal: .unspecified)
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+    }
 }

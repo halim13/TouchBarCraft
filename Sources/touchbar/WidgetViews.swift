@@ -513,7 +513,7 @@ private func parseHTMLStyledChunks(from text: String) -> [StyledChunk] {
     return chunks
 }
 
-private struct RichSegment: Identifiable {
+struct RichSegment: Identifiable {
     let id = UUID()
     let text: String
     let furigana: String?
@@ -523,7 +523,7 @@ private struct RichSegment: Identifiable {
 }
 
 /// Build a flat list of RichSegments from HTML-styled chunks and furigana parsing.
-private func parseRichSegments(from text: String) -> [RichSegment] {
+func parseRichSegments(from text: String) -> [RichSegment] {
     let chunks = parseHTMLStyledChunks(from: text)
     return chunks.flatMap { chunk -> [RichSegment] in
         let segments = parseFuriganaSegments(chunk.text)
