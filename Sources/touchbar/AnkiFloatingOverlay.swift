@@ -797,7 +797,6 @@ public struct FloatingOverlayContentView: View {
             boldColor: Color(hex: host.config.extraFieldColorHex).opacity(host.config.textOpacity),
             fontSize: extraFieldFontSize()
         )
-        .fixedSize(horizontal: false, vertical: true)
     }
 
     // MARK: - Card Content Text
@@ -817,18 +816,8 @@ public struct FloatingOverlayContentView: View {
             : max(4, host.config.fontSize * 0.25)
 
         if host.combineFurigana {
-            let extraTopSpace = renderedFuriSize * 1.4 + CGFloat(host.furiganaVerticalOffset)
-            parseFuriganaRichText(
-                in: text,
-                defaultColor: textColor,
-                boldColor: Color(hex: host.boldColorHex).opacity(host.config.textOpacity),
-                fontSize: host.config.fontSize,
-                furiganaFontSize: effectiveFuriSize,
-                verticalOffset: CGFloat(host.furiganaVerticalOffset),
-                textOffset: CGFloat(host.furiganaTextOffset)
-            )
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.top, extraTopSpace)
+            wrappingFuriganaText(text, renderedFuriSize: renderedFuriSize)
+                .offset(y: CGFloat(host.furiganaTextOffset))
         } else {
             // Parse HTML tags (bold/italic/underline) without furigana.
             // [furigana] brackets are shown literally as-is.
@@ -838,7 +827,40 @@ public struct FloatingOverlayContentView: View {
                 boldColor: Color(hex: host.boldColorHex).opacity(host.config.textOpacity),
                 fontSize: host.config.fontSize
             )
-            .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func wrappingFuriganaText(_ text: String, renderedFuriSize: CGFloat) -> some View {
+        let segments = parseRichSegments(from: text)
+        let furiHeight = renderedFuriSize * 1.4 + CGFloat(host.furiganaVerticalOffset)
+        return WrappingHStack(spacing: 2, lineSpacing: 4) {
+            ForEach(segments) { item in
+                if let furi = item.furigana {
+                    VStack(spacing: 0) {
+                        Text(furi)
+                            .font(.system(size: renderedFuriSize, weight: .medium))
+                            .foregroundColor(Color(hex: host.boldColorHex).opacity(0.65 * host.config.textOpacity))
+                            .multilineTextAlignment(.center)
+                            .fixedSize()
+                        Text(item.text)
+                            .font(.system(size: host.config.fontSize, weight: item.isBold ? .bold : .regular))
+                            .foregroundColor(item.isBold
+                                ? Color(hex: host.boldColorHex).opacity(host.config.textOpacity)
+                                : textColor)
+                            .if(item.isItalic) { $0.italic() }
+                            .if(item.isUnderline) { $0.underline() }
+                    }
+                } else {
+                    Text(item.text)
+                        .font(.system(size: host.config.fontSize, weight: item.isBold ? .bold : .regular))
+                        .foregroundColor(item.isBold
+                            ? Color(hex: host.boldColorHex).opacity(host.config.textOpacity)
+                            : textColor)
+                        .if(item.isItalic) { $0.italic() }
+                        .if(item.isUnderline) { $0.underline() }
+                        .padding(.top, furiHeight)
+                }
+            }
         }
     }
 }
