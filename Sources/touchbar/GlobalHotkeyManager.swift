@@ -397,6 +397,10 @@ public final class GlobalHotkeyManager: NSObject {
     private func executeAction(_ action: AnkiHotkeyAction) {
         guard let state = AppState.shared else { return }
 
+        // Don't execute if all Anki widgets are hidden
+        let hasVisibleAnkiWidget = state.widgets.contains { $0.type == .anki && !$0.isHidden }
+        guard hasVisibleAnkiWidget else { return }
+
         switch action {
         case .connect:
             state.ankiState.checkConnection()

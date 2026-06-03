@@ -1725,8 +1725,8 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             if let pp = playPauseBtn { hStack.addArrangedSubview(pp) }
             if let sb = stopBtn { hStack.addArrangedSubview(sb) }
             if let cl = chunkLabel { hStack.addArrangedSubview(cl) }
-            hStack.addArrangedSubview(spacer)
             hStack.addArrangedSubview(contentView)
+            hStack.addArrangedSubview(spacer)
         } else {
             hStack.addArrangedSubview(contentView)
             hStack.addArrangedSubview(spacer)

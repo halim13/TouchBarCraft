@@ -119,6 +119,8 @@ public final class AnkiFloatingOverlayManager: NSObject {
 
     public func show() {
         guard config.isEnabled else { return }
+        // Don't show overlay if all Anki widgets are hidden
+        guard hasVisibleAnkiWidget else { return }
         if overlayWindow == nil {
             createOverlayWindow()
         }
@@ -135,6 +137,11 @@ public final class AnkiFloatingOverlayManager: NSObject {
 
     public func refreshOverlay() {
         guard isShowing || config.isEnabled else { return }
+        // If all Anki widgets are hidden and overlay is showing, hide it
+        guard hasVisibleAnkiWidget else {
+            if isShowing { hide() }
+            return
+        }
         guard let host = overlayView else {
             if config.isEnabled {
                 createOverlayWindow()
@@ -144,6 +151,10 @@ public final class AnkiFloatingOverlayManager: NSObject {
             return
         }
         host.refreshContent()
+    }
+
+    private var hasVisibleAnkiWidget: Bool {
+        AppState.shared?.widgets.contains { $0.type == .anki && !$0.isHidden } ?? false
     }
 
     // MARK: - Window Setup
