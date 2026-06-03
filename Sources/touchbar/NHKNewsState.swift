@@ -57,7 +57,7 @@ public final class NHKNewsState {
         errorMessage = ""
         do {
             let fetched = try await NHKEasyNewsAPI.shared.fetchArticleList()
-            self.articles = fetched
+            self.articles = fetched.map { $0.cleaningFooterChunks() }
             self.lastUpdated = Date()
             self.currentArticleIndex = 0
             self.currentChunkIndex = 0

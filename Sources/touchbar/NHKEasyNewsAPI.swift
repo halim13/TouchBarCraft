@@ -26,6 +26,17 @@ public struct NHKNewsArticle: Identifiable, Sendable, Hashable {
         self.publishDate = publishDate
         self.contentChunks = contentChunks
     }
+
+    public func cleaningFooterChunks() -> NHKNewsArticle {
+        var copy = self
+        copy.contentChunks = copy.contentChunks.filter { chunk in
+            let t = chunk.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if t.contains("original") || t.contains("permalink") { return false }
+            if t.hasPrefix("http://") || t.hasPrefix("https://") { return false }
+            return true
+        }
+        return copy
+    }
 }
 
 public enum NHKNewsError: Error, LocalizedError {

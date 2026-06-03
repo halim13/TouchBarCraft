@@ -181,6 +181,8 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             }
             // Ensure close button stays hidden
             presenter.dfrSystemModalShowsCloseBoxWhenFrontMost?(false)
+            // Refresh NHK floating window if visible
+            NHKFloatingWindowManager.shared.refreshContent()
         }
     }
     
@@ -1631,6 +1633,19 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         }
         contentView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
+        // Wrap content in a container with click gesture for floating window
+        let contentContainer = NSStackView(views: [contentView])
+        contentContainer.orientation = .horizontal
+        contentContainer.spacing = 0
+        contentContainer.alignment = .centerY
+        contentContainer.translatesAutoresizingMaskIntoConstraints = false
+        contentContainer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        contentContainer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        let contentClick = NSClickGestureRecognizer(target: self, action: #selector(nhkFloatingWindowTapped(_:)))
+        contentClick.buttonMask = 1
+        contentClick.allowedTouchTypes = .direct
+        contentContainer.addGestureRecognizer(contentClick)
+
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
@@ -1725,10 +1740,10 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             if let pp = playPauseBtn { hStack.addArrangedSubview(pp) }
             if let sb = stopBtn { hStack.addArrangedSubview(sb) }
             if let cl = chunkLabel { hStack.addArrangedSubview(cl) }
-            hStack.addArrangedSubview(contentView)
+            hStack.addArrangedSubview(contentContainer)
             hStack.addArrangedSubview(spacer)
         } else {
-            hStack.addArrangedSubview(contentView)
+            hStack.addArrangedSubview(contentContainer)
             hStack.addArrangedSubview(spacer)
             if let cl = chunkLabel { hStack.addArrangedSubview(cl) }
             if let pp = playPauseBtn { hStack.addArrangedSubview(pp) }
@@ -1865,6 +1880,10 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         guard let state = AppState.shared else { return }
         state.nhkNewsState.stopAudio()
         TouchBarPresenter.refreshTouchBar()
+    }
+
+    @objc private func nhkFloatingWindowTapped(_ sender: Any) {
+        NHKFloatingWindowManager.shared.toggle()
     }
 
     

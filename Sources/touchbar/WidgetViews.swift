@@ -1498,6 +1498,7 @@ public struct WidgetNHKNewsView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
+            .onTapGesture { NHKFloatingWindowManager.shared.toggle() }
 
             if widget.nhkNavOnLeft {
                 HStack(spacing: 4) {

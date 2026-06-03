@@ -2367,6 +2367,20 @@ struct NHKNewsConfigView: View {
                 .font(.system(size: 11))
                 .toggleStyle(.switch)
 
+                Toggle("Floating Window", isOn: Binding(
+                    get: { NHKFloatingWindowManager.shared.isEnabled },
+                    set: { newVal in
+                        NHKFloatingWindowManager.shared.isEnabled = newVal
+                        if !newVal {
+                            NHKFloatingWindowManager.shared.hide()
+                        } else {
+                            NHKFloatingWindowManager.shared.show()
+                        }
+                    }
+                ))
+                .font(.system(size: 11))
+                .toggleStyle(.switch)
+
                 HStack(spacing: 8) {
                     Text("Max Width:")
                         .font(.system(size: 11))
@@ -2385,6 +2399,84 @@ struct NHKNewsConfigView: View {
                         set: { state.widgets[index].customWidth = $0; state.saveConfig() }
                     ), in: 0...500, step: 10)
                     .labelsHidden()
+                }
+
+                Text("Floating Window Settings")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.teal)
+                    .padding(.top, 4)
+
+                HStack(spacing: 8) {
+                    Text("Font Size:")
+                        .font(.system(size: 11))
+                        .frame(width: 100, alignment: .leading)
+                    Slider(value: Binding(
+                        get: { NHKFloatingWindowManager.shared.fontSize },
+                        set: { NHKFloatingWindowManager.shared.fontSize = $0 }
+                    ), in: 10...36, step: 1)
+                    Text("\(Int(NHKFloatingWindowManager.shared.fontSize))px")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.gray)
+                        .frame(width: 40, alignment: .trailing)
+                }
+
+                HStack(spacing: 8) {
+                    Text("Text Color:")
+                        .font(.system(size: 11))
+                        .frame(width: 100, alignment: .leading)
+                    TextField("#HEX", text: Binding(
+                        get: { NHKFloatingWindowManager.shared.textColorHex },
+                        set: { NHKFloatingWindowManager.shared.textColorHex = $0 }
+                    ))
+                    .textFieldStyle(.roundedBorder)
+                    ColorPicker("", selection: Binding(
+                        get: { Color(hex: NHKFloatingWindowManager.shared.textColorHex) },
+                        set: { color in
+                            if let hex = color.toHex() {
+                                NHKFloatingWindowManager.shared.textColorHex = hex
+                            }
+                        }
+                    ))
+                }
+
+                HStack(spacing: 8) {
+                    Text("Furi Size:")
+                        .font(.system(size: 11))
+                        .frame(width: 100, alignment: .leading)
+                    Slider(value: Binding(
+                        get: { NHKFloatingWindowManager.shared.furiganaFontSize },
+                        set: { NHKFloatingWindowManager.shared.furiganaFontSize = $0 }
+                    ), in: 0...20, step: 1)
+                    Text(NHKFloatingWindowManager.shared.furiganaFontSize > 0 ? "\(Int(NHKFloatingWindowManager.shared.furiganaFontSize))px" : "Auto")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.gray)
+                        .frame(width: 40, alignment: .trailing)
+                }
+                Button("Reset Auto") {
+                    NHKFloatingWindowManager.shared.furiganaFontSize = 0
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 9))
+                .foregroundColor(.orange)
+                .disabled(NHKFloatingWindowManager.shared.furiganaFontSize == 0)
+
+                HStack(spacing: 8) {
+                    Text("Furi Color:")
+                        .font(.system(size: 11))
+                        .frame(width: 100, alignment: .leading)
+                    TextField("#HEX", text: Binding(
+                        get: { NHKFloatingWindowManager.shared.furiganaColorHex },
+                        set: { NHKFloatingWindowManager.shared.furiganaColorHex = $0 }
+                    ))
+                    .textFieldStyle(.roundedBorder)
+                    ColorPicker("", selection: Binding(
+                        get: { Color(hex: NHKFloatingWindowManager.shared.furiganaColorHex) },
+                        set: { color in
+                            if let hex = color.toHex() {
+                                NHKFloatingWindowManager.shared.furiganaColorHex = hex
+                            }
+                        }
+                    ))
                 }
             }
 

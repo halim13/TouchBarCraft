@@ -182,6 +182,19 @@ public final class StatusItemManager: NSObject {
                 nhkMenu.addItem(returnItem)
             }
 
+            let floatingEnabled = NHKFloatingWindowManager.shared.isEnabled
+            let floatingShowing = NHKFloatingWindowManager.shared.isShowing
+            let floatingItem = NSMenuItem(
+                title: floatingShowing ? "Hide Floating Window" : "Show Floating Window",
+                action: #selector(toggleNHKFloatingWindow),
+                keyEquivalent: "w"
+            )
+            floatingItem.target = self
+            floatingItem.keyEquivalentModifierMask = [.command, .shift]
+            floatingItem.isEnabled = floatingEnabled
+            if floatingShowing { floatingItem.state = .on }
+            nhkMenu.addItem(floatingItem)
+
             let nhkMenuItem = NSMenuItem(title: "NHK Easy News", action: nil, keyEquivalent: "")
             nhkMenuItem.submenu = nhkMenu
             menu.addItem(nhkMenuItem)
@@ -410,6 +423,11 @@ public final class StatusItemManager: NSObject {
 
     @objc private func nhkReturnToListFromMenu() {
         AppState.shared?.nhkNewsState.returnToList()
+    }
+
+    @objc private func toggleNHKFloatingWindow() {
+        NHKFloatingWindowManager.shared.toggle()
+        constructMenu()
     }
 
     public func refreshFloatingOverlayState() {
