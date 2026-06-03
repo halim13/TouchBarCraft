@@ -1565,8 +1565,8 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             stack.addArrangedSubview(readBtn)
 
             stack.addArrangedSubview(countLabel)
-            stack.addArrangedSubview(spacer)
             stack.addArrangedSubview(titleContainer)
+            stack.addArrangedSubview(spacer)
         } else {
             stack.addArrangedSubview(titleContainer)
             stack.addArrangedSubview(spacer)
