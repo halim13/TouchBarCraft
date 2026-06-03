@@ -149,7 +149,9 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         } else {
             touchBar = NSTouchBar()
             touchBar.delegate = self
-            touchBar.defaultItemIdentifiers = state.widgets.map { NSTouchBarItem.Identifier($0.id.uuidString) }
+            touchBar.defaultItemIdentifiers = state.widgets
+                .filter { !$0.isHidden }
+                .map { NSTouchBarItem.Identifier($0.id.uuidString) }
             self.globalTouchBar = touchBar
         }
         
@@ -367,6 +369,9 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         case .brightnessButtons:
             let brightnessView = makeNativeBrightnessControls(for: widget)
             item.view = brightnessView
+        case .nhkNews:
+            let nhkView = makeNativeNHKNewsView(for: widget)
+            item.view = nhkView
         }
         
         if widget.customWidth > 0.0 {
@@ -808,7 +813,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     /// Build a rich text view with furigana ruby annotations using vertical NSStackView.
     /// Parses both HTML tags (bold/italic/underline) and furigana [furi] patterns.
     /// Uses vertical stacking with zero spacing so furigana sits directly above kanji.
-    private func buildFuriganaRichLabel(text: String, fontSize: CGFloat, textColor: NSColor, boldColor: NSColor, isButton: Bool, buttonAction: Selector? = nil, manualFuriFontSize: CGFloat = 0, verticalOffset: CGFloat = 0, textVerticalOffset: CGFloat = 0, ankiTrimText: Bool = true) -> NSView {
+    private func buildFuriganaRichLabel(text: String, fontSize: CGFloat, textColor: NSColor, boldColor: NSColor, isButton: Bool, buttonAction: Selector? = nil, manualFuriFontSize: CGFloat = 0, verticalOffset: CGFloat = 0, textVerticalOffset: CGFloat = 0, ankiTrimText: Bool = true, furiganaColor: NSColor? = nil) -> NSView {
         // First parse HTML tags into styled chunks (same logic as parseBoldTags)
         struct StyledChunk {
             let text: String
@@ -952,7 +957,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                     
                     let furiLabel = NSTextField(labelWithString: furi)
                     furiLabel.font = NSFont.systemFont(ofSize: furiFontSize, weight: .medium)
-                    furiLabel.textColor = (chunk.isBold ? boldColor : textColor).withAlphaComponent(0.65)
+                    furiLabel.textColor = furiganaColor ?? (chunk.isBold ? boldColor : textColor).withAlphaComponent(0.65)
                     furiLabel.alignment = .center
                     furiLabel.isBezeled = false
                     furiLabel.drawsBackground = false
@@ -1416,6 +1421,452 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         }
         return btn
     }
+    
+    // MARK: - NHK News View Factory
+    
+    private func makeNativeNHKNewsView(for widget: TouchBarWidget) -> NSView {
+        guard let state = AppState.shared else {
+            let label = NSTextField(labelWithString: "NHK News")
+            label.font = NSFont.systemFont(ofSize: 12)
+            return label
+        }
+        
+        let nhk = state.nhkNewsState
+        let stack = NSStackView()
+        stack.orientation = .horizontal
+        stack.spacing = 6
+        stack.alignment = .centerY
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        // Custom width is handled by the caller in makeItemForIdentifier (see if widget.customWidth > 0.0)
+        
+        // News icon
+        let iconView = NSImageView(image: NSImage(systemSymbolName: "", accessibilityDescription: "NHK News") ?? NSImage())
+        iconView.contentTintColor = NSColor(Color(hex: widget.textColorHex))
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        // iconView.widthAnchor.constraint(equalToConstant: 16).isActive = true
+        iconView.heightAnchor.constraint(equalToConstant: 16).isActive = true
+        stack.addArrangedSubview(iconView)
+        
+        if nhk.isLoading {
+            let label = NSTextField(labelWithString: "Loading...")
+            label.font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
+            label.textColor = NSColor(Color(hex: widget.textColorHex))
+            stack.addArrangedSubview(label)
+            return stack
+        }
+        
+        if !nhk.errorMessage.isEmpty {
+            let label = NSTextField(labelWithString: "⚠️ \(String(nhk.errorMessage.prefix(25)))...")
+            label.font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize) - 1)
+            label.textColor = NSColor.orange
+            stack.addArrangedSubview(label)
+            
+            let refreshBtn = NSButton(title: "Retry", target: self, action: #selector(nhkRefreshTapped(_:)))
+            refreshBtn.bezelStyle = .rounded
+            refreshBtn.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
+            refreshBtn.contentTintColor = NSColor(Color(hex: widget.textColorHex))
+            refreshBtn.font = NSFont.systemFont(ofSize: 10)
+            stack.addArrangedSubview(refreshBtn)
+            return stack
+        }
+        
+        if nhk.articles.isEmpty {
+            let label = NSTextField(labelWithString: "📰 News")
+            label.font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
+            label.textColor = NSColor(Color(hex: widget.textColorHex))
+            stack.addArrangedSubview(label)
+            
+            let refreshBtn = NSButton(title: "Refresh", target: self, action: #selector(nhkRefreshTapped(_:)))
+            refreshBtn.bezelStyle = .rounded
+            refreshBtn.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
+            refreshBtn.contentTintColor = NSColor(Color(hex: widget.textColorHex))
+            refreshBtn.font = NSFont.systemFont(ofSize: 10)
+            stack.addArrangedSubview(refreshBtn)
+            return stack
+        }
+        
+        guard let article = nhk.currentArticle else {
+            let label = NSTextField(labelWithString: "No articles")
+            label.font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize))
+            label.textColor = NSColor.gray
+            stack.addArrangedSubview(label)
+            return stack
+        }
+        
+        switch nhk.mode {
+        case .articleList:
+            buildNHKArticleListView(nhk: nhk, article: article, stack: stack, widget: widget)
+        case .reading:
+            buildNHKReadingView(nhk: nhk, article: article, stack: stack, widget: widget)
+        }
+        
+        return stack
+    }
+    
+    private func buildNHKArticleListView(nhk: NHKNewsState, article: NHKNewsArticle, stack: NSStackView, widget: TouchBarWidget) {
+        let titleContainer = NSView()
+        titleContainer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        let titleLabel = NSTextField(labelWithString: article.title)
+        titleLabel.font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
+        titleLabel.textColor = NSColor(Color(hex: widget.textColorHex))
+        titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        titleLabel.isBezeled = false
+        titleLabel.drawsBackground = false
+        titleLabel.isEditable = false
+        titleLabel.isSelectable = false
+
+        titleContainer.addSubview(titleLabel)
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            titleLabel.leadingAnchor.constraint(equalTo: titleContainer.leadingAnchor),
+            titleLabel.trailingAnchor.constraint(equalTo: titleContainer.trailingAnchor),
+            titleLabel.centerYAnchor.constraint(equalTo: titleContainer.centerYAnchor)
+        ])
+
+        let spacer = NSView()
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+
+        let countLabel = NSTextField(labelWithString: "\(nhk.currentArticleIndex + 1)/\(nhk.articles.count)")
+        countLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .regular)
+        countLabel.textColor = NSColor(Color(hex: widget.textColorHex)).withAlphaComponent(0.6)
+        countLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        let prevBtn = NSButton(title: "", target: self, action: #selector(nhkPrevTapped(_:)))
+        if let prevImg = NSImage(systemSymbolName: "chevron.left", accessibilityDescription: "Previous article") {
+            prevBtn.image = prevImg
+            prevBtn.imagePosition = .imageOnly
+        } else {
+            prevBtn.title = "◀"
+        }
+        prevBtn.bezelStyle = .rounded
+        prevBtn.isBordered = false
+        prevBtn.contentTintColor = NSColor(Color(hex: widget.textColorHex)).withAlphaComponent(0.7)
+        prevBtn.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        let nextBtn = NSButton(title: "", target: self, action: #selector(nhkNextTapped(_:)))
+        if let nextImg = NSImage(systemSymbolName: "chevron.right", accessibilityDescription: "Next article") {
+            nextBtn.image = nextImg
+            nextBtn.imagePosition = .imageOnly
+        } else {
+            nextBtn.title = "▶"
+        }
+        nextBtn.bezelStyle = .rounded
+        nextBtn.isBordered = false
+        nextBtn.contentTintColor = NSColor(Color(hex: widget.textColorHex)).withAlphaComponent(0.7)
+        nextBtn.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        if widget.nhkNavOnLeft {
+            stack.addArrangedSubview(prevBtn)
+            stack.addArrangedSubview(nextBtn)
+
+            let readBtn = makeNHKReadButton(widget: widget)
+            stack.addArrangedSubview(readBtn)
+
+            stack.addArrangedSubview(countLabel)
+            stack.addArrangedSubview(spacer)
+            stack.addArrangedSubview(titleContainer)
+        } else {
+            stack.addArrangedSubview(titleContainer)
+            stack.addArrangedSubview(spacer)
+            stack.addArrangedSubview(countLabel)
+            stack.addArrangedSubview(prevBtn)
+            stack.addArrangedSubview(nextBtn)
+
+            let readBtn = makeNHKReadButton(widget: widget)
+            stack.addArrangedSubview(readBtn)
+        }
+    }
+
+    private func makeNHKReadButton(widget: TouchBarWidget) -> NSButton {
+        let readBtn = NSButton(title: "", target: self, action: #selector(nhkReadTapped(_:)))
+        if let readImg = NSImage(systemSymbolName: "book.fill", accessibilityDescription: "Read article") {
+            readBtn.image = readImg
+            readBtn.imagePosition = .imageOnly
+        } else {
+            readBtn.title = "📖"
+        }
+        readBtn.bezelStyle = .rounded
+        readBtn.isBordered = false
+        readBtn.contentTintColor = NSColor(Color(hex: widget.textColorHex))
+        readBtn.setContentCompressionResistancePriority(.required, for: .horizontal)
+        return readBtn
+    }
+    
+    private func buildNHKReadingView(nhk: NHKNewsState, article: NHKNewsArticle, stack: NSStackView, widget: TouchBarWidget) {
+        let hStack = NSStackView()
+        hStack.orientation = .horizontal
+        hStack.spacing = 4
+        hStack.alignment = .centerY
+
+        let kanjiSize = max(8, CGFloat(widget.fontSize - 2))
+        let furiSize: CGFloat
+        if widget.nhkFuriganaFontSize > 0 {
+            furiSize = max(4, CGFloat(widget.nhkFuriganaFontSize))
+        } else {
+            furiSize = max(4, kanjiSize * 0.55)
+        }
+
+        let contentView: NSView
+        if nhk.currentChunk.contains("[") && nhk.currentChunk.contains("]") {
+            contentView = buildFuriganaRichLabel(
+                text: nhk.currentChunk,
+                fontSize: kanjiSize,
+                textColor: NSColor(Color(hex: widget.textColorHex)),
+                boldColor: NSColor(Color(hex: widget.ankiBoldColorHex)),
+                isButton: false,
+                manualFuriFontSize: furiSize,
+                verticalOffset: 0,
+                textVerticalOffset: 0,
+                ankiTrimText: true,
+                furiganaColor: NSColor(Color(hex: widget.nhkFuriganaColorHex)).withAlphaComponent(0.75)
+            )
+        } else {
+            let contentLabel = NSTextField(labelWithString: nhk.currentChunk)
+            contentLabel.font = NSFont.systemFont(ofSize: kanjiSize)
+            contentLabel.textColor = NSColor(Color(hex: widget.textColorHex))
+            contentLabel.lineBreakMode = .byTruncatingTail
+            contentView = contentLabel
+        }
+        contentView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        let spacer = NSView()
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+
+        let chunkLabel: NSTextField?
+        if nhk.hasChunks {
+            let label = NSTextField(labelWithString: nhk.chunkProgress)
+            label.font = NSFont.monospacedDigitSystemFont(ofSize: 7, weight: .regular)
+            label.textColor = NSColor(Color(hex: widget.textColorHex)).withAlphaComponent(0.5)
+            label.setContentCompressionResistancePriority(.required, for: .horizontal)
+            chunkLabel = label
+        } else {
+            chunkLabel = nil
+        }
+
+        let playPauseBtn: NSButton?
+        let stopBtn: NSButton?
+        if nhk.isAudioAvailable {
+            let ppBtn = NSButton(title: "", target: self, action: #selector(nhkPlayPauseTapped(_:)))
+            let playSymbol = nhk.isAudioPlaying
+                ? NSImage(systemSymbolName: "pause.fill", accessibilityDescription: "Pause")
+                : NSImage(systemSymbolName: "play.fill", accessibilityDescription: "Play")
+            if let img = playSymbol {
+                ppBtn.image = img
+                ppBtn.imagePosition = .imageOnly
+            } else {
+                ppBtn.title = nhk.isAudioPlaying ? "⏸" : "▶"
+            }
+            ppBtn.bezelStyle = .rounded
+            ppBtn.isBordered = false
+            ppBtn.contentTintColor = NSColor(Color(hex: widget.textColorHex)).withAlphaComponent(0.7)
+            ppBtn.setContentCompressionResistancePriority(.required, for: .horizontal)
+            ppBtn.identifier = NSUserInterfaceItemIdentifier("nhkPlayPause")
+            playPauseBtn = ppBtn
+
+            let sBtn = NSButton(title: "", target: self, action: #selector(nhkStopTapped(_:)))
+            if let img = NSImage(systemSymbolName: "stop.fill", accessibilityDescription: "Stop") {
+                sBtn.image = img
+                sBtn.imagePosition = .imageOnly
+            } else {
+                sBtn.title = "⏹"
+            }
+            sBtn.bezelStyle = .rounded
+            sBtn.isBordered = false
+            sBtn.contentTintColor = NSColor(Color(hex: widget.textColorHex)).withAlphaComponent(0.7)
+            sBtn.setContentCompressionResistancePriority(.required, for: .horizontal)
+            stopBtn = sBtn
+        } else {
+            playPauseBtn = nil
+            stopBtn = nil
+        }
+
+        let prevChunkBtn = NSButton(title: "", target: self, action: #selector(nhkPrevChunkTapped(_:)))
+        if let img = NSImage(systemSymbolName: "chevron.left", accessibilityDescription: "Previous chunk") {
+            prevChunkBtn.image = img
+            prevChunkBtn.imagePosition = .imageOnly
+        } else {
+            prevChunkBtn.title = "◀"
+        }
+        prevChunkBtn.bezelStyle = .rounded
+        prevChunkBtn.isBordered = false
+        prevChunkBtn.contentTintColor = NSColor(Color(hex: widget.textColorHex)).withAlphaComponent(0.7)
+        prevChunkBtn.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        let nextChunkBtn = NSButton(title: "", target: self, action: #selector(nhkNextChunkTapped(_:)))
+        if let img = NSImage(systemSymbolName: "chevron.right", accessibilityDescription: "Next chunk") {
+            nextChunkBtn.image = img
+            nextChunkBtn.imagePosition = .imageOnly
+        } else {
+            nextChunkBtn.title = "▶"
+        }
+        nextChunkBtn.bezelStyle = .rounded
+        nextChunkBtn.isBordered = false
+        nextChunkBtn.contentTintColor = NSColor(Color(hex: widget.textColorHex)).withAlphaComponent(0.7)
+        nextChunkBtn.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        let listBtn = NSButton(title: "", target: self, action: #selector(nhkListTapped(_:)))
+        if let img = NSImage(systemSymbolName: "list.bullet", accessibilityDescription: "Article list") {
+            listBtn.image = img
+            listBtn.imagePosition = .imageOnly
+        } else {
+            listBtn.title = "☰"
+        }
+        listBtn.bezelStyle = .rounded
+        listBtn.isBordered = false
+        listBtn.contentTintColor = NSColor(Color(hex: widget.textColorHex)).withAlphaComponent(0.7)
+        listBtn.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        if widget.nhkNavOnLeft {
+            hStack.addArrangedSubview(prevChunkBtn)
+            hStack.addArrangedSubview(nextChunkBtn)
+            hStack.addArrangedSubview(listBtn)
+            if let pp = playPauseBtn { hStack.addArrangedSubview(pp) }
+            if let sb = stopBtn { hStack.addArrangedSubview(sb) }
+            if let cl = chunkLabel { hStack.addArrangedSubview(cl) }
+            hStack.addArrangedSubview(spacer)
+            hStack.addArrangedSubview(contentView)
+        } else {
+            hStack.addArrangedSubview(contentView)
+            hStack.addArrangedSubview(spacer)
+            if let cl = chunkLabel { hStack.addArrangedSubview(cl) }
+            if let pp = playPauseBtn { hStack.addArrangedSubview(pp) }
+            if let sb = stopBtn { hStack.addArrangedSubview(sb) }
+            hStack.addArrangedSubview(prevChunkBtn)
+            hStack.addArrangedSubview(nextChunkBtn)
+            hStack.addArrangedSubview(listBtn)
+        }
+
+        stack.addArrangedSubview(hStack)
+    }
+
+    /// Compact furigana label that fits within Touch Bar height.
+    /// Kanji text stays centered at the same baseline as plain text;
+    /// furigana floats above the kanji without pushing it down.
+    private func buildCompactFuriganaLabel(text: String, kanjiSize: CGFloat, furiSize: CGFloat, textColor: NSColor, boldColor: NSColor) -> NSView {
+        let segments = touchbar.parseFuriganaSegments(text)
+        let hStack = NSStackView()
+        hStack.orientation = .horizontal
+        hStack.spacing = 0
+        hStack.alignment = .centerY
+
+        for segment in segments {
+            if let furi = segment.furigana {
+                // Container: kanji centered like plain text, furigana overlaid above
+                let container = NSView()
+                container.translatesAutoresizingMaskIntoConstraints = false
+
+                let baseLabel = NSTextField(labelWithString: segment.text)
+                baseLabel.font = NSFont.systemFont(ofSize: kanjiSize, weight: .regular)
+                baseLabel.textColor = textColor
+                baseLabel.isBezeled = false
+                baseLabel.drawsBackground = false
+                baseLabel.isEditable = false
+                baseLabel.isSelectable = false
+                baseLabel.cell?.usesSingleLineMode = true
+                baseLabel.maximumNumberOfLines = 1
+                baseLabel.cell?.wraps = false
+                baseLabel.translatesAutoresizingMaskIntoConstraints = false
+                container.addSubview(baseLabel)
+
+                let furiLabel = NSTextField(labelWithString: furi)
+                furiLabel.font = NSFont.systemFont(ofSize: furiSize, weight: .medium)
+                furiLabel.textColor = textColor.withAlphaComponent(0.65)
+                furiLabel.isBezeled = false
+                furiLabel.drawsBackground = false
+                furiLabel.isEditable = false
+                furiLabel.isSelectable = false
+                furiLabel.cell?.usesSingleLineMode = true
+                furiLabel.maximumNumberOfLines = 1
+                furiLabel.cell?.wraps = false
+                furiLabel.translatesAutoresizingMaskIntoConstraints = false
+                container.addSubview(furiLabel)
+
+                NSLayoutConstraint.activate([
+                    baseLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+                    baseLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+                    baseLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+
+                    furiLabel.bottomAnchor.constraint(equalTo: baseLabel.topAnchor),
+                    furiLabel.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+
+                    container.topAnchor.constraint(lessThanOrEqualTo: furiLabel.topAnchor),
+                    container.bottomAnchor.constraint(greaterThanOrEqualTo: baseLabel.bottomAnchor)
+                ])
+
+                hStack.addArrangedSubview(container)
+            } else {
+                let trimmed = segment.text.trimmingCharacters(in: .whitespaces)
+                guard !trimmed.isEmpty else { continue }
+                let label = NSTextField(labelWithString: trimmed)
+                label.font = NSFont.systemFont(ofSize: kanjiSize, weight: .regular)
+                label.textColor = textColor
+                label.isBezeled = false
+                label.drawsBackground = false
+                label.isEditable = false
+                label.isSelectable = false
+                label.cell?.usesSingleLineMode = true
+                label.maximumNumberOfLines = 1
+                label.cell?.wraps = false
+                hStack.addArrangedSubview(label)
+            }
+        }
+
+        return hStack
+    }
+    
+    // MARK: - NHK News Actions
+    
+    @objc private func nhkRefreshTapped(_ sender: Any) {
+        guard let state = AppState.shared else { return }
+        Task { @MainActor in
+            await state.nhkNewsState.fetchArticles()
+        }
+    }
+    
+    @objc private func nhkNextTapped(_ sender: Any) {
+        guard let state = AppState.shared else { return }
+        state.nhkNewsState.nextArticle()
+    }
+    
+    @objc private func nhkPrevTapped(_ sender: Any) {
+        guard let state = AppState.shared else { return }
+        state.nhkNewsState.previousArticle()
+    }
+    
+    @objc private func nhkPrevChunkTapped(_ sender: Any) {
+        guard let state = AppState.shared else { return }
+        state.nhkNewsState.previousChunk()
+    }
+
+    @objc private func nhkReadTapped(_ sender: Any) {
+        guard let state = AppState.shared else { return }
+        state.nhkNewsState.startReading()
+    }
+
+    @objc private func nhkNextChunkTapped(_ sender: Any) {
+        guard let state = AppState.shared else { return }
+        state.nhkNewsState.nextChunk()
+    }
+
+    @objc private func nhkListTapped(_ sender: Any) {
+        guard let state = AppState.shared else { return }
+        state.nhkNewsState.returnToList()
+    }
+
+    @objc private func nhkPlayPauseTapped(_ sender: Any) {
+        guard let state = AppState.shared else { return }
+        state.nhkNewsState.playPauseAudio()
+        TouchBarPresenter.refreshTouchBar()
+    }
+
+    @objc private func nhkStopTapped(_ sender: Any) {
+        guard let state = AppState.shared else { return }
+        state.nhkNewsState.stopAudio()
+        TouchBarPresenter.refreshTouchBar()
+    }
+
     
     private func makeNativeBrightnessControls(for widget: TouchBarWidget) -> NSStackView {
         let stack = NSStackView()

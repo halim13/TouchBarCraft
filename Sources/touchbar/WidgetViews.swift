@@ -577,7 +577,7 @@ public func parseHTMLTags(in text: String, defaultColor: Color, boldColor: Color
 /// Furigana text (e.g. 私[わたし]) is rendered as ruby text with the reading above the kanji.
 /// Uses VStack with tight spacing so total height fits within Touch Bar constraints.
 @MainActor
-public func parseFuriganaRichText(in text: String, defaultColor: Color, boldColor: Color, fontSize: CGFloat, furiganaFontSize: CGFloat = 0, verticalOffset: CGFloat = 0, textOffset: CGFloat = 0) -> some View {
+public func parseFuriganaRichText(in text: String, defaultColor: Color, boldColor: Color, fontSize: CGFloat, furiganaFontSize: CGFloat = 0, verticalOffset: CGFloat = 0, textOffset: CGFloat = 0, furiganaColor: Color? = nil) -> some View {
     let segments = parseRichSegments(from: text)
     
     // Determine furigana font size — use user-specified size if set, otherwise auto-calculate
@@ -600,7 +600,7 @@ public func parseFuriganaRichText(in text: String, defaultColor: Color, boldColo
                     .overlay(alignment: .top) {
                         Text(furi)
                             .font(.system(size: computedFuriFontSize, weight: .medium))
-                            .foregroundColor(item.isBold ? boldColor.opacity(0.65) : defaultColor.opacity(0.65))
+                            .foregroundColor(furiganaColor ?? (item.isBold ? boldColor.opacity(0.65) : defaultColor.opacity(0.65)))
                             .multilineTextAlignment(.center)
                             .fixedSize()
                             .offset(y: -(computedFuriFontSize * 1.2 + verticalOffset))
@@ -1283,6 +1283,233 @@ public struct WidgetBrightnessButtonsView: View {
     private func executeBrightnessChange(up: Bool) {
         DispatchQueue.global(qos: .userInitiated).async {
             SystemUtils.adjustBrightness(up: up)
+        }
+    }
+}
+
+// MARK: - NHK News Easy Widget View (Simulator)
+
+public struct WidgetNHKNewsView: View {
+    let widget: TouchBarWidget
+    let state: AppState
+    let isSimulator: Bool
+    
+    public var body: some View {
+        let nhk = state.nhkNewsState
+        
+        HStack(spacing: 6) {
+            // Image(systemName: "newspaper.fill")
+            //     .font(.system(size: isSimulator ? 10 : 12))
+            //     .foregroundColor(Color(hex: widget.textColorHex))
+            
+            if nhk.isLoading {
+                Text("Loading...")
+                    .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
+                    .foregroundColor(Color(hex: widget.textColorHex))
+            } else if !nhk.errorMessage.isEmpty {
+                Text("⚠️ \(nhk.errorMessage.prefix(20))...")
+                    .font(.system(size: isSimulator ? widget.fontSize - 2 : widget.fontSize - 1))
+                    .foregroundColor(.orange)
+            } else if nhk.articles.isEmpty {
+                Text("📰 News Offline")
+                    .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
+                    .foregroundColor(Color(hex: widget.textColorHex))
+                
+                Button("Refresh") {
+                    Task { await nhk.fetchArticles() }
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: isSimulator ? 9 : 11))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color(hex: widget.backgroundColorHex))
+                .cornerRadius(4)
+            } else {
+                // Show article content based on mode
+                switch nhk.mode {
+                case .articleList:
+                    articleListView(nhk: nhk)
+                case .reading:
+                    readingView(nhk: nhk)
+                }
+            }
+        }
+        .padding(.horizontal, isSimulator ? 8 : 12)
+        .padding(.vertical, isSimulator ? 5 : 6)
+        .background(Color(hex: widget.backgroundColorHex).opacity(0.15))
+        .cornerRadius(6)
+        .if(widget.customWidth > 0) { $0.frame(width: widget.customWidth) }
+    }
+    
+    // MARK: - Article List View
+    
+    @ViewBuilder
+    private func articleListView(nhk: NHKNewsState) -> some View {
+        if let article = nhk.currentArticle {
+            if widget.nhkNavOnLeft {
+                HStack(spacing: 2) {
+                    Button(action: { nhk.previousArticle() }) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: isSimulator ? 8 : 10))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(Color(hex: widget.textColorHex).opacity(0.7))
+
+                    Button(action: { nhk.nextArticle() }) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: isSimulator ? 8 : 10))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(Color(hex: widget.textColorHex).opacity(0.7))
+
+                    Button(action: { nhk.startReading() }) {
+                        Image(systemName: "book.fill")
+                            .font(.system(size: isSimulator ? 8 : 10))
+                            .foregroundColor(Color(hex: widget.textColorHex))
+                    }
+                    .buttonStyle(.plain)
+
+                    Text("\(nhk.currentArticleIndex + 1)/\(nhk.articles.count)")
+                        .font(.system(size: isSimulator ? 7 : 8, design: .monospaced))
+                        .foregroundColor(Color(hex: widget.textColorHex).opacity(0.6))
+
+                    Text(article.title)
+                        .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
+                        .foregroundColor(Color(hex: widget.textColorHex))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            } else {
+                HStack(spacing: 2) {
+                    Text(article.title)
+                        .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
+                        .foregroundColor(Color(hex: widget.textColorHex))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Button(action: { nhk.previousArticle() }) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: isSimulator ? 8 : 10))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(Color(hex: widget.textColorHex).opacity(0.7))
+
+                    Text("\(nhk.currentArticleIndex + 1)/\(nhk.articles.count)")
+                        .font(.system(size: isSimulator ? 7 : 8, design: .monospaced))
+                        .foregroundColor(Color(hex: widget.textColorHex).opacity(0.6))
+
+                    Button(action: { nhk.nextArticle() }) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: isSimulator ? 8 : 10))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(Color(hex: widget.textColorHex).opacity(0.7))
+
+                    Button(action: { nhk.startReading() }) {
+                        Image(systemName: "book.fill")
+                            .font(.system(size: isSimulator ? 8 : 10))
+                            .foregroundColor(Color(hex: widget.textColorHex))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        } else {
+            Text("No articles")
+                .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize))
+                .foregroundColor(.gray)
+        }
+    }
+    
+    // MARK: - Reading View
+    
+    @ViewBuilder
+    private func readingView(nhk: NHKNewsState) -> some View {
+        if nhk.currentArticle != nil {
+            let navContents: some View = Group {
+                Button(action: { nhk.previousChunk() }) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: isSimulator ? 7 : 9))
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(Color(hex: widget.textColorHex).opacity(0.7))
+
+                if nhk.hasChunks {
+                    Text(nhk.chunkProgress)
+                        .font(.system(size: isSimulator ? 6 : 7, design: .monospaced))
+                        .foregroundColor(Color(hex: widget.textColorHex).opacity(0.5))
+                }
+
+                if nhk.isAudioAvailable {
+                    Button(action: { nhk.playPauseAudio() }) {
+                        Image(systemName: nhk.isAudioPlaying ? "pause.fill" : "play.fill")
+                            .font(.system(size: isSimulator ? 7 : 9))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(Color(hex: widget.textColorHex).opacity(0.7))
+
+                    Button(action: { nhk.stopAudio() }) {
+                        Image(systemName: "stop.fill")
+                            .font(.system(size: isSimulator ? 7 : 9))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(Color(hex: widget.textColorHex).opacity(0.7))
+                }
+
+                Button(action: { nhk.nextChunk() }) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: isSimulator ? 7 : 9))
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(Color(hex: widget.textColorHex).opacity(0.7))
+
+                Button(action: { nhk.returnToList() }) {
+                    Image(systemName: "list.bullet")
+                        .font(.system(size: isSimulator ? 7 : 9))
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(Color(hex: widget.textColorHex).opacity(0.7))
+            }
+
+            let contentView: some View = Group {
+                if nhk.currentChunk.contains("[") && nhk.currentChunk.contains("]") {
+                    let furiSize: CGFloat = widget.nhkFuriganaFontSize > 0
+                        ? max(4, CGFloat(widget.nhkFuriganaFontSize))
+                        : 5
+                    parseFuriganaRichText(
+                        in: nhk.currentChunk,
+                        defaultColor: Color(hex: widget.textColorHex),
+                        boldColor: Color(hex: widget.ankiBoldColorHex),
+                        fontSize: 9,
+                        furiganaFontSize: furiSize,
+                        verticalOffset: 0,
+                        textOffset: 0,
+                        furiganaColor: Color(hex: widget.nhkFuriganaColorHex).opacity(0.75)
+                    )
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, maxHeight: 24, alignment: .leading)
+                } else {
+                    Text(nhk.currentChunk)
+                        .font(.system(size: 10))
+                        .foregroundColor(Color(hex: widget.textColorHex))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+
+            if widget.nhkNavOnLeft {
+                HStack(spacing: 4) {
+                    navContents
+                    contentView
+                }
+            } else {
+                HStack(spacing: 4) {
+                    contentView
+                    navContents
+                }
+            }
         }
     }
 }

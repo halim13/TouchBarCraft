@@ -12,6 +12,7 @@ public final class AppState {
     public var widgets: [TouchBarWidget] = []
     public var selectedWidgetID: UUID?
     public var ankiState: AnkiState
+    public var nhkNewsState: NHKNewsState
     
     // Live system stats
     public var batteryLevel: Int = 100
@@ -44,9 +45,15 @@ public init() {
         let homeDir = FileManager.default.homeDirectoryForCurrentUser
         self.configPath = homeDir.appendingPathComponent(".touchbarcraft.json")
         self.ankiState = AnkiState()
+        self.nhkNewsState = NHKNewsState()
         Self.shared = self
         loadConfig()
         startSystemTimers()
+        
+        // Start fetching NHK Easy News in background
+        Task { @MainActor in
+            await self.nhkNewsState.fetchArticles()
+        }
     }
     
     // MARK: - Persistence
@@ -298,6 +305,14 @@ public init() {
                 title: "Brightness Controls",
                 iconName: "sun.max.fill",
                 backgroundColorHex: "#1E1E24",
+                textColorHex: "#FFFFFF"
+            )
+        case .nhkNews:
+            newWidget = TouchBarWidget(
+                type: .nhkNews,
+                title: "NHK Easy News",
+                iconName: "newspaper.fill",
+                backgroundColorHex: "#DC2626",
                 textColorHex: "#FFFFFF"
             )
         }

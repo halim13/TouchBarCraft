@@ -9,6 +9,7 @@ public enum WidgetType: String, Codable, CaseIterable, Sendable {
     case anki = "Anki Review"
     case volumeSlider = "Volume Slider"
     case brightnessButtons = "Brightness Controls"
+    case nhkNews = "NHK Easy News"
 }
 
 public enum ActionType: String, Codable, CaseIterable, Sendable {
@@ -130,6 +131,15 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     // Anki show remaining counts toggle
     public var ankiShowRemainingCounts: Bool
     
+    // NHK furigana font size (0 = auto)
+    public var nhkFuriganaFontSize: Double
+
+    // NHK furigana text color hex
+    public var nhkFuriganaColorHex: String
+
+    // NHK navigation buttons on left side
+    public var nhkNavOnLeft: Bool
+
     // Anki combine furigana toggle
     public var ankiCombineFurigana: Bool
     
@@ -160,6 +170,9 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     // Animation Custom properties
     public var customGifPath: String
     
+    // Hidden state (hide from Touch Bar without deleting config)
+    public var isHidden: Bool
+
     // Custom Width setting
     public var customWidth: Double
     
@@ -205,6 +218,9 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         ankiBoldColorHex: String = "#FFD60A",
         ankiIsMuted: Bool = false,
         ankiShowRemainingCounts: Bool = false,
+        nhkFuriganaFontSize: Double = 0,
+        nhkFuriganaColorHex: String = "#FFFFFF",
+        nhkNavOnLeft: Bool = false,
         ankiCombineFurigana: Bool = false,
         ankiFuriganaFontSize: Double = 0,
         ankiFuriganaVerticalOffset: Double = 0,
@@ -219,6 +235,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         ankiAudioOnlyOnAnswer: Bool = true,
         ankiTrimText: Bool = true,
         customGifPath: String = "",
+        isHidden: Bool = false,
         customWidth: Double = 0.0
     ) {
         self.id = id
@@ -262,6 +279,9 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiBoldColorHex = ankiBoldColorHex
         self.ankiIsMuted = ankiIsMuted
         self.ankiShowRemainingCounts = ankiShowRemainingCounts
+        self.nhkFuriganaFontSize = nhkFuriganaFontSize
+        self.nhkFuriganaColorHex = nhkFuriganaColorHex
+        self.nhkNavOnLeft = nhkNavOnLeft
         self.ankiCombineFurigana = ankiCombineFurigana
         self.ankiFuriganaFontSize = ankiFuriganaFontSize
         self.ankiFuriganaVerticalOffset = ankiFuriganaVerticalOffset
@@ -276,6 +296,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiAudioOnlyOnAnswer = ankiAudioOnlyOnAnswer
         self.ankiTrimText = ankiTrimText
         self.customGifPath = customGifPath
+        self.isHidden = isHidden
         self.customWidth = customWidth
     }
     
@@ -289,6 +310,9 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         case ankiBoldColorHex
         case ankiIsMuted
         case ankiShowRemainingCounts
+        case nhkFuriganaFontSize
+        case nhkFuriganaColorHex
+        case nhkNavOnLeft
         case ankiCombineFurigana
         case ankiFuriganaFontSize
         case ankiFuriganaVerticalOffset
@@ -303,6 +327,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         case ankiAudioOnlyOnAnswer
         case ankiTrimText
         case customGifPath
+        case isHidden
         case customWidth
     }
 
@@ -354,6 +379,9 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiBoldColorHex = try container.decodeIfPresent(String.self, forKey: .ankiBoldColorHex) ?? "#FFD60A"
         self.ankiIsMuted = try container.decodeIfPresent(Bool.self, forKey: .ankiIsMuted) ?? false
         self.ankiShowRemainingCounts = try container.decodeIfPresent(Bool.self, forKey: .ankiShowRemainingCounts) ?? false
+        self.nhkFuriganaFontSize = try container.decodeIfPresent(Double.self, forKey: .nhkFuriganaFontSize) ?? 0
+        self.nhkFuriganaColorHex = try container.decodeIfPresent(String.self, forKey: .nhkFuriganaColorHex) ?? "#FFFFFF"
+        self.nhkNavOnLeft = try container.decodeIfPresent(Bool.self, forKey: .nhkNavOnLeft) ?? false
         self.ankiCombineFurigana = try container.decodeIfPresent(Bool.self, forKey: .ankiCombineFurigana) ?? false
         self.ankiFuriganaFontSize = try container.decodeIfPresent(Double.self, forKey: .ankiFuriganaFontSize) ?? 0
         self.ankiFuriganaVerticalOffset = try container.decodeIfPresent(Double.self, forKey: .ankiFuriganaVerticalOffset) ?? 0
@@ -369,6 +397,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiTrimText = try container.decodeIfPresent(Bool.self, forKey: .ankiTrimText) ?? true
         
         self.customGifPath = try container.decodeIfPresent(String.self, forKey: .customGifPath) ?? ""
+        self.isHidden = try container.decodeIfPresent(Bool.self, forKey: .isHidden) ?? false
         self.customWidth = try container.decodeIfPresent(Double.self, forKey: .customWidth) ?? 0.0
     }
 }

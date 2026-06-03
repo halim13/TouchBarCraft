@@ -92,7 +92,7 @@ public struct MainView: View {
                 GeometryReader { geometry in
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
-                            ForEach(state.widgets) { widget in
+                            ForEach(state.widgets.filter { !$0.isHidden }) { widget in
                                 Group {
                                     switch widget.type {
                                     case .label:
@@ -111,6 +111,8 @@ public struct MainView: View {
                                         WidgetVolumeSliderView(widget: widget, state: state, isSimulator: true)
                                     case .brightnessButtons:
                                         WidgetBrightnessButtonsView(widget: widget, state: state, isSimulator: true)
+                                    case .nhkNews:
+                                        WidgetNHKNewsView(widget: widget, state: state, isSimulator: true)
                                     }
                                 }
                                 .shadow(color: Color(hex: widget.backgroundColorHex).opacity(0.3), radius: 4)
@@ -160,6 +162,7 @@ public struct MainView: View {
                             Button("Anki Review") { state.addWidget(.anki) }
                             Button("Volume Slider") { state.addWidget(.volumeSlider) }
                             Button("Brightness Controls") { state.addWidget(.brightnessButtons) }
+                            Button("NHK Easy News") { state.addWidget(.nhkNews) }
                             Divider()
                             Button("Paste Widget from JSON") {
                                 let pasteboard = NSPasteboard.general
@@ -207,7 +210,7 @@ public struct MainView: View {
                                         Text(widget.title.isEmpty ? "Untitled" : widget.title)
                                             .font(.system(size: 12, weight: .semibold))
                                             .foregroundColor(.white)
-                                        Text(widget.type.rawValue)
+                                        Text(widget.type.rawValue + (widget.isHidden ? " (Hidden)" : ""))
                                             .font(.system(size: 9))
                                             .foregroundColor(.gray)
                                     }
@@ -257,6 +260,19 @@ public struct MainView: View {
                                         .disabled(isLast)
                                         .buttonStyle(.plain)
                                         
+                                        // Hide/Show toggle button
+                                        Button(action: {
+                                            state.widgets[index].isHidden.toggle()
+                                            state.saveConfig()
+                                        }) {
+                                            Image(systemName: widget.isHidden ? "eye.slash" : "eye")
+                                                .font(.system(size: 9))
+                                                .foregroundColor(widget.isHidden ? .orange.opacity(0.8) : .gray.opacity(0.6))
+                                                .frame(width: 14, height: 14)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .help(widget.isHidden ? "Show widget" : "Hide widget")
+                                        
                                         Button(action: {
                                             state.deleteWidget(id: widget.id)
                                         }) {
@@ -272,6 +288,7 @@ public struct MainView: View {
                                 .padding(.horizontal, 10)
                                 .background(state.selectedWidgetID == widget.id ? Color.purple.opacity(0.15) : Color.clear)
                                 .cornerRadius(6)
+                                .opacity(widget.isHidden ? 0.45 : 1.0)
                                 .contentShape(Rectangle())
                                 .onTapGesture {
                                     state.selectedWidgetID = widget.id
@@ -772,6 +789,31 @@ struct AnkiConfigView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            // Custom Width
+            HStack(spacing: 8) {
+                Text("Custom Width:")
+                    .font(.system(size: 11))
+                    .frame(width: 95, alignment: .leading)
+                
+                TextField("0 = auto", text: Binding(
+                    get: { String(Int(widget.customWidth)) },
+                    set: { val in
+                        if let num = Double(val.filter { $0.isNumber }) {
+                            state.widgets[index].customWidth = num
+                            state.saveConfig()
+                        }
+                    }
+                ))
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 80)
+                
+                Text("px")
+                    .font(.system(size: 11))
+                    .foregroundColor(.gray)
+            }
+            
+            Divider()
+            
             HStack {
                 Text("Connection Status:")
                     .font(.system(size: 11, weight: .bold))
@@ -2208,6 +2250,192 @@ struct WidgetOptionsView: View {
             VolumeSliderOptionsView(widget: widget, index: index, state: state)
         case .brightnessButtons:
             BrightnessOptionsView(widget: widget, index: index, state: state)
+        case .nhkNews:
+            NHKNewsConfigView(widget: widget, index: index, state: state)
+        }
+    }
+}
+
+// MARK: - NHK News Easy Config View
+
+struct NHKNewsConfigView: View {
+    let widget: TouchBarWidget
+    let index: Int
+    let state: AppState
+    
+    var body: some View {
+        let nhk = state.nhkNewsState
+        
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Status:")
+                    .font(.system(size: 11, weight: .bold))
+                Spacer()
+                if nhk.isLoading {
+                    Text("Loading...")
+                        .font(.system(size: 10, weight: .semibold))
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(Color.blue.opacity(0.2))
+                        .foregroundColor(.blue).cornerRadius(4)
+                } else if !nhk.errorMessage.isEmpty {
+                    Text("Error")
+                        .font(.system(size: 10, weight: .semibold))
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(Color.red.opacity(0.2))
+                        .foregroundColor(.red).cornerRadius(4)
+                } else if !nhk.articles.isEmpty {
+                    Text("\(nhk.articles.count) articles")
+                        .font(.system(size: 10, weight: .semibold))
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(Color.green.opacity(0.2))
+                        .foregroundColor(.green).cornerRadius(4)
+                } else {
+                    Text("Idle")
+                        .font(.system(size: 10, weight: .semibold))
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(Color.gray.opacity(0.2))
+                        .foregroundColor(.gray).cornerRadius(4)
+                }
+            }
+            
+            if let lastUpdated = nhk.lastUpdated {
+                HStack {
+                    Text("Last Updated:")
+                        .font(.system(size: 10)).foregroundColor(.gray)
+                    Spacer()
+                    Text(lastUpdated, style: .relative)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.gray)
+                }
+            }
+            
+            Divider()
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Furigana")
+                    .font(.system(size: 11, weight: .bold)).foregroundColor(.gray)
+
+                HStack(spacing: 8) {
+                    Text("Font Size:")
+                        .font(.system(size: 11))
+                        .frame(width: 100, alignment: .leading)
+                    Slider(value: Binding(
+                        get: { widget.nhkFuriganaFontSize == 0 ? 5 : widget.nhkFuriganaFontSize },
+                        set: { state.widgets[index].nhkFuriganaFontSize = $0; state.saveConfig() }
+                    ), in: 4...12, step: 0.5)
+                    Text(widget.nhkFuriganaFontSize > 0
+                         ? String(format: "%.1fpt", widget.nhkFuriganaFontSize)
+                         : "Auto")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.gray)
+                        .frame(width: 40, alignment: .trailing)
+                }
+                Button("Reset Auto") {
+                    state.widgets[index].nhkFuriganaFontSize = 0
+                    state.saveConfig()
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 9))
+                .foregroundColor(.orange)
+                .disabled(widget.nhkFuriganaFontSize == 0)
+
+                HStack(spacing: 8) {
+                    Text("Color:")
+                        .font(.system(size: 11))
+                        .frame(width: 100, alignment: .leading)
+                    TextField("#HEX", text: Binding(
+                        get: { widget.nhkFuriganaColorHex },
+                        set: { state.widgets[index].nhkFuriganaColorHex = $0; state.saveConfig() }
+                    ))
+                    .textFieldStyle(.roundedBorder)
+                    ColorPicker("", selection: Binding(
+                        get: { Color(hex: widget.nhkFuriganaColorHex) },
+                        set: { color in
+                            if let hex = color.toHex() {
+                                state.widgets[index].nhkFuriganaColorHex = hex
+                                state.saveConfig()
+                            }
+                        }
+                    ))
+                }
+
+                Toggle("Navigation buttons on left side", isOn: Binding(
+                    get: { widget.nhkNavOnLeft },
+                    set: { state.widgets[index].nhkNavOnLeft = $0; state.saveConfig() }
+                ))
+                .font(.system(size: 11))
+                .toggleStyle(.switch)
+            }
+
+            Divider()
+
+            if let article = nhk.currentArticle {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Current Article")
+                        .font(.system(size: 11, weight: .bold)).foregroundColor(.gray)
+                    Text(article.title)
+                        .font(.system(size: 11)).foregroundColor(.white).lineLimit(3)
+                    if !article.description.isEmpty {
+                        Text(article.description)
+                            .font(.system(size: 10)).foregroundColor(.gray).lineLimit(2)
+                    }
+                    HStack {
+                        Text("Article \(nhk.currentArticleIndex + 1) of \(nhk.articles.count)")
+                            .font(.system(size: 9, design: .monospaced)).foregroundColor(.gray)
+                        Spacer()
+                        if !article.contentChunks.isEmpty {
+                            Text("\(article.contentChunks.count) chunks")
+                                .font(.system(size: 9, design: .monospaced)).foregroundColor(.teal)
+                        }
+                    }
+                }
+                Divider()
+            }
+            
+            HStack(spacing: 8) {
+                Button(action: { Task { await nhk.fetchArticles() } }) {
+                    HStack {
+                        Image(systemName: "arrow.clockwise")
+                        Text("Refresh News")
+                    }.padding(.vertical, 6).padding(.horizontal, 12)
+                    .background(Color.red.opacity(0.2))
+                    .foregroundColor(.red).cornerRadius(6)
+                }.buttonStyle(.plain)
+                
+                Button(action: { nhk.nextArticle() }) {
+                    HStack {
+                        Image(systemName: "forward.fill")
+                        Text("Next")
+                    }.padding(.vertical, 6).padding(.horizontal, 12)
+                    .background(Color.blue.opacity(0.2))
+                    .foregroundColor(.blue).cornerRadius(6)
+                }.buttonStyle(.plain)
+            }
+            
+            if nhk.mode == .reading {
+                Divider()
+                Text("Reading Mode")
+                    .font(.system(size: 11, weight: .bold)).foregroundColor(.teal)
+                HStack(spacing: 8) {
+                    Button(action: { nhk.previousChunk() }) {
+                        Label("Prev", systemImage: "chevron.left").font(.system(size: 10))
+                    }.buttonStyle(.bordered).controlSize(.small)
+                    if nhk.hasChunks {
+                        Text(nhk.chunkProgress)
+                            .font(.system(size: 10, design: .monospaced)).foregroundColor(.gray)
+                    }
+                    Button(action: { nhk.nextChunk() }) {
+                        Label("Next", systemImage: "chevron.right").font(.system(size: 10))
+                    }.buttonStyle(.bordered).controlSize(.small)
+                    Button(action: { nhk.returnToList() }) {
+                        Label("List", systemImage: "list.bullet").font(.system(size: 10))
+                    }.buttonStyle(.bordered).controlSize(.small)
+                }
+            } else if nhk.currentArticle != nil {
+                Button(action: { nhk.startReading() }) {
+                    Label("Start Reading", systemImage: "book.fill").font(.system(size: 11))
+                }.buttonStyle(.borderedProminent).tint(.red).controlSize(.small)
+            }
         }
     }
 }
