@@ -323,6 +323,15 @@ public init() {
                 backgroundColorHex: "#6366F1",
                 textColorHex: "#FFFFFF"
             )
+        case .appLauncher:
+            newWidget = TouchBarWidget(
+                type: .appLauncher,
+                title: "App Launcher",
+                iconName: "square.grid.3x3.fill",
+                backgroundColorHex: "#FF9500",
+                textColorHex: "#FFFFFF",
+                appLauncherApps: []
+            )
         }
         
         widgets.append(newWidget)

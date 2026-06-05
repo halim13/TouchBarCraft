@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 public struct MainView: View {
     @Bindable var state: AppState
@@ -143,6 +144,7 @@ public struct MainView: View {
                             Button("Brightness Controls") { state.addWidget(.brightnessButtons) }
                             Button("NHK Easy News") { state.addWidget(.nhkNews) }
                             Button("Dock") { state.addWidget(.dock) }
+                            Button("App Launcher") { state.addWidget(.appLauncher) }
                             Divider()
                             Button("Paste Widget from JSON") {
                                 let pasteboard = NSPasteboard.general
@@ -390,6 +392,7 @@ public struct MainView: View {
                             .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.05), lineWidth: 1))
                             
                             // Section 2: Colors Card
+                        if widget.type != .dock && widget.type != .appLauncher {
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("Aesthetic customization")
                                     .font(.system(size: 12, weight: .bold))
@@ -486,9 +489,10 @@ public struct MainView: View {
                             .background(Color.white.opacity(0.03))
                             .cornerRadius(8)
                             .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.05), lineWidth: 1))
-                            
-                            // Section 3: Widget-Type-Specific Options
-                            VStack(alignment: .leading, spacing: 12) {
+                        }
+                        
+                        // Section 3: Widget-Type-Specific Options
+                        VStack(alignment: .leading, spacing: 12) {
                                 Text("\(widget.type.rawValue) Options")
                                     .font(.system(size: 12, weight: .bold))
                                     .foregroundColor(.pink)
@@ -718,6 +722,8 @@ public struct MainView: View {
             WidgetNHKNewsView(widget: widget, state: state, isSimulator: true)
         case .dock:
             WidgetDockView(widget: widget, state: state, isSimulator: true)
+        case .appLauncher:
+            WidgetAppLauncherView(widget: widget, state: state, isSimulator: true)
         }
     }
 }
@@ -2292,6 +2298,8 @@ struct WidgetOptionsView: View {
             NHKNewsConfigView(widget: widget, index: index, state: state)
         case .dock:
             DockOptionsView(widget: widget, index: index, state: state)
+        case .appLauncher:
+            AppLauncherConfigView(widget: widget, index: index, state: state)
         }
     }
 }
@@ -3476,6 +3484,116 @@ struct DockOptionsView: View {
                     set: { state.widgets[index].customWidth = $0; state.saveConfig() }
                 ), in: 0...500, step: 10)
                 .labelsHidden()
+            }
+        }
+    }
+}
+
+// MARK: - App Launcher Widget Config View
+
+struct AppLauncherConfigView: View {
+    let widget: TouchBarWidget
+    let index: Int
+    let state: AppState
+
+    var body: some View {
+        let apps: [(bundleID: String, url: URL?, name: String)] = widget.appLauncherApps.map { bid in
+            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bid) {
+                (bid, url, FileManager.default.displayName(atPath: url.path))
+            } else {
+                (bid, nil, bid)
+            }
+        }
+
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Text("Custom Width:")
+                    .font(.system(size: 11))
+                    .frame(width: 100, alignment: .leading)
+                TextField("0 = auto", text: Binding(
+                    get: { widget.customWidth > 0 ? String(Int(widget.customWidth)) : "" },
+                    set: { val in
+                        state.widgets[index].customWidth = Double(val) ?? 0
+                        state.saveConfig()
+                    }
+                ))
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 60)
+                Stepper("", value: Binding(
+                    get: { widget.customWidth },
+                    set: { state.widgets[index].customWidth = $0; state.saveConfig() }
+                ), in: 0...500, step: 10)
+                .labelsHidden()
+            }
+
+            Text("Applications")
+                .font(.system(size: 11, weight: .semibold))
+
+            ForEach(Array(apps.enumerated()), id: \.element.bundleID) { i, app in
+                HStack(spacing: 6) {
+                    if let url = app.url {
+                        Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                            .resizable()
+                            .frame(width: 18, height: 18)
+                        Text(app.name)
+                            .font(.system(size: 11))
+                    } else {
+                        Text(app.bundleID)
+                            .font(.system(size: 10))
+                            .foregroundColor(.red)
+                    }
+                    Spacer()
+                    Button("Remove") {
+                        state.widgets[index].appLauncherApps.remove(at: i)
+                        state.saveConfig()
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(.red)
+                    .font(.system(size: 10))
+                }
+            }
+
+            Button("Add from Running Apps") {
+                let runningApps = NSWorkspace.shared.runningApplications
+                    .filter { $0.activationPolicy == .regular }
+                    .compactMap { $0.bundleIdentifier }
+                for bid in runningApps {
+                    if !state.widgets[index].appLauncherApps.contains(bid) {
+                        state.widgets[index].appLauncherApps.append(bid)
+                    }
+                }
+                state.saveConfig()
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+
+            Button("Browse…") {
+                let panel = NSOpenPanel()
+                panel.allowsMultipleSelection = true
+                panel.canChooseFiles = true
+                panel.canChooseDirectories = false
+                panel.allowedFileTypes = ["app"]
+                guard panel.runModal() == .OK else { return }
+                for url in panel.urls {
+                    guard let bundle = Bundle(url: url),
+                          let bundleID = bundle.bundleIdentifier else { continue }
+                    if !state.widgets[index].appLauncherApps.contains(bundleID) {
+                        state.widgets[index].appLauncherApps.append(bundleID)
+                    }
+                }
+                state.saveConfig()
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+
+            if !state.widgets[index].appLauncherApps.isEmpty {
+                Button("Remove All", role: .destructive) {
+                    state.widgets[index].appLauncherApps.removeAll()
+                    state.saveConfig()
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .tint(.red)
             }
         }
     }

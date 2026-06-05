@@ -389,6 +389,9 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         case .dock:
             let dockView = makeNativeDockView(for: widget)
             item.view = dockView
+        case .appLauncher:
+            let appView = makeNativeAppLauncherView(for: widget)
+            item.view = appView
         }
         
         if widget.customWidth > 0.0 {
@@ -2081,12 +2084,34 @@ private class DockWidgetView: NSView {
         self.action = action
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
-        addSubview(stack)
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
-            stack.topAnchor.constraint(equalTo: topAnchor),
-            stack.bottomAnchor.constraint(equalTo: bottomAnchor),
-        ])
+
+        if widget.customWidth > 0 {
+            let scrollView = NSScrollView()
+            scrollView.hasHorizontalScroller = false
+            scrollView.hasVerticalScroller = false
+            scrollView.borderType = .noBorder
+            scrollView.drawsBackground = false
+            scrollView.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(scrollView)
+            NSLayoutConstraint.activate([
+                scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
+                scrollView.topAnchor.constraint(equalTo: topAnchor),
+                scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
+                scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            ])
+            scrollView.documentView = stack
+            stack.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor).isActive = true
+            stack.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor).isActive = true
+            stack.bottomAnchor.constraint(equalTo: scrollView.contentView.bottomAnchor).isActive = true
+        } else {
+            addSubview(stack)
+            NSLayoutConstraint.activate([
+                stack.leadingAnchor.constraint(equalTo: leadingAnchor),
+                stack.topAnchor.constraint(equalTo: topAnchor),
+                stack.bottomAnchor.constraint(equalTo: bottomAnchor),
+            ])
+        }
+
         reload()
         let nc = NSWorkspace.shared.notificationCenter
         nc.addObserver(forName: NSWorkspace.didLaunchApplicationNotification, object: nil, queue: .main) { [weak self] _ in
@@ -2140,6 +2165,73 @@ extension TouchBarPresenter {
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
             return
         }
+        let config = NSWorkspace.OpenConfiguration()
+        NSWorkspace.shared.openApplication(at: url, configuration: config)
+    }
+}
+
+// MARK: - App Launcher View Factory
+
+extension TouchBarPresenter {
+    private func makeNativeAppLauncherView(for widget: TouchBarWidget) -> NSView {
+        let stack = NSStackView()
+        stack.orientation = .horizontal
+        stack.spacing = 4
+        stack.alignment = .centerY
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        if !widget.appLauncherApps.isEmpty {
+            for bundleID in widget.appLauncherApps {
+                guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { continue }
+                let icon = NSWorkspace.shared.icon(forFile: url.path)
+                let btn = NSButton(image: icon, target: self, action: #selector(appLauncherTapped(_:)))
+                btn.bezelStyle = .rounded
+                btn.isBordered = false
+                btn.imagePosition = .imageOnly
+                btn.setAccessibilityLabel(bundleID)
+                btn.setAccessibilityIdentifier(bundleID)
+                btn.widthAnchor.constraint(equalToConstant: 28).isActive = true
+                btn.heightAnchor.constraint(equalToConstant: 28).isActive = true
+                btn.imageScaling = .scaleProportionallyDown
+                stack.addArrangedSubview(btn)
+            }
+        } else {
+            let label = NSTextField(labelWithString: "No Apps")
+            label.font = NSFont.systemFont(ofSize: 11)
+            label.textColor = NSColor.gray
+            stack.addArrangedSubview(label)
+        }
+
+        if widget.customWidth > 0 {
+            let container = NSView()
+            container.translatesAutoresizingMaskIntoConstraints = false
+            let scrollView = NSScrollView()
+            scrollView.hasHorizontalScroller = false
+            scrollView.hasVerticalScroller = false
+            scrollView.borderType = .noBorder
+            scrollView.drawsBackground = false
+            scrollView.translatesAutoresizingMaskIntoConstraints = false
+            container.addSubview(scrollView)
+            NSLayoutConstraint.activate([
+                scrollView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+                scrollView.topAnchor.constraint(equalTo: container.topAnchor),
+                scrollView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+                scrollView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            ])
+            scrollView.documentView = stack
+            stack.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor).isActive = true
+            stack.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor).isActive = true
+            stack.bottomAnchor.constraint(equalTo: scrollView.contentView.bottomAnchor).isActive = true
+            return container
+        }
+
+        return stack
+    }
+
+    @objc private func appLauncherTapped(_ sender: NSButton) {
+        let bundleID = sender.accessibilityIdentifier()
+        guard !bundleID.isEmpty else { return }
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return }
         let config = NSWorkspace.OpenConfiguration()
         NSWorkspace.shared.openApplication(at: url, configuration: config)
     }

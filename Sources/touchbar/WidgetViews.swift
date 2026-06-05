@@ -1215,7 +1215,12 @@ public struct WidgetDockView: View {
             }
             .padding(.horizontal, 4)
         }
-        .if(widget.customWidth > 0) { $0.frame(width: widget.customWidth, alignment: .leading) }
+        .if(widget.customWidth > 0) { view in
+            ScrollView(.horizontal, showsIndicators: false) {
+                view
+            }
+            .frame(width: widget.customWidth, alignment: .leading)
+        }
         .onAppear {
             runningApps = Self.loadRunningApps()
         }
@@ -1231,6 +1236,41 @@ public struct WidgetDockView: View {
         NSWorkspace.shared.runningApplications
             .filter { $0.activationPolicy == .regular }
             .sorted { ($0.localizedName ?? "") < ($1.localizedName ?? "") }
+    }
+}
+
+// MARK: - App Launcher Widget View
+
+public struct WidgetAppLauncherView: View {
+    let widget: TouchBarWidget
+    let state: AppState
+    let isSimulator: Bool
+
+    public var body: some View {
+        ZStack(alignment: .leading) {
+            HStack(alignment: .center, spacing: 4) {
+                if widget.appLauncherApps.isEmpty {
+                    Text("No Apps")
+                        .font(.system(size: 11))
+                        .foregroundColor(.gray)
+                }
+                ForEach(widget.appLauncherApps, id: \.self) { bundleID in
+                    if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID),
+                       let icon = NSWorkspace.shared.icon(forFile: url.path) as NSImage? {
+                        Image(nsImage: icon)
+                            .resizable()
+                            .frame(width: isSimulator ? 20 : 22, height: isSimulator ? 20 : 22)
+                    }
+                }
+            }
+            .padding(.horizontal, 4)
+        }
+        .if(widget.customWidth > 0) { view in
+            ScrollView(.horizontal, showsIndicators: false) {
+                view
+            }
+            .frame(width: widget.customWidth, alignment: .leading)
+        }
     }
 }
 

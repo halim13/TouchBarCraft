@@ -11,6 +11,7 @@ public enum WidgetType: String, Codable, CaseIterable, Sendable {
     case brightnessButtons = "Brightness Controls"
     case nhkNews = "NHK Easy News"
     case dock = "Dock"
+    case appLauncher = "App Launcher"
 }
 
 public enum ActionType: String, Codable, CaseIterable, Sendable {
@@ -182,7 +183,10 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
 
     // Custom Width setting
     public var customWidth: Double
-    
+
+    // App Launcher: bundle identifiers of apps to show
+    public var appLauncherApps: [String]
+
     public init(
         id: UUID = UUID(),
         type: WidgetType = .label,
@@ -245,7 +249,8 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         customGifPath: String = "",
         isHidden: Bool = false,
         hideFromTouchBar: Bool = false,
-        customWidth: Double = 0.0
+        customWidth: Double = 0.0,
+        appLauncherApps: [String] = []
     ) {
         self.id = id
         self.type = type
@@ -309,6 +314,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.isHidden = isHidden
         self.hideFromTouchBar = hideFromTouchBar
         self.customWidth = customWidth
+        self.appLauncherApps = appLauncherApps
     }
     
     enum CodingKeys: String, CodingKey {
@@ -342,6 +348,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         case isHidden
         case hideFromTouchBar
         case customWidth
+        case appLauncherApps
     }
 
     public init(from decoder: Decoder) throws {
@@ -414,5 +421,6 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.isHidden = try container.decodeIfPresent(Bool.self, forKey: .isHidden) ?? false
         self.hideFromTouchBar = try container.decodeIfPresent(Bool.self, forKey: .hideFromTouchBar) ?? false
         self.customWidth = try container.decodeIfPresent(Double.self, forKey: .customWidth) ?? 0.0
+        self.appLauncherApps = try container.decodeIfPresent([String].self, forKey: .appLauncherApps) ?? []
     }
 }
