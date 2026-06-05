@@ -3497,14 +3497,6 @@ struct AppLauncherConfigView: View {
     let state: AppState
 
     var body: some View {
-        let apps: [(bundleID: String, url: URL?, name: String)] = widget.appLauncherApps.map { bid in
-            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bid) {
-                (bid, url, FileManager.default.displayName(atPath: url.path))
-            } else {
-                (bid, nil, bid)
-            }
-        }
-
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Text("Custom Width:")
@@ -3529,28 +3521,53 @@ struct AppLauncherConfigView: View {
             Text("Applications")
                 .font(.system(size: 11, weight: .semibold))
 
-            ForEach(Array(apps.enumerated()), id: \.element.bundleID) { i, app in
-                HStack(spacing: 6) {
-                    if let url = app.url {
-                        Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
-                            .resizable()
-                            .frame(width: 18, height: 18)
-                        Text(app.name)
-                            .font(.system(size: 11))
-                    } else {
-                        Text(app.bundleID)
-                            .font(.system(size: 10))
+            if !widget.appLauncherApps.isEmpty {
+                List {
+                    ForEach(Array(widget.appLauncherApps.enumerated()), id: \.element) { i, bid in
+                        let app: (bundleID: String, url: URL?, name: String) = {
+                            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bid) {
+                                return (bid, url, FileManager.default.displayName(atPath: url.path))
+                            }
+                            return (bid, nil, bid)
+                        }()
+                        HStack(spacing: 6) {
+                            if let url = app.url {
+                                Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                                    .resizable()
+                                    .frame(width: 18, height: 18)
+                                Text(app.name)
+                                    .font(.system(size: 11))
+                            } else {
+                                Text(app.bundleID)
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.red)
+                            }
+                            Spacer()
+                            Button("Remove") {
+                                state.widgets[index].appLauncherApps.remove(at: i)
+                                state.saveConfig()
+                            }
+                            .buttonStyle(.plain)
                             .foregroundColor(.red)
+                            .font(.system(size: 10))
+                        }
                     }
-                    Spacer()
-                    Button("Remove") {
-                        state.widgets[index].appLauncherApps.remove(at: i)
+                    .onMove { sources, dest in
+                        for source in sources.sorted(by: >) {
+                            let item = state.widgets[index].appLauncherApps.remove(at: source)
+                            state.widgets[index].appLauncherApps.insert(item, at: dest > source ? dest - 1 : dest)
+                        }
                         state.saveConfig()
                     }
-                    .buttonStyle(.plain)
-                    .foregroundColor(.red)
-                    .font(.system(size: 10))
+                    .onDelete { sources in
+                        for source in sources.sorted(by: >) {
+                            state.widgets[index].appLauncherApps.remove(at: source)
+                        }
+                        state.saveConfig()
+                    }
                 }
+                .listStyle(.plain)
+                .frame(height: min(CGFloat(widget.appLauncherApps.count) * 30, 200))
             }
 
             Button("Add from Running Apps") {
