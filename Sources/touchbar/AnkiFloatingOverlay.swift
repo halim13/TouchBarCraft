@@ -124,6 +124,8 @@ public final class AnkiFloatingOverlayManager: NSObject {
         if overlayWindow == nil {
             createOverlayWindow()
         }
+        // Refresh data from current Anki state before showing to avoid stale card data
+        overlayView?.refreshContent()
         overlayWindow?.orderFront(nil)
         isShowing = true
         StatusItemManager.shared.refreshFloatingOverlayState()
@@ -136,20 +138,23 @@ public final class AnkiFloatingOverlayManager: NSObject {
     }
 
     public func refreshOverlay() {
-        guard isShowing || config.isEnabled else { return }
-        // If all Anki widgets are hidden and overlay is showing, hide it
+        guard config.isEnabled else {
+            if isShowing { hide() }
+            return
+        }
         guard hasVisibleAnkiWidget else {
             if isShowing { hide() }
             return
         }
         guard let host = overlayView else {
-            if config.isEnabled {
+            if isShowing {
                 createOverlayWindow()
                 overlayWindow?.orderFront(nil)
                 isShowing = true
             }
             return
         }
+        if !isShowing { return }
         host.refreshContent()
     }
 

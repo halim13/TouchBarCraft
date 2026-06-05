@@ -185,6 +185,12 @@ public final class NHKFloatingOverlayHost: ObservableObject {
     @Published public var articleTitles: [(index: Int, title: String, description: String)] = []
     @Published public var articleURL: URL?
 
+    // Rendering config — mirrored from NHKFloatingWindowManager so SwiftUI re-renders on change
+    @Published public var fontSize: Double = 16
+    @Published public var textColorHex: String = "#FFFFFF"
+    @Published public var furiganaFontSize: Double = 0
+    @Published public var furiganaColorHex: String = "#FFD60A"
+
     public var nhkState: NHKNewsState? {
         AppState.shared?.nhkNewsState
     }
@@ -203,6 +209,13 @@ public final class NHKFloatingOverlayHost: ObservableObject {
             (index: $0.offset, title: $0.element.title, description: $0.element.description)
         }
         articleURL = nhk.currentArticle?.url
+
+        // Sync rendering config from manager
+        let mgr = NHKFloatingWindowManager.shared
+        fontSize = mgr.fontSize
+        textColorHex = mgr.textColorHex
+        furiganaFontSize = mgr.furiganaFontSize
+        furiganaColorHex = mgr.furiganaColorHex
     }
 
     private func isFooterChunk(_ chunk: String) -> Bool {
@@ -234,13 +247,13 @@ public final class NHKFloatingOverlayHost: ObservableObject {
 public struct NHKFloatingContentView: View {
     @ObservedObject var host: NHKFloatingOverlayHost
 
-    private var fSize: CGFloat { CGFloat(NHKFloatingWindowManager.shared.fontSize) }
-    private var fColor: Color { Color(hex: NHKFloatingWindowManager.shared.textColorHex) }
+    private var fSize: CGFloat { CGFloat(host.fontSize) }
+    private var fColor: Color { Color(hex: host.textColorHex) }
     private var furiSize: CGFloat {
-        let s = NHKFloatingWindowManager.shared.furiganaFontSize
+        let s = host.furiganaFontSize
         return s > 0 ? max(4, CGFloat(s)) : 0
     }
-    private var furiColor: Color { Color(hex: NHKFloatingWindowManager.shared.furiganaColorHex) }
+    private var furiColor: Color { Color(hex: host.furiganaColorHex) }
 
     public var body: some View {
         VStack(spacing: 0) {

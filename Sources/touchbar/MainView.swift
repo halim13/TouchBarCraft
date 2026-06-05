@@ -2426,7 +2426,7 @@ struct NHKNewsConfigView: View {
                         .frame(width: 100, alignment: .leading)
                     Slider(value: Binding(
                         get: { NHKFloatingWindowManager.shared.fontSize },
-                        set: { NHKFloatingWindowManager.shared.fontSize = $0 }
+                        set: { NHKFloatingWindowManager.shared.fontSize = $0; NHKFloatingWindowManager.shared.refreshContent() }
                     ), in: 10...36, step: 1)
                     Text("\(Int(NHKFloatingWindowManager.shared.fontSize))px")
                         .font(.system(size: 10, design: .monospaced))
@@ -2440,7 +2440,7 @@ struct NHKNewsConfigView: View {
                         .frame(width: 100, alignment: .leading)
                     TextField("#HEX", text: Binding(
                         get: { NHKFloatingWindowManager.shared.textColorHex },
-                        set: { NHKFloatingWindowManager.shared.textColorHex = $0 }
+                        set: { NHKFloatingWindowManager.shared.textColorHex = $0; NHKFloatingWindowManager.shared.refreshContent() }
                     ))
                     .textFieldStyle(.roundedBorder)
                     ColorPicker("", selection: Binding(
@@ -2448,6 +2448,7 @@ struct NHKNewsConfigView: View {
                         set: { color in
                             if let hex = color.toHex() {
                                 NHKFloatingWindowManager.shared.textColorHex = hex
+                                NHKFloatingWindowManager.shared.refreshContent()
                             }
                         }
                     ))
@@ -2459,7 +2460,7 @@ struct NHKNewsConfigView: View {
                         .frame(width: 100, alignment: .leading)
                     Slider(value: Binding(
                         get: { NHKFloatingWindowManager.shared.furiganaFontSize },
-                        set: { NHKFloatingWindowManager.shared.furiganaFontSize = $0 }
+                        set: { NHKFloatingWindowManager.shared.furiganaFontSize = $0; NHKFloatingWindowManager.shared.refreshContent() }
                     ), in: 0...20, step: 1)
                     Text(NHKFloatingWindowManager.shared.furiganaFontSize > 0 ? "\(Int(NHKFloatingWindowManager.shared.furiganaFontSize))px" : "Auto")
                         .font(.system(size: 10, design: .monospaced))
@@ -2468,6 +2469,7 @@ struct NHKNewsConfigView: View {
                 }
                 Button("Reset Auto") {
                     NHKFloatingWindowManager.shared.furiganaFontSize = 0
+                    NHKFloatingWindowManager.shared.refreshContent()
                 }
                 .buttonStyle(.plain)
                 .font(.system(size: 9))
@@ -2480,7 +2482,7 @@ struct NHKNewsConfigView: View {
                         .frame(width: 100, alignment: .leading)
                     TextField("#HEX", text: Binding(
                         get: { NHKFloatingWindowManager.shared.furiganaColorHex },
-                        set: { NHKFloatingWindowManager.shared.furiganaColorHex = $0 }
+                        set: { NHKFloatingWindowManager.shared.furiganaColorHex = $0; NHKFloatingWindowManager.shared.refreshContent() }
                     ))
                     .textFieldStyle(.roundedBorder)
                     ColorPicker("", selection: Binding(
@@ -2488,6 +2490,7 @@ struct NHKNewsConfigView: View {
                         set: { color in
                             if let hex = color.toHex() {
                                 NHKFloatingWindowManager.shared.furiganaColorHex = hex
+                                NHKFloatingWindowManager.shared.refreshContent()
                             }
                         }
                     ))
