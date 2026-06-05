@@ -315,6 +315,14 @@ public init() {
                 backgroundColorHex: "#DC2626",
                 textColorHex: "#FFFFFF"
             )
+        case .dock:
+            newWidget = TouchBarWidget(
+                type: .dock,
+                title: "Dock",
+                iconName: "menubar.dock.rectangle",
+                backgroundColorHex: "#6366F1",
+                textColorHex: "#FFFFFF"
+            )
         }
         
         widgets.append(newWidget)

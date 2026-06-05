@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 // MARK: - Color Hex Extension
 public extension Color {
@@ -1184,6 +1185,52 @@ public struct WidgetAnkiView: View {
         result = result.filter { seenRatings.insert($0.rating).inserted }
         
         return result
+    }
+}
+
+// MARK: - Dock Widget View
+
+public struct WidgetDockView: View {
+    let widget: TouchBarWidget
+    let state: AppState
+    let isSimulator: Bool
+
+    @State private var runningApps: [NSRunningApplication] = []
+
+    public var body: some View {
+        ZStack(alignment: .leading) {
+            HStack(alignment: .center, spacing: 4) {
+                if runningApps.isEmpty {
+                    Text("No Apps")
+                        .font(.system(size: 11))
+                        .foregroundColor(.gray)
+                }
+                ForEach(Array(runningApps.enumerated()), id: \.element.processIdentifier) { _, app in
+                    if let icon = app.icon {
+                        Image(nsImage: icon)
+                            .resizable()
+                            .frame(width: isSimulator ? 20 : 22, height: isSimulator ? 20 : 22)
+                    }
+                }
+            }
+            .padding(.horizontal, 4)
+        }
+        .if(widget.customWidth > 0) { $0.frame(width: widget.customWidth, alignment: .leading) }
+        .onAppear {
+            runningApps = Self.loadRunningApps()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWorkspace.didLaunchApplicationNotification)) { _ in
+            runningApps = Self.loadRunningApps()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWorkspace.didTerminateApplicationNotification)) { _ in
+            runningApps = Self.loadRunningApps()
+        }
+    }
+
+    private static func loadRunningApps() -> [NSRunningApplication] {
+        NSWorkspace.shared.runningApplications
+            .filter { $0.activationPolicy == .regular }
+            .sorted { ($0.localizedName ?? "") < ($1.localizedName ?? "") }
     }
 }
 

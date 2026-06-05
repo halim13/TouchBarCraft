@@ -386,6 +386,9 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         case .nhkNews:
             let nhkView = makeNativeNHKNewsView(for: widget)
             item.view = nhkView
+        case .dock:
+            let dockView = makeNativeDockView(for: widget)
+            item.view = dockView
         }
         
         if widget.customWidth > 0.0 {
@@ -2054,6 +2057,91 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         DispatchQueue.global(qos: .userInitiated).async {
             touchbar.SystemUtils.adjustBrightness(up: up)
         }
+    }
+}
+
+// MARK: - Dock Widget View
+
+private class DockWidgetView: NSView {
+    private let stack: NSStackView = {
+        let s = NSStackView()
+        s.orientation = .horizontal
+        s.spacing = 4
+        s.alignment = .centerY
+        s.translatesAutoresizingMaskIntoConstraints = false
+        return s
+    }()
+    private let widget: TouchBarWidget
+    private unowned let target: AnyObject
+    private let action: Selector
+
+    init(widget: TouchBarWidget, target: AnyObject, action: Selector) {
+        self.widget = widget
+        self.target = target
+        self.action = action
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
+            stack.topAnchor.constraint(equalTo: topAnchor),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
+        reload()
+        let nc = NSWorkspace.shared.notificationCenter
+        nc.addObserver(forName: NSWorkspace.didLaunchApplicationNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.reload()
+        }
+        nc.addObserver(forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.reload()
+        }
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    private func reload() {
+        stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        let runningApps = NSWorkspace.shared.runningApplications
+            .filter { $0.activationPolicy == .regular }
+            .sorted { ($0.localizedName ?? "") < ($1.localizedName ?? "") }
+        if runningApps.isEmpty {
+            let label = NSTextField(labelWithString: "No Apps")
+            label.font = NSFont.systemFont(ofSize: 11)
+            label.textColor = NSColor.gray
+            stack.addArrangedSubview(label)
+            return
+        }
+        for app in runningApps {
+            guard let icon = app.icon else { continue }
+            let btn = NSButton(image: icon, target: target, action: action)
+            btn.bezelStyle = .rounded
+            btn.isBordered = false
+            btn.imagePosition = .imageOnly
+            btn.setAccessibilityLabel(app.localizedName ?? "App")
+            btn.setAccessibilityIdentifier(app.bundleIdentifier ?? "")
+            btn.widthAnchor.constraint(equalToConstant: 28).isActive = true
+            btn.heightAnchor.constraint(equalToConstant: 28).isActive = true
+            btn.imageScaling = .scaleProportionallyDown
+            stack.addArrangedSubview(btn)
+        }
+    }
+}
+
+// MARK: - Dock View Factory
+
+extension TouchBarPresenter {
+    private func makeNativeDockView(for widget: TouchBarWidget) -> NSView {
+        return DockWidgetView(widget: widget, target: self, action: #selector(dockAppTapped(_:)))
+    }
+
+    @objc private func dockAppTapped(_ sender: NSButton) {
+        let bundleID = sender.accessibilityIdentifier()
+        guard !bundleID.isEmpty else { return }
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
+            return
+        }
+        let config = NSWorkspace.OpenConfiguration()
+        NSWorkspace.shared.openApplication(at: url, configuration: config)
     }
 }
 

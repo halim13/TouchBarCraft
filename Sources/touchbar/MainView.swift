@@ -93,28 +93,7 @@ public struct MainView: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(state.widgets.filter { !$0.isHidden && !$0.hideFromTouchBar }) { widget in
-                                Group {
-                                    switch widget.type {
-                                    case .label:
-                                        WidgetLabelView(widget: widget, state: state, isSimulator: true)
-                                    case .button:
-                                        WidgetButtonView(widget: widget, state: state, isSimulator: true)
-                                    case .systemMonitor:
-                                        WidgetSystemMonitorView(widget: widget, state: state, isSimulator: true)
-                                    case .media:
-                                        WidgetMediaView(widget: widget, state: state, isSimulator: true)
-                                    case .animation:
-                                        WidgetAnimationView(widget: widget, state: state, isSimulator: true)
-                                    case .anki:
-                                        WidgetAnkiView(widget: widget, state: state, isSimulator: true)
-                                    case .volumeSlider:
-                                        WidgetVolumeSliderView(widget: widget, state: state, isSimulator: true)
-                                    case .brightnessButtons:
-                                        WidgetBrightnessButtonsView(widget: widget, state: state, isSimulator: true)
-                                    case .nhkNews:
-                                        WidgetNHKNewsView(widget: widget, state: state, isSimulator: true)
-                                    }
-                                }
+                                widgetSimulatorView(for: widget, state: state)
                                 .shadow(color: Color(hex: widget.backgroundColorHex).opacity(0.3), radius: 4)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 6)
@@ -163,6 +142,7 @@ public struct MainView: View {
                             Button("Volume Slider") { state.addWidget(.volumeSlider) }
                             Button("Brightness Controls") { state.addWidget(.brightnessButtons) }
                             Button("NHK Easy News") { state.addWidget(.nhkNews) }
+                            Button("Dock") { state.addWidget(.dock) }
                             Divider()
                             Button("Paste Widget from JSON") {
                                 let pasteboard = NSPasteboard.general
@@ -713,6 +693,32 @@ public struct MainView: View {
         list.swapAt(index, index + 1)
         state.widgets = list
         state.saveConfig()
+    }
+
+    @ViewBuilder
+    private func widgetSimulatorView(for widget: TouchBarWidget, state: AppState) -> some View {
+        switch widget.type {
+        case .label:
+            WidgetLabelView(widget: widget, state: state, isSimulator: true)
+        case .button:
+            WidgetButtonView(widget: widget, state: state, isSimulator: true)
+        case .systemMonitor:
+            WidgetSystemMonitorView(widget: widget, state: state, isSimulator: true)
+        case .media:
+            WidgetMediaView(widget: widget, state: state, isSimulator: true)
+        case .animation:
+            WidgetAnimationView(widget: widget, state: state, isSimulator: true)
+        case .anki:
+            WidgetAnkiView(widget: widget, state: state, isSimulator: true)
+        case .volumeSlider:
+            WidgetVolumeSliderView(widget: widget, state: state, isSimulator: true)
+        case .brightnessButtons:
+            WidgetBrightnessButtonsView(widget: widget, state: state, isSimulator: true)
+        case .nhkNews:
+            WidgetNHKNewsView(widget: widget, state: state, isSimulator: true)
+        case .dock:
+            WidgetDockView(widget: widget, state: state, isSimulator: true)
+        }
     }
 }
 
@@ -2284,6 +2290,8 @@ struct WidgetOptionsView: View {
             BrightnessOptionsView(widget: widget, index: index, state: state)
         case .nhkNews:
             NHKNewsConfigView(widget: widget, index: index, state: state)
+        case .dock:
+            DockOptionsView(widget: widget, index: index, state: state)
         }
     }
 }
@@ -3437,6 +3445,38 @@ struct HotkeyRecorderRow: View {
         if let monitor = eventMonitor {
             NSEvent.removeMonitor(monitor)
             eventMonitor = nil
+        }
+    }
+}
+
+// MARK: - Dock Widget Config View
+
+struct DockOptionsView: View {
+    let widget: TouchBarWidget
+    let index: Int
+    let state: AppState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Text("Custom Width:")
+                    .font(.system(size: 11))
+                    .frame(width: 100, alignment: .leading)
+                TextField("0 = auto", text: Binding(
+                    get: { widget.customWidth > 0 ? String(Int(widget.customWidth)) : "" },
+                    set: { val in
+                        state.widgets[index].customWidth = Double(val) ?? 0
+                        state.saveConfig()
+                    }
+                ))
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 60)
+                Stepper("", value: Binding(
+                    get: { widget.customWidth },
+                    set: { state.widgets[index].customWidth = $0; state.saveConfig() }
+                ), in: 0...500, step: 10)
+                .labelsHidden()
+            }
         }
     }
 }

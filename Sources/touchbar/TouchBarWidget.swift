@@ -10,6 +10,7 @@ public enum WidgetType: String, Codable, CaseIterable, Sendable {
     case volumeSlider = "Volume Slider"
     case brightnessButtons = "Brightness Controls"
     case nhkNews = "NHK Easy News"
+    case dock = "Dock"
 }
 
 public enum ActionType: String, Codable, CaseIterable, Sendable {
