@@ -42,6 +42,10 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
     /// When muted, guiShowAnswer is skipped on reveal to prevent Anki from playing audio natively.
     /// This flag ensures guiShowAnswer is called right before guiAnswerCard on rating.
     private var needsGuiShowAnswer: Bool = false
+
+    /// TouchBar extra field toggle state — whether question/answer label is showing extra field content
+    public var touchBarShowingExtraQuestion: Bool = false
+    public var touchBarShowingExtraAnswer: Bool = false
     
     private var connectionCheckTimer: Timer?
     private var wasConnectedBefore: Bool = false
@@ -189,6 +193,8 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
         self.isShowingAnswer = false
         self.needsGuiShowAnswer = false
         self.isLoading = false
+        self.touchBarShowingExtraQuestion = false
+        self.touchBarShowingExtraAnswer = false
         
         if let card = card {
             if let stats = await AnkiConnectClient.shared.getDeckStats(name: card.deckName) {
@@ -326,6 +332,18 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
         currentCard?.answer ?? ""
     }
     
+    // MARK: - TouchBar Extra Field Toggle
+
+    public func toggleTouchBarExtraQuestion() {
+        touchBarShowingExtraQuestion.toggle()
+        refreshTouchBar()
+    }
+
+    public func toggleTouchBarExtraAnswer() {
+        touchBarShowingExtraAnswer.toggle()
+        refreshTouchBar()
+    }
+
     // MARK: - Audio Controls
     
     public func toggleMute() {

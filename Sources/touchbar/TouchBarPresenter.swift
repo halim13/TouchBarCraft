@@ -253,6 +253,16 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         guard let state = AppState.shared else { return }
         state.ankiState.toggleTouchBarAudio()
     }
+
+    @objc private func ankiExtraQuestionTapped(_ sender: Any) {
+        guard let state = AppState.shared else { return }
+        state.ankiState.toggleTouchBarExtraQuestion()
+    }
+
+    @objc private func ankiExtraAnswerTapped(_ sender: Any) {
+        guard let state = AppState.shared else { return }
+        state.ankiState.toggleTouchBarExtraAnswer()
+    }
     
     // MARK: - Toggle Touch Bar Layout
     
@@ -499,7 +509,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         
         if !anki.isShowingAnswer {
             // Build question label
-            let questionLabel = buildQuestionLabel(for: widget, card: card)
+            let questionLabel = buildQuestionLabel(for: widget, card: card, anki: anki)
             
             if widget.ankiShowRemainingCounts {
                 let controls = buildCountsAndRevealStack(for: widget, anki: anki)
@@ -664,6 +674,41 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         return syncButton
     }
     
+    // MARK: - Extra Field Helpers
+
+    /// Extract extra field value from card fields by parsing comma-separated field names.
+    private func getExtraFieldValue(fieldString: String, card: AnkiCard) -> String {
+        guard !fieldString.trimmingCharacters(in: .whitespaces).isEmpty else { return "" }
+        let fieldNames = fieldString.split(separator: ",").map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        var values: [String] = []
+        for name in fieldNames {
+            if let val = card.fields[name] {
+                let stripped = stripHTMLPreservingBold(val)
+                if !stripped.isEmpty {
+                    values.append(stripped)
+                }
+            }
+        }
+        return values.joined(separator: " / ")
+    }
+
+    /// Strip HTML tags preserving bold/italic/underline for TouchBar display.
+    private func stripHTMLPreservingBold(_ html: String) -> String {
+        var text = html
+        text = text.replacingOccurrences(of: "<br\\s*/?>", with: " ", options: .regularExpression)
+        text = text.replacingOccurrences(of: "<(?!/?(b|strong|i|em|u)\\b)[^>]+>", with: "", options: .regularExpression)
+        text = text.replacingOccurrences(of: "&nbsp;", with: " ")
+        text = text.replacingOccurrences(of: "&amp;", with: "&")
+        text = text.replacingOccurrences(of: "&lt;", with: "<")
+        text = text.replacingOccurrences(of: "&gt;", with: ">")
+        text = text.replacingOccurrences(of: "&quot;", with: "\"")
+        text = text.replacingOccurrences(of: "&#39;", with: "'")
+        text = text.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     /// Wrap an attributed string text field in a compressible NSView container that applies textVerticalOffset.
     /// Optionally adds a silent click gesture recognizer for Touch Bar tap events (used on answer labels).
     private func makeLabelContainer(attributedString: NSAttributedString, textVerticalOffset: CGFloat, ankiTrimText: Bool = true, addTapGesture: Bool = false, tapTarget: Any? = nil, tapAction: Selector? = nil) -> NSView {
@@ -715,7 +760,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         return container
     }
     
-    private func buildQuestionLabel(for widget: TouchBarWidget, card: AnkiCard) -> NSView {
+    private func buildQuestionLabel(for widget: TouchBarWidget, card: AnkiCard, anki: AnkiState) -> NSView {
         let font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
         let textColor = NSColor(Color(hex: widget.textColorHex))
         let boldColor = NSColor(Color(hex: widget.ankiBoldColorHex))
@@ -723,11 +768,35 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         let typeLabel = card.cardTypeLabel
         let hasType = !typeLabel.isEmpty
         
+        // Extra question handling — use overlay config for extraQuestionOnlyOnAnswer
+        let extraQText = getExtraFieldValue(fieldString: widget.ankiExtraQuestionField, card: card)
+        let hasExtraQ = !extraQText.isEmpty
+        let extraQOnlyOnAnswer = AnkiFloatingOverlayManager.shared.config.extraQuestionOnlyOnAnswer
+        let showExtraQ = hasExtraQ && !extraQOnlyOnAnswer && anki.touchBarShowingExtraQuestion
+        let tapTogglesExtra = hasExtraQ && !extraQOnlyOnAnswer
+        
         // Build content: strip furigana brackets when combine mode is off
-        let displayText = widget.ankiCombineFurigana ? card.question : stripFuriganaBrackets(card.question)
+        let displayText: String
+        if showExtraQ {
+            displayText = extraQText
+        } else {
+            displayText = widget.ankiCombineFurigana ? card.question : stripFuriganaBrackets(card.question)
+        }
         
         let contentView: NSView
-        if widget.ankiCombineFurigana {
+        if showExtraQ {
+            // Extra field: use simple bold/italic/underline tags + tap gesture to toggle back
+            let questionTextOffset = CGFloat(widget.ankiQuestionTextOffset)
+            let attributed = parseBoldTags(in: displayText, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
+            contentView = makeLabelContainer(
+                attributedString: attributed,
+                textVerticalOffset: questionTextOffset,
+                ankiTrimText: widget.ankiTrimText,
+                addTapGesture: tapTogglesExtra,
+                tapTarget: tapTogglesExtra ? self : nil,
+                tapAction: tapTogglesExtra ? #selector(ankiExtraQuestionTapped(_:)) : nil
+            )
+        } else if widget.ankiCombineFurigana {
             // Furigana path uses question-specific text offset (separate from answer's ankiFuriganaTextOffset)
             let furiganaTextOffset = CGFloat(widget.ankiFuriganaQuestionTextOffset)
             contentView = buildFuriganaRichLabel(
@@ -735,7 +804,8 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                 fontSize: CGFloat(widget.fontSize),
                 textColor: textColor,
                 boldColor: boldColor,
-                isButton: false,
+                isButton: tapTogglesExtra,
+                buttonAction: tapTogglesExtra ? #selector(ankiExtraQuestionTapped(_:)) : nil,
                 manualFuriFontSize: CGFloat(widget.ankiFuriganaFontSize),
                 verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
                 textVerticalOffset: furiganaTextOffset,
@@ -745,7 +815,14 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             // Non-furigana path uses question-specific offset for fine-tuning centering
             let questionTextOffset = CGFloat(widget.ankiQuestionTextOffset)
             let attributed = parseBoldTags(in: displayText, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
-            contentView = makeLabelContainer(attributedString: attributed, textVerticalOffset: questionTextOffset, ankiTrimText: widget.ankiTrimText)
+            contentView = makeLabelContainer(
+                attributedString: attributed,
+                textVerticalOffset: questionTextOffset,
+                ankiTrimText: widget.ankiTrimText,
+                addTapGesture: tapTogglesExtra,
+                tapTarget: tapTogglesExtra ? self : nil,
+                tapAction: tapTogglesExtra ? #selector(ankiExtraQuestionTapped(_:)) : nil
+            )
         }
         
         // Wrap in horizontal stack with card type badge
@@ -779,10 +856,52 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         let textColor = NSColor(Color(hex: widget.textColorHex))
         let boldColor = NSColor(Color(hex: widget.ankiBoldColorHex))
         
-        // Always use raw answer text — furigana mode parses brackets, non-furigana shows them as-is
-        let displayText = card.answer
+        // Extra answer handling
+        let extraAText = getExtraFieldValue(fieldString: widget.ankiExtraAnswerField, card: card)
+        let hasExtraA = !extraAText.isEmpty
+        let showExtraA = hasExtraA && widget.ankiTapShowsExtra && anki.touchBarShowingExtraAnswer
+        let tapIsExtra = hasExtraA && widget.ankiTapShowsExtra
+        
+        let displayText: String
+        if showExtraA {
+            displayText = extraAText
+        } else {
+            displayText = card.answer
+        }
+        
+        if showExtraA {
+            // Extra field: use simple bold/italic/underline tags, no furigana
+            let attributed = parseBoldTags(in: displayText, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
+            return makeLabelContainer(
+                attributedString: attributed,
+                textVerticalOffset: CGFloat(widget.ankiAnswerTextOffset),
+                ankiTrimText: widget.ankiTrimText,
+                addTapGesture: true,
+                tapTarget: self,
+                tapAction: #selector(ankiExtraAnswerTapped(_:))
+            )
+        }
+        
+        if tapIsExtra && widget.ankiCombineFurigana {
+            // Furigana mode + extra toggle: use furigana renderer with extra toggle action
+            let textVerticalOffset = CGFloat(widget.ankiFuriganaTextOffset)
+            let container = buildFuriganaRichLabel(
+                text: displayText,
+                fontSize: CGFloat(widget.fontSize),
+                textColor: textColor,
+                boldColor: boldColor,
+                isButton: true,
+                buttonAction: #selector(ankiExtraAnswerTapped(_:)),
+                manualFuriFontSize: CGFloat(widget.ankiFuriganaFontSize),
+                verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
+                textVerticalOffset: textVerticalOffset
+            )
+            container.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            return container
+        }
         
         if widget.ankiCombineFurigana {
+            // Default furigana answer with audio tap
             let textVerticalOffset = CGFloat(widget.ankiFuriganaTextOffset)
             let container = buildFuriganaRichLabel(
                 text: displayText,
@@ -795,14 +914,11 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                 verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
                 textVerticalOffset: textVerticalOffset
             )
-            // Allow the furigana label to compress when space is limited (Touch Bar width constraint)
             container.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
             return container
         }
         
-        // Gunakan NSTextField dengan NSClickGestureRecognizer agar tap events
-        // diterima dengan reliable di Touch Bar (DFR). NSButton dengan isBordered=false
-        // tidak konsisten menangani sentuhan di konteks NSTouchBar.
+        // Non-furigana path: NSTextField with NSClickGestureRecognizer
         let attributed = parseBoldTags(in: displayText, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
         return makeLabelContainer(
             attributedString: attributed,
@@ -810,7 +926,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             ankiTrimText: widget.ankiTrimText,
             addTapGesture: true,
             tapTarget: self,
-            tapAction: #selector(ankiTouchBarAudioTapped(_:))
+            tapAction: tapIsExtra ? #selector(ankiExtraAnswerTapped(_:)) : #selector(ankiTouchBarAudioTapped(_:))
         )
     }
     

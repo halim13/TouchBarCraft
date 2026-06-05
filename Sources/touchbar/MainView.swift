@@ -1514,6 +1514,30 @@ struct AnkiConfigView: View {
                 
                 Divider()
                 
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Touch Bar Tap Behavior")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.gray)
+                    
+                    Toggle("Tap content shows extra field instead of audio", isOn: Binding(
+                        get: { state.widgets[index].ankiTapShowsExtra },
+                        set: { val in
+                            state.widgets[index].ankiTapShowsExtra = val
+                            state.saveConfig()
+                            state.ankiState.refreshTouchBar()
+                        }
+                    ))
+                    .toggleStyle(.checkbox)
+                    .font(.system(size: 11))
+                    
+                    Text("When enabled, tapping the answer text on the Touch Bar toggles between the regular answer and the extra answer field. The audio button still works separately. When disabled (default), tapping plays audio.")
+                        .font(.system(size: 9))
+                        .foregroundColor(.gray)
+                        .italic()
+                }
+                
+                Divider()
+                
                 // MARK: - Floating Overlay (Alternatif Touch Bar Fisik)
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {

@@ -167,6 +167,9 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     // Anki trim text with trailing tail (ellipsis)
     public var ankiTrimText: Bool
 
+    // Anki tap on TouchBar shows extra field content instead of playing audio
+    public var ankiTapShowsExtra: Bool
+
     // Animation Custom properties
     public var customGifPath: String
     
@@ -237,6 +240,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         ankiEasyColorHex: String = "#3380E5",
         ankiAudioOnlyOnAnswer: Bool = true,
         ankiTrimText: Bool = true,
+        ankiTapShowsExtra: Bool = false,
         customGifPath: String = "",
         isHidden: Bool = false,
         hideFromTouchBar: Bool = false,
@@ -299,6 +303,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiEasyColorHex = ankiEasyColorHex
         self.ankiAudioOnlyOnAnswer = ankiAudioOnlyOnAnswer
         self.ankiTrimText = ankiTrimText
+        self.ankiTapShowsExtra = ankiTapShowsExtra
         self.customGifPath = customGifPath
         self.isHidden = isHidden
         self.hideFromTouchBar = hideFromTouchBar
@@ -331,6 +336,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         case ankiEasyColorHex
         case ankiAudioOnlyOnAnswer
         case ankiTrimText
+        case ankiTapShowsExtra
         case customGifPath
         case isHidden
         case hideFromTouchBar
@@ -401,6 +407,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiEasyColorHex = try container.decodeIfPresent(String.self, forKey: .ankiEasyColorHex) ?? "#3380E5"
         self.ankiAudioOnlyOnAnswer = try container.decodeIfPresent(Bool.self, forKey: .ankiAudioOnlyOnAnswer) ?? true
         self.ankiTrimText = try container.decodeIfPresent(Bool.self, forKey: .ankiTrimText) ?? true
+        self.ankiTapShowsExtra = try container.decodeIfPresent(Bool.self, forKey: .ankiTapShowsExtra) ?? false
         
         self.customGifPath = try container.decodeIfPresent(String.self, forKey: .customGifPath) ?? ""
         self.isHidden = try container.decodeIfPresent(Bool.self, forKey: .isHidden) ?? false
