@@ -276,6 +276,14 @@ public struct MainView: View {
                                 .onTapGesture {
                                     state.selectedWidgetID = widget.id
                                 }
+                                .onDrag { NSItemProvider(object: String(index) as NSString) }
+                                .onDrop(of: [.text], delegate: ReorderDropDelegate(item: index) { from, to in
+                                    var list = state.widgets
+                                    let item = list.remove(at: from)
+                                    list.insert(item, at: to > from ? to - 1 : to)
+                                    state.widgets = list
+                                    state.saveConfig()
+                                })
                                 .listRowSeparator(.hidden)
                                 .listRowInsets(EdgeInsets(top: 2, leading: 6, bottom: 2, trailing: 6))
                             }
@@ -3551,13 +3559,12 @@ struct AppLauncherConfigView: View {
                             .foregroundColor(.red)
                             .font(.system(size: 10))
                         }
-                    }
-                    .onMove { sources, dest in
-                        for source in sources.sorted(by: >) {
-                            let item = state.widgets[index].appLauncherApps.remove(at: source)
-                            state.widgets[index].appLauncherApps.insert(item, at: dest > source ? dest - 1 : dest)
-                        }
-                        state.saveConfig()
+                        .onDrag { NSItemProvider(object: String(i) as NSString) }
+                        .onDrop(of: [.text], delegate: ReorderDropDelegate(item: i) { from, to in
+                            let item = state.widgets[index].appLauncherApps.remove(at: from)
+                            state.widgets[index].appLauncherApps.insert(item, at: to > from ? to - 1 : to)
+                            state.saveConfig()
+                        })
                     }
                     .onDelete { sources in
                         for source in sources.sorted(by: >) {
@@ -3613,5 +3620,33 @@ struct AppLauncherConfigView: View {
                 .tint(.red)
             }
         }
+    }
+}
+
+// MARK: - Drag-Drop Reordering Delegate
+
+struct ReorderDropDelegate: DropDelegate {
+    let item: Int
+    let onMove: (Int, Int) -> Void
+
+    func performDrop(info: DropInfo) -> Bool {
+        guard let provider = info.itemProviders(for: [.text]).first else {
+            return false
+        }
+        provider.loadObject(ofClass: NSString.self) { str, _ in
+            guard let str = str as? String, let from = Int(str) else { return }
+            DispatchQueue.main.async {
+                self.onMove(from, self.item)
+            }
+        }
+        return true
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func validateDrop(info: DropInfo) -> Bool {
+        info.hasItemsConforming(to: [.text])
     }
 }
