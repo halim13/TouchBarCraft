@@ -763,18 +763,15 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         let font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
         let textColor = NSColor(Color(hex: widget.textColorHex))
         let boldColor = NSColor(Color(hex: widget.ankiBoldColorHex))
-        // Prep card type label
         let typeLabel = card.cardTypeLabel
         let hasType = !typeLabel.isEmpty
         
-        // Extra question handling — use overlay config for extraQuestionOnlyOnAnswer
         let extraQText = getExtraFieldValue(fieldString: widget.ankiExtraQuestionField, card: card)
         let hasExtraQ = !extraQText.isEmpty
         let extraQOnlyOnAnswer = AnkiFloatingOverlayManager.shared.config.extraQuestionOnlyOnAnswer
         let showExtraQ = hasExtraQ && !extraQOnlyOnAnswer && anki.touchBarShowingExtraQuestion
         let tapTogglesExtra = hasExtraQ && !extraQOnlyOnAnswer
         
-        // Build content: strip furigana brackets when combine mode is off
         let displayText: String
         if showExtraQ {
             displayText = extraQText
@@ -784,19 +781,17 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         
         let contentView: NSView
         if showExtraQ {
-            // Extra field: use simple bold/italic/underline tags + tap gesture to toggle back
             let questionTextOffset = CGFloat(widget.ankiQuestionTextOffset)
             let attributed = parseBoldTags(in: displayText, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
             contentView = makeLabelContainer(
                 attributedString: attributed,
                 textVerticalOffset: questionTextOffset,
-                ankiTrimText: widget.ankiTrimText,
+                ankiTrimText: false,
                 addTapGesture: tapTogglesExtra,
                 tapTarget: tapTogglesExtra ? self : nil,
                 tapAction: tapTogglesExtra ? #selector(ankiExtraQuestionTapped(_:)) : nil
             )
         } else if widget.ankiCombineFurigana {
-            // Furigana path uses question-specific text offset (separate from answer's ankiFuriganaTextOffset)
             let furiganaTextOffset = CGFloat(widget.ankiFuriganaQuestionTextOffset)
             contentView = buildFuriganaRichLabel(
                 text: displayText,
@@ -808,30 +803,28 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                 manualFuriFontSize: CGFloat(widget.ankiFuriganaFontSize),
                 verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
                 textVerticalOffset: furiganaTextOffset,
-                ankiTrimText: widget.ankiTrimText
+                ankiTrimText: false
             )
         } else {
-            // Non-furigana path uses question-specific offset for fine-tuning centering
             let questionTextOffset = CGFloat(widget.ankiQuestionTextOffset)
             let attributed = parseBoldTags(in: displayText, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
             contentView = makeLabelContainer(
                 attributedString: attributed,
                 textVerticalOffset: questionTextOffset,
-                ankiTrimText: widget.ankiTrimText,
+                ankiTrimText: false,
                 addTapGesture: tapTogglesExtra,
                 tapTarget: tapTogglesExtra ? self : nil,
                 tapAction: tapTogglesExtra ? #selector(ankiExtraQuestionTapped(_:)) : nil
             )
         }
         
-        // Wrap in horizontal stack with card type badge
+        let result: NSView
         if hasType {
             let hStack = NSStackView()
             hStack.orientation = .horizontal
             hStack.spacing = 4
             hStack.alignment = .centerY
             
-            // Colored circle for card type
             let typeColor = NSColor(Color(hex: card.cardTypeColorHex)).withAlphaComponent(0.9)
             let dotView = NSView()
             dotView.wantsLayer = true
@@ -842,12 +835,36 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             dotView.heightAnchor.constraint(equalToConstant: 6).isActive = true
             dotView.setContentCompressionResistancePriority(.required, for: .horizontal)
             dotView.setContentHuggingPriority(.required, for: .horizontal)
-            // hStack.addArrangedSubview(dotView)
             hStack.addArrangedSubview(contentView)
-            return hStack
+            result = hStack
+        } else {
+            result = contentView
         }
         
-        return contentView
+        if widget.ankiTrimText {
+            let scrollView = NSScrollView()
+            scrollView.hasHorizontalScroller = false
+            scrollView.hasVerticalScroller = false
+            scrollView.borderType = .noBorder
+            scrollView.drawsBackground = false
+            scrollView.translatesAutoresizingMaskIntoConstraints = false
+            scrollView.horizontalScrollElasticity = .none
+            scrollView.documentView = result
+            
+            result.setContentCompressionResistancePriority(.required, for: .horizontal)
+            result.setContentHuggingPriority(.required, for: .horizontal)
+            result.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                result.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
+                result.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
+                result.bottomAnchor.constraint(equalTo: scrollView.contentView.bottomAnchor)
+            ])
+            scrollView.heightAnchor.constraint(equalTo: result.heightAnchor).isActive = true
+            
+            return scrollView
+        }
+        
+        return result
     }
     
     private func buildAnswerLabel(for widget: TouchBarWidget, card: AnkiCard, anki: AnkiState) -> NSView {
