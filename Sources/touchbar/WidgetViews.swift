@@ -909,27 +909,33 @@ public struct WidgetAnkiView: View {
                     .fill(Color(hex: card.cardTypeColorHex))
                     .frame(width: 6, height: 6)
             }
-            if widget.ankiCombineFurigana {
-                parseFuriganaRichText(
-                    in: anki.answerPreview,
-                    defaultColor: Color(hex: widget.textColorHex),
-                    boldColor: Color(hex: widget.ankiBoldColorHex),
-                    fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize,
-                    furiganaFontSize: CGFloat(widget.ankiFuriganaFontSize),
-                    verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
-                    textOffset: CGFloat(widget.ankiFuriganaTextOffset)
-                )
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .onTapGesture {
-                    anki.toggleTouchBarAudio()
+            let textContent: some View = Group {
+                if widget.ankiCombineFurigana {
+                    parseFuriganaRichText(
+                        in: anki.answerPreview,
+                        defaultColor: Color(hex: widget.textColorHex),
+                        boldColor: Color(hex: widget.ankiBoldColorHex),
+                        fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize,
+                        furiganaFontSize: CGFloat(widget.ankiFuriganaFontSize),
+                        verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
+                        textOffset: CGFloat(widget.ankiFuriganaTextOffset)
+                    )
+                } else {
+                    parseBoldTags(in: anki.answerPreview, defaultColor: Color(hex: widget.textColorHex), boldColor: Color(hex: widget.ankiBoldColorHex), fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize)
                 }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .onTapGesture {
+                anki.toggleTouchBarAudio()
+            }
+
+            if widget.ankiTrimText {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    textContent
+                }
+                .frame(maxWidth: .infinity)
             } else {
-                parseBoldTags(in: anki.answerPreview, defaultColor: Color(hex: widget.textColorHex), boldColor: Color(hex: widget.ankiBoldColorHex), fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize)
-                    .if(widget.ankiTrimText) { $0.lineLimit(1).truncationMode(.tail) }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .onTapGesture {
-                        anki.toggleTouchBarAudio()
-                    }
+                textContent
             }
         }
     }

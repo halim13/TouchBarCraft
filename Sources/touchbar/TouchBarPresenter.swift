@@ -719,15 +719,10 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     /// Optionally adds a silent click gesture recognizer for Touch Bar tap events (used on answer labels).
     private func makeLabelContainer(attributedString: NSAttributedString, textVerticalOffset: CGFloat, ankiTrimText: Bool = true, addTapGesture: Bool = false, tapTarget: Any? = nil, tapAction: Selector? = nil) -> NSView {
         let label = NSTextField(labelWithString: "")
-        // Always enforce single-line mode for consistent intrinsic height and vertical centering.
-        // Only lineBreakMode should be conditional on ankiTrimText.
         label.cell?.usesSingleLineMode = true
         label.maximumNumberOfLines = 1
         label.cell?.wraps = false
         if ankiTrimText {
-            // Embed .byTruncatingTail in the attributed string's paragraph style
-            // because NSTextField with attributedStringValue uses the paragraph
-            // style's lineBreakMode for rendering, overriding the cell's lineBreakMode.
             let mutable = NSMutableAttributedString(attributedString: attributedString)
             let fullRange = NSRange(location: 0, length: mutable.length)
             mutable.enumerateAttribute(.paragraphStyle, in: fullRange, options: []) { value, range, _ in
@@ -743,8 +738,6 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         label.setContentHuggingPriority(.defaultLow, for: .horizontal)
         
-        // Wrap in container with vertical centering for consistent vertical positioning
-        // inside the parent NSStackView
         let container = NSView()
         container.translatesAutoresizingMaskIntoConstraints = false
         container.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -862,7 +855,6 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         let textColor = NSColor(Color(hex: widget.textColorHex))
         let boldColor = NSColor(Color(hex: widget.ankiBoldColorHex))
         
-        // Extra answer handling
         let extraAText = getExtraFieldValue(fieldString: widget.ankiExtraAnswerField, card: card)
         let hasExtraA = !extraAText.isEmpty
         let showExtraA = hasExtraA && widget.ankiTapShowsExtra && anki.touchBarShowingExtraAnswer
@@ -875,23 +867,20 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             displayText = card.answer
         }
         
+        let content: NSView
         if showExtraA {
-            // Extra field: use simple bold/italic/underline tags, no furigana
             let attributed = parseBoldTags(in: displayText, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
-            return makeLabelContainer(
+            content = makeLabelContainer(
                 attributedString: attributed,
                 textVerticalOffset: CGFloat(widget.ankiAnswerTextOffset),
-                ankiTrimText: widget.ankiTrimText,
+                ankiTrimText: false,
                 addTapGesture: true,
                 tapTarget: self,
                 tapAction: #selector(ankiExtraAnswerTapped(_:))
             )
-        }
-        
-        if tapIsExtra && widget.ankiCombineFurigana {
-            // Furigana mode + extra toggle: use furigana renderer with extra toggle action
+        } else if tapIsExtra && widget.ankiCombineFurigana {
             let textVerticalOffset = CGFloat(widget.ankiFuriganaTextOffset)
-            let container = buildFuriganaRichLabel(
+            content = buildFuriganaRichLabel(
                 text: displayText,
                 fontSize: CGFloat(widget.fontSize),
                 textColor: textColor,
@@ -900,16 +889,12 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                 buttonAction: #selector(ankiExtraAnswerTapped(_:)),
                 manualFuriFontSize: CGFloat(widget.ankiFuriganaFontSize),
                 verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
-                textVerticalOffset: textVerticalOffset
+                textVerticalOffset: textVerticalOffset,
+                ankiTrimText: false
             )
-            container.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-            return container
-        }
-        
-        if widget.ankiCombineFurigana {
-            // Default furigana answer with audio tap
+        } else if widget.ankiCombineFurigana {
             let textVerticalOffset = CGFloat(widget.ankiFuriganaTextOffset)
-            let container = buildFuriganaRichLabel(
+            content = buildFuriganaRichLabel(
                 text: displayText,
                 fontSize: CGFloat(widget.fontSize),
                 textColor: textColor,
@@ -918,22 +903,45 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
                 buttonAction: #selector(ankiTouchBarAudioTapped(_:)),
                 manualFuriFontSize: CGFloat(widget.ankiFuriganaFontSize),
                 verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
-                textVerticalOffset: textVerticalOffset
+                textVerticalOffset: textVerticalOffset,
+                ankiTrimText: false
             )
-            container.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-            return container
+        } else {
+            let attributed = parseBoldTags(in: displayText, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
+            content = makeLabelContainer(
+                attributedString: attributed,
+                textVerticalOffset: CGFloat(widget.ankiAnswerTextOffset),
+                ankiTrimText: false,
+                addTapGesture: true,
+                tapTarget: self,
+                tapAction: tapIsExtra ? #selector(ankiExtraAnswerTapped(_:)) : #selector(ankiTouchBarAudioTapped(_:))
+            )
         }
         
-        // Non-furigana path: NSTextField with NSClickGestureRecognizer
-        let attributed = parseBoldTags(in: displayText, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
-        return makeLabelContainer(
-            attributedString: attributed,
-            textVerticalOffset: CGFloat(widget.ankiAnswerTextOffset),
-            ankiTrimText: widget.ankiTrimText,
-            addTapGesture: true,
-            tapTarget: self,
-            tapAction: tapIsExtra ? #selector(ankiExtraAnswerTapped(_:)) : #selector(ankiTouchBarAudioTapped(_:))
-        )
+        if widget.ankiTrimText {
+            let scrollView = NSScrollView()
+            scrollView.hasHorizontalScroller = false
+            scrollView.hasVerticalScroller = false
+            scrollView.borderType = .noBorder
+            scrollView.drawsBackground = false
+            scrollView.translatesAutoresizingMaskIntoConstraints = false
+            scrollView.horizontalScrollElasticity = .none
+            scrollView.documentView = content
+            
+            content.setContentCompressionResistancePriority(.required, for: .horizontal)
+            content.setContentHuggingPriority(.required, for: .horizontal)
+            content.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                content.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
+                content.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
+                content.bottomAnchor.constraint(equalTo: scrollView.contentView.bottomAnchor)
+            ])
+            scrollView.heightAnchor.constraint(equalTo: content.heightAnchor).isActive = true
+            
+            return scrollView
+        }
+        
+        return content
     }
     
     /// Build a rich text view with furigana ruby annotations using vertical NSStackView.
@@ -1171,10 +1179,6 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         }
         
         if isButton, let action = buttonAction {
-            // Gunakan NSStackView sebagai container.
-            // Biarkan container kompresibel (.defaultLow) agar parent stack
-            // bisa mengompresi label furigana ketika space terbatas, sama
-            // seperti perilaku label non-furigana.
             hStack.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
             hStack.setContentHuggingPriority(.defaultLow, for: .horizontal)
             
