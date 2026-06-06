@@ -635,7 +635,8 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         let syncButton = buildSyncButton(for: widget, anki: anki)
         
         guard let card = anki.currentCard else {
-            let label = NSTextField(labelWithString: "Anki: Select Deck")
+            let message = anki.isLoading ? "Anki: Loading..." : "Anki: Select Deck"
+            let label = NSTextField(labelWithString: message)
             label.font = NSFont.systemFont(ofSize: 12, weight: .medium)
             label.textColor = NSColor(Color(hex: widget.textColorHex))
             
@@ -985,11 +986,12 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
             scrollView.drawsBackground = false
             scrollView.translatesAutoresizingMaskIntoConstraints = false
             scrollView.horizontalScrollElasticity = .none
+            
+            result.translatesAutoresizingMaskIntoConstraints = false
             scrollView.documentView = result
             
             result.setContentCompressionResistancePriority(.required, for: .horizontal)
             result.setContentHuggingPriority(.required, for: .horizontal)
-            result.translatesAutoresizingMaskIntoConstraints = false
             NSLayoutConstraint.activate([
                 result.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
                 result.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
@@ -1079,11 +1081,12 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
             scrollView.drawsBackground = false
             scrollView.translatesAutoresizingMaskIntoConstraints = false
             scrollView.horizontalScrollElasticity = .none
+            
+            content.translatesAutoresizingMaskIntoConstraints = false
             scrollView.documentView = content
             
             content.setContentCompressionResistancePriority(.required, for: .horizontal)
             content.setContentHuggingPriority(.required, for: .horizontal)
-            content.translatesAutoresizingMaskIntoConstraints = false
             NSLayoutConstraint.activate([
                 content.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
                 content.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
