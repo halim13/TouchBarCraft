@@ -44,6 +44,17 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
     
     // Key for associated object on silent rating buttons
     private var ratingTagKey: UInt8 = 0
+    // Key for associated object on scrollable label leading constraint
+    private static var scrollableLeadingKey: UInt8 = 0
+    
+    /// Lightweight view that clips subviews to its bounds via draw-time clipping.
+    /// Avoids `wantsLayer` + `masksToBounds` which can cause NSTextField rendering issues on the Touch Bar.
+    private class ClippingView: NSView {
+        override func draw(_ dirtyRect: NSRect) {
+            NSBezierPath(rect: bounds).setClip()
+            super.draw(dirtyRect)
+        }
+    }
     
     // Private framework loaders
     private typealias DFRElementSetControlStripPresenceForIdentifierType = @convention(c) (CFString, Bool) -> Void
@@ -186,7 +197,9 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
     }
     
     @objc public static func refreshTouchBar() {
+        print("[ScrollText] refreshTouchBar called")
         DispatchQueue.main.async {
+            print("[ScrollText] refreshTouchBar executing on main")
             let presenter = TouchBarPresenter.shared
             if presenter.globalTouchBar != nil {
                 presenter.presentGlobalTouchBar()
@@ -246,6 +259,34 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         guard actionType != .none else { return }
         
         state.executeSwipeAction(actionType)
+    }
+    
+    // Pan gesture handler for scrollable text labels
+    @objc private func handleLabelPan(_ gesture: NSPanGestureRecognizer) {
+        guard let clipView = gesture.view,
+              let leading = objc_getAssociatedObject(clipView, &TouchBarPresenter.scrollableLeadingKey) as? NSLayoutConstraint,
+              let textView = clipView.subviews.first else { return }
+        
+        let translation = gesture.translation(in: clipView)
+        gesture.setTranslation(.zero, in: clipView)
+        
+        let clipWidth = clipView.bounds.width
+        let textWidth = textView.frame.width
+        
+        if gesture.state == .began {
+            print("[ScrollText] PAN BEGAN clipWidth=\(clipWidth) textWidth=\(textWidth) clipFrame=\(clipView.frame) textFrame=\(textView.frame)")
+        }
+        
+        guard textWidth > clipWidth else {
+            leading.constant = 0
+            return
+        }
+        
+        var offset = leading.constant + translation.x
+        offset = min(0, max(clipWidth - textWidth, offset))
+        leading.constant = offset
+        clipView.needsLayout = true
+        clipView.layoutSubtreeIfNeeded()
     }
     
     private func configureSwipeGesture(for view: NSView, identifier: String) {
@@ -636,10 +677,11 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         
         guard let card = anki.currentCard else {
             let message = anki.isLoading ? "Anki: Loading..." : "Anki: Select Deck"
+            print("[ScrollText] NO CARD — showing '\(message)'")
             let label = NSTextField(labelWithString: message)
             label.font = NSFont.systemFont(ofSize: 12, weight: .medium)
             label.textColor = NSColor(Color(hex: widget.textColorHex))
-            
+
             if config.isMediaOnLeft {
                 stack.addArrangedSubview(label)
                 stack.addArrangedSubview(syncButton)
@@ -652,6 +694,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         
         if !anki.isShowingAnswer {
             // Build question label
+            print("[ScrollText] BUILDING QUESTION — card=\(card.question.prefix(60))... ankiTrimText=\(widget.ankiTrimText)")
             let questionLabel = buildQuestionLabel(for: widget, card: card, anki: anki)
             
             if widget.ankiShowRemainingCounts {
@@ -979,27 +1022,40 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         }
         
         if widget.ankiTrimText {
-            let scrollView = NSScrollView()
-            scrollView.hasHorizontalScroller = false
-            scrollView.hasVerticalScroller = false
-            scrollView.borderType = .noBorder
-            scrollView.drawsBackground = false
-            scrollView.translatesAutoresizingMaskIntoConstraints = false
-            scrollView.horizontalScrollElasticity = .none
+            let resultIntrinsic = result.intrinsicContentSize
+            print("[ScrollText] buildQuestionLabel ankiTrimText=true textWidth=\(displayText.count) chars intrinsicWidth=\(resultIntrinsic.width) resultType=\(type(of: result)) hasType=\(hasType)")
             
+            let clipView = ClippingView()
+            clipView.wantsLayer = true
+            clipView.layer?.masksToBounds = true
+            clipView.translatesAutoresizingMaskIntoConstraints = false
+            
+            result.wantsLayer = true
             result.translatesAutoresizingMaskIntoConstraints = false
-            scrollView.documentView = result
-            
             result.setContentCompressionResistancePriority(.required, for: .horizontal)
             result.setContentHuggingPriority(.required, for: .horizontal)
-            NSLayoutConstraint.activate([
-                result.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
-                result.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
-                result.bottomAnchor.constraint(equalTo: scrollView.contentView.bottomAnchor)
-            ])
-            scrollView.heightAnchor.constraint(equalTo: result.heightAnchor).isActive = true
             
-            return scrollView
+            clipView.addSubview(result)
+            let leading = result.leadingAnchor.constraint(equalTo: clipView.leadingAnchor)
+            NSLayoutConstraint.activate([
+                leading,
+                result.topAnchor.constraint(equalTo: clipView.topAnchor),
+                result.bottomAnchor.constraint(equalTo: clipView.bottomAnchor),
+            ])
+            clipView.heightAnchor.constraint(equalTo: result.heightAnchor).isActive = true
+            
+            let pan = NSPanGestureRecognizer(target: self, action: #selector(handleLabelPan(_:)))
+            pan.allowedTouchTypes = .direct
+            pan.delegate = self
+            clipView.addGestureRecognizer(pan)
+            objc_setAssociatedObject(clipView, &TouchBarPresenter.scrollableLeadingKey, leading, .OBJC_ASSOCIATION_RETAIN)
+            
+            // Log frames after first layout pass
+            DispatchQueue.main.async {
+                print("[ScrollText] POST-LAYOUT clipView.frame=\(clipView.frame) result.frame=\(result.frame) result.intrinsic=\(result.intrinsicContentSize)")
+            }
+            
+            return clipView
         }
         
         return result
@@ -1074,27 +1130,39 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         }
         
         if widget.ankiTrimText {
-            let scrollView = NSScrollView()
-            scrollView.hasHorizontalScroller = false
-            scrollView.hasVerticalScroller = false
-            scrollView.borderType = .noBorder
-            scrollView.drawsBackground = false
-            scrollView.translatesAutoresizingMaskIntoConstraints = false
-            scrollView.horizontalScrollElasticity = .none
+            let contentIntrinsic = content.intrinsicContentSize
+            print("[ScrollText] buildAnswerLabel ankiTrimText=true intrinsicWidth=\(contentIntrinsic.width) contentSize=\(content.frame.size)")
             
+            let clipView = ClippingView()
+            clipView.wantsLayer = true
+            clipView.layer?.masksToBounds = true
+            clipView.translatesAutoresizingMaskIntoConstraints = false
+            
+            content.wantsLayer = true
             content.translatesAutoresizingMaskIntoConstraints = false
-            scrollView.documentView = content
-            
             content.setContentCompressionResistancePriority(.required, for: .horizontal)
             content.setContentHuggingPriority(.required, for: .horizontal)
-            NSLayoutConstraint.activate([
-                content.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
-                content.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
-                content.bottomAnchor.constraint(equalTo: scrollView.contentView.bottomAnchor)
-            ])
-            scrollView.heightAnchor.constraint(equalTo: content.heightAnchor).isActive = true
             
-            return scrollView
+            clipView.addSubview(content)
+            let leading = content.leadingAnchor.constraint(equalTo: clipView.leadingAnchor)
+            NSLayoutConstraint.activate([
+                leading,
+                content.topAnchor.constraint(equalTo: clipView.topAnchor),
+                content.bottomAnchor.constraint(equalTo: clipView.bottomAnchor),
+            ])
+            clipView.heightAnchor.constraint(equalTo: content.heightAnchor).isActive = true
+            
+            let pan = NSPanGestureRecognizer(target: self, action: #selector(handleLabelPan(_:)))
+            pan.allowedTouchTypes = .direct
+            pan.delegate = self
+            clipView.addGestureRecognizer(pan)
+            objc_setAssociatedObject(clipView, &TouchBarPresenter.scrollableLeadingKey, leading, .OBJC_ASSOCIATION_RETAIN)
+            
+            DispatchQueue.main.async {
+                print("[ScrollText] POST-LAYOUT answer clipView.frame=\(clipView.frame) content.frame=\(content.frame) content.intrinsic=\(content.intrinsicContentSize)")
+            }
+            
+            return clipView
         }
         
         return content

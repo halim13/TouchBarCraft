@@ -1522,7 +1522,7 @@ struct AnkiConfigView: View {
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.gray)
                     
-                    Toggle("Trim long text with trailing ellipsis (...)", isOn: Binding(
+                    Toggle("Enable horizontal scrolling for long text", isOn: Binding(
                         get: { widget.ankiTrimText },
                         set: { val in
                             state.widgets[index].ankiTrimText = val
