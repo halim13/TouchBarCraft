@@ -67,7 +67,7 @@ public final class AppState {
         if let raw = UserDefaults.standard.string(forKey: "swipe2RightActionType"), let v = ActionType(rawValue: raw) { swipe2RightActionType = v }
         if let raw = UserDefaults.standard.string(forKey: "swipe3LeftActionType"), let v = ActionType(rawValue: raw) { swipe3LeftActionType = v }
         if let raw = UserDefaults.standard.string(forKey: "swipe3RightActionType"), let v = ActionType(rawValue: raw) { swipe3RightActionType = v }
-        
+
         loadConfig()
         startSystemTimers()
         

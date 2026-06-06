@@ -1659,6 +1659,12 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         return 50.0
     }
     
+    nonisolated private static func setSystemVolume(_ value: Double) {
+        let script = NSAppleScript(source: "set volume output volume \(Int(value))")
+        var error: NSDictionary?
+        script?.executeAndReturnError(&error)
+    }
+    
     @objc static func refreshVolumeSliders() {
         DispatchQueue.global(qos: .background).async {
             let currentVolume = getCurrentVolumeValue()
