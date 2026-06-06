@@ -499,20 +499,20 @@ public struct MainView: View {
                             .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.05), lineWidth: 1))
                         }
                         
-                        // Section 3: Widget-Type-Specific Options
-                        VStack(alignment: .leading, spacing: 12) {
-                                Text("\(widget.type.rawValue) Options")
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(.pink)
-                                
-                                WidgetOptionsView(widget: widget, index: index, state: state)
-                            }
-                            .padding(14)
-                            .background(Color.white.opacity(0.03))
-                            .cornerRadius(8)
-                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.05), lineWidth: 1))
+                            // Section 3: Widget-Type-Specific Options
+                            VStack(alignment: .leading, spacing: 12) {
+                                    Text("\(widget.type.rawValue) Options")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(.pink)
+                                    
+                                    WidgetOptionsView(widget: widget, index: index, state: state)
+                                }
+                                .padding(14)
+                                .background(Color.white.opacity(0.03))
+                                .cornerRadius(8)
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.05), lineWidth: 1))
                             
-                            Spacer()
+                                Spacer()
                         }
                         .padding(20)
                     } else {
@@ -679,6 +679,13 @@ public struct MainView: View {
                             .background(Color.white.opacity(0.03))
                             .cornerRadius(8)
                             .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.05), lineWidth: 1))
+                        
+                            // Swipe Gestures Card
+                            SwipeConfigurationView(state: state)
+                                .padding(14)
+                                .background(Color.white.opacity(0.03))
+                                .cornerRadius(8)
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.05), lineWidth: 1))
                         }
                         .padding(20)
                     }
@@ -3253,6 +3260,72 @@ struct BrightnessOptionsView: View {
                     .font(.system(size: 11))
                     .foregroundColor(.gray)
             }
+        }
+    }
+}
+
+// MARK: - Swipe Gesture Configuration
+
+struct SwipeConfigurationView: View {
+    let state: AppState
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "hand.draw.fill")
+                    .font(.system(size: 12))
+                    .foregroundColor(.orange)
+                Text("Swipe Gestures")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.orange)
+            }
+            
+            Text("Configure separate swipe actions for 2-finger and 3-finger gestures on the Touch Bar.")
+                .font(.system(size: 10))
+                .foregroundColor(.gray)
+            
+            fingerSection(title: "2 Fingers", 
+                          leftBinding: Binding(get: { state.swipe2LeftActionType }, set: { state.swipe2LeftActionType = $0; refreshTouchBar() }),
+                          rightBinding: Binding(get: { state.swipe2RightActionType }, set: { state.swipe2RightActionType = $0; refreshTouchBar() }))
+            
+            Divider()
+            
+            fingerSection(title: "3 Fingers",
+                          leftBinding: Binding(get: { state.swipe3LeftActionType }, set: { state.swipe3LeftActionType = $0; refreshTouchBar() }),
+                          rightBinding: Binding(get: { state.swipe3RightActionType }, set: { state.swipe3RightActionType = $0; refreshTouchBar() }))
+            
+            Text("Horizontal swipe must exceed 30pt threshold. Settings are stored in UserDefaults and apply to all widgets.")
+                .font(.system(size: 9))
+                .foregroundColor(.gray)
+                .italic()
+        }
+    }
+    
+    private func fingerSection(title: String, leftBinding: Binding<ActionType>, rightBinding: Binding<ActionType>) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.system(size: 11, weight: .semibold))
+            Picker("Swipe Left:", selection: leftBinding) {
+                ForEach(ActionType.allCases, id: \.self) { type in
+                    Text(type.rawValue).tag(type)
+                }
+            }
+            .pickerStyle(.menu)
+            Picker("Swipe Right:", selection: rightBinding) {
+                ForEach(ActionType.allCases, id: \.self) { type in
+                    Text(type.rawValue).tag(type)
+                }
+            }
+            .pickerStyle(.menu)
+        }
+        .font(.system(size: 11))
+    }
+    
+    private func refreshTouchBar() {
+        let presenterClass: AnyClass? = NSClassFromString("touchbar.TouchBarPresenter")
+        let refreshSelector = NSSelectorFromString("refreshTouchBar")
+        if let presenter = presenterClass as? NSObject.Type {
+            presenter.perform(refreshSelector)
         }
     }
 }

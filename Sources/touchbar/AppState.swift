@@ -14,6 +14,20 @@ public final class AppState {
     public var ankiState: AnkiState
     public var nhkNewsState: NHKNewsState
     
+    // Global swipe gesture settings (separate configs for 2-finger and 3-finger)
+    public var swipe2LeftActionType: ActionType = .brightnessDown {
+        didSet { UserDefaults.standard.set(swipe2LeftActionType.rawValue, forKey: "swipe2LeftActionType") }
+    }
+    public var swipe2RightActionType: ActionType = .brightnessUp {
+        didSet { UserDefaults.standard.set(swipe2RightActionType.rawValue, forKey: "swipe2RightActionType") }
+    }
+    public var swipe3LeftActionType: ActionType = .none {
+        didSet { UserDefaults.standard.set(swipe3LeftActionType.rawValue, forKey: "swipe3LeftActionType") }
+    }
+    public var swipe3RightActionType: ActionType = .none {
+        didSet { UserDefaults.standard.set(swipe3RightActionType.rawValue, forKey: "swipe3RightActionType") }
+    }
+
     // Live system stats
     public var batteryLevel: Int = 100
     public var isBatteryCharging: Bool = false
@@ -40,13 +54,20 @@ public final class AppState {
         }
     }
 
-public init() {
+    public init() {
         // Setup config path in user's home directory
         let homeDir = FileManager.default.homeDirectoryForCurrentUser
         self.configPath = homeDir.appendingPathComponent(".touchbarcraft.json")
         self.ankiState = AnkiState()
         self.nhkNewsState = NHKNewsState()
         Self.shared = self
+        
+        // Load saved swipe gesture settings from UserDefaults
+        if let raw = UserDefaults.standard.string(forKey: "swipe2LeftActionType"), let v = ActionType(rawValue: raw) { swipe2LeftActionType = v }
+        if let raw = UserDefaults.standard.string(forKey: "swipe2RightActionType"), let v = ActionType(rawValue: raw) { swipe2RightActionType = v }
+        if let raw = UserDefaults.standard.string(forKey: "swipe3LeftActionType"), let v = ActionType(rawValue: raw) { swipe3LeftActionType = v }
+        if let raw = UserDefaults.standard.string(forKey: "swipe3RightActionType"), let v = ActionType(rawValue: raw) { swipe3RightActionType = v }
+        
         loadConfig()
         startSystemTimers()
         
@@ -165,7 +186,14 @@ public init() {
     public func executeAction(for widget: TouchBarWidget, isLongPress: Bool = false) {
         let actionType = isLongPress ? widget.longPressActionType : widget.actionType
         let actionValue = isLongPress ? widget.longPressActionValue : widget.actionValue
-        
+        performAction(actionType, actionValue: actionValue)
+    }
+    
+    public func executeSwipeAction(_ actionType: ActionType) {
+        performAction(actionType, actionValue: "")
+    }
+    
+    private func performAction(_ actionType: ActionType, actionValue: String) {
         switch actionType {
         case .none:
             break
@@ -235,7 +263,52 @@ public init() {
                     print("Failed to lock screen: \(error.localizedDescription)")
                 }
             }
+            
+        case .brightnessUp:
+            DispatchQueue.global(qos: .userInitiated).async {
+                SystemUtils.adjustBrightness(up: true)
+            }
+            
+        case .brightnessDown:
+            DispatchQueue.global(qos: .userInitiated).async {
+                SystemUtils.adjustBrightness(up: false)
+            }
+            
+        case .volumeUp:
+            DispatchQueue.global(qos: .userInitiated).async {
+                let current = AppState.getCurrentVolume()
+                let newVolume = min(100, current + 10)
+                AppState.setVolume(newVolume)
+                DispatchQueue.main.async {
+                    TouchBarPresenter.refreshVolumeSliders()
+                }
+            }
+            
+        case .volumeDown:
+            DispatchQueue.global(qos: .userInitiated).async {
+                let current = AppState.getCurrentVolume()
+                let newVolume = max(0, current - 10)
+                AppState.setVolume(newVolume)
+                DispatchQueue.main.async {
+                    TouchBarPresenter.refreshVolumeSliders()
+                }
+            }
         }
+    }
+    
+    nonisolated private static func getCurrentVolume() -> Double {
+        var error: NSDictionary?
+        if let script = NSAppleScript(source: "output volume of (get volume settings)") {
+            let descriptor = script.executeAndReturnError(&error)
+            return Double(descriptor.int32Value)
+        }
+        return 50.0
+    }
+    
+    nonisolated private static func setVolume(_ value: Double) {
+        let script = NSAppleScript(source: "set volume output volume \(Int(value))")
+        var error: NSDictionary?
+        script?.executeAndReturnError(&error)
     }
     
     // MARK: - Widget Management

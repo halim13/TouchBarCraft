@@ -27,7 +27,7 @@ struct AnkiTouchBarConfig {
 }
 
 @MainActor
-public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
+public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRecognizerDelegate {
     @objc public static let shared = TouchBarPresenter()
     
     private let trayIdentifier = "com.touchbarcraft.systemtray"
@@ -36,6 +36,11 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     
     // Map widget ID -> widget for button action dispatch
     private var widgetMap: [String: TouchBarWidget] = [:]
+    
+    // Weak references to volume sliders for live updates
+    private static let volumeSliders = NSHashTable<NSSlider>.weakObjects()
+    private static var lastVolumeValue: Double = -1
+    private var volumePollingTimer: Timer?
     
     // Key for associated object on silent rating buttons
     private var ratingTagKey: UInt8 = 0
@@ -59,6 +64,13 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     private override init() {
         super.init()
         setupWorkspaceNotifications()
+        startVolumePolling()
+    }
+    
+    private func startVolumePolling() {
+        volumePollingTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            TouchBarPresenter.refreshVolumeSliders()
+        }
     }
     
     private func setupWorkspaceNotifications() {
@@ -208,6 +220,128 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             guard let state = AppState.shared else { return }
             guard let widget = state.widgets.first(where: { $0.id.uuidString == identifier }) else { return }
             state.executeAction(for: widget, isLongPress: true)
+        }
+    }
+    
+    @objc private func widgetSwiped(_ gesture: NSGestureRecognizer) {
+        guard gesture.state == .ended || gesture.state == .recognized else { return }
+        guard let swipe = gesture as? MultiFingerSwipeGestureRecognizer else { return }
+        
+        let translation = swipe.translation
+        let horizontalDistance = abs(translation.x)
+        let verticalDistance = abs(translation.y)
+        
+        guard horizontalDistance > 30 else { return }
+        guard horizontalDistance > verticalDistance * 2 else { return }
+        
+        guard let state = AppState.shared else { return }
+        
+        let isLeftSwipe = translation.x < 0
+        let actionType: ActionType
+        if swipe.numberOfTouchesRequired == 2 {
+            actionType = isLeftSwipe ? state.swipe2LeftActionType : state.swipe2RightActionType
+        } else {
+            actionType = isLeftSwipe ? state.swipe3LeftActionType : state.swipe3RightActionType
+        }
+        guard actionType != .none else { return }
+        
+        state.executeSwipeAction(actionType)
+    }
+    
+    private func configureSwipeGesture(for view: NSView, identifier: String) {
+        if view.accessibilityIdentifier().isEmpty {
+            view.setAccessibilityIdentifier(identifier)
+        }
+        addSwipeRecognizer(to: view, fingerCount: 2)
+        addSwipeRecognizer(to: view, fingerCount: 3)
+    }
+    
+    private func addSwipeRecognizer(to view: NSView, fingerCount: Int) {
+        let swipeGesture = MultiFingerSwipeGestureRecognizer(target: self, action: #selector(widgetSwiped(_:)))
+        swipeGesture.numberOfTouchesRequired = fingerCount
+        swipeGesture.allowedTouchTypes = .direct
+        swipeGesture.delegate = self
+        view.addGestureRecognizer(swipeGesture)
+    }
+    
+    public func gestureRecognizer(_ gestureRecognizer: NSGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: NSGestureRecognizer) -> Bool {
+        return true
+    }
+    
+    // MARK: - Custom multi-finger swipe gesture recognizer for Touch Bar
+    
+    private class MultiFingerSwipeGestureRecognizer: NSGestureRecognizer {
+        var numberOfTouchesRequired: Int = 2
+        private(set) var translation: NSPoint = .zero
+        private var activeTouches: [NSObject: NSTouch] = [:]
+        private var initialCentroid: NSPoint = .zero
+        
+        override func touchesBegan(with event: NSEvent) {
+            let touches = event.touches(matching: .began, in: view)
+            for touch in touches {
+                activeTouches[touch.identity as! NSObject] = touch
+            }
+            initialCentroid = computeCentroid()
+        }
+        
+        override func touchesMoved(with event: NSEvent) {
+            let moved = event.touches(matching: .moved, in: view)
+            for touch in moved {
+                activeTouches[touch.identity as! NSObject] = touch
+            }
+            
+            guard activeTouches.count == numberOfTouchesRequired else { return }
+            
+            let centroid = computeCentroid()
+            translation = NSPoint(x: centroid.x - initialCentroid.x, y: centroid.y - initialCentroid.y)
+            
+            if state == .possible && shouldRecognize() {
+                state = .began
+                state = .ended
+            }
+        }
+        
+        override func touchesEnded(with event: NSEvent) {
+            let ended = event.touches(matching: .ended, in: view)
+            for touch in ended {
+                activeTouches.removeValue(forKey: touch.identity as! NSObject)
+            }
+            if state == .began || state == .changed {
+                state = .ended
+            } else if activeTouches.isEmpty && shouldRecognize() {
+                state = .recognized
+            }
+        }
+        
+        override func touchesCancelled(with event: NSEvent) {
+            activeTouches.removeAll()
+            translation = .zero
+            state = .cancelled
+        }
+        
+        override func reset() {
+            super.reset()
+            activeTouches.removeAll()
+            translation = .zero
+        }
+        
+        private func shouldRecognize() -> Bool {
+            let horizontal = abs(translation.x)
+            let vertical = abs(translation.y)
+            return horizontal > 30 && horizontal > vertical * 2
+        }
+        
+        private func computeCentroid() -> NSPoint {
+            guard !activeTouches.isEmpty else { return .zero }
+            var sumX: CGFloat = 0
+            var sumY: CGFloat = 0
+            for touch in activeTouches.values {
+                let loc = touch.location(in: view)
+                sumX += loc.x
+                sumY += loc.y
+            }
+            let count = CGFloat(activeTouches.count)
+            return NSPoint(x: sumX / count, y: sumY / count)
         }
     }
     
@@ -393,6 +527,8 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
             let appView = makeNativeAppLauncherView(for: widget)
             item.view = appView
         }
+        
+        configureSwipeGesture(for: item.view, identifier: identifier.rawValue)
         
         if widget.customWidth > 0.0 {
             let view = item.view
@@ -1479,6 +1615,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
         slider.trackFillColor = NSColor(Color(hex: widget.backgroundColorHex))
         slider.translatesAutoresizingMaskIntoConstraints = false
         slider.widthAnchor.constraint(equalToConstant: CGFloat(widget.volumeSliderWidth)).isActive = true
+        TouchBarPresenter.volumeSliders.add(slider)
         
         let maxImg = NSImage(systemSymbolName: "speaker.wave.3.fill", accessibilityDescription: "Max Volume")
         let maxView = NSImageView(image: maxImg ?? NSImage())
@@ -1510,12 +1647,29 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate {
     }
     
     private func getCurrentVolume() -> Double {
+        Self.getCurrentVolumeValue()
+    }
+    
+    nonisolated private static func getCurrentVolumeValue() -> Double {
         var error: NSDictionary?
         if let script = NSAppleScript(source: "output volume of (get volume settings)") {
             let descriptor = script.executeAndReturnError(&error)
             return Double(descriptor.int32Value)
         }
         return 50.0
+    }
+    
+    @objc static func refreshVolumeSliders() {
+        DispatchQueue.global(qos: .background).async {
+            let currentVolume = getCurrentVolumeValue()
+            guard currentVolume != lastVolumeValue else { return }
+            lastVolumeValue = currentVolume
+            DispatchQueue.main.async {
+                for slider in volumeSliders.allObjects {
+                    slider.doubleValue = currentVolume
+                }
+            }
+        }
     }
     
     private func makeNativeAnimationView(for widget: TouchBarWidget) -> NSView {

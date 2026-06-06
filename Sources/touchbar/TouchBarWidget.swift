@@ -21,6 +21,10 @@ public enum ActionType: String, Codable, CaseIterable, Sendable {
     case playSound = "Play Sound"
     case toggleDarkMode = "Toggle Dark Mode"
     case lockScreen = "Lock Screen"
+    case brightnessUp = "Brightness Up"
+    case brightnessDown = "Brightness Down"
+    case volumeUp = "Volume Up"
+    case volumeDown = "Volume Down"
 }
 
 public enum MonitorType: String, Codable, CaseIterable, Sendable {
