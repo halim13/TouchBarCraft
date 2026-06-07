@@ -1021,9 +1021,8 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
             result = contentView
         }
         
-        if widget.ankiTrimText {
-            let resultIntrinsic = result.intrinsicContentSize
-            print("[ScrollText] buildQuestionLabel ankiTrimText=true textWidth=\(displayText.count) chars intrinsicWidth=\(resultIntrinsic.width) resultType=\(type(of: result)) hasType=\(hasType)")
+        if widget.ankiScrollMode == .both {
+            print("[ScrollText] buildQuestionLabel ankiScrollMode=both textWidth=\(displayText.count) chars hasType=\(hasType)")
             
             let clipView = ClippingView()
             clipView.wantsLayer = true
@@ -1129,9 +1128,8 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
             )
         }
         
-        if widget.ankiTrimText {
-            let contentIntrinsic = content.intrinsicContentSize
-            print("[ScrollText] buildAnswerLabel ankiTrimText=true intrinsicWidth=\(contentIntrinsic.width) contentSize=\(content.frame.size)")
+        if widget.ankiScrollMode == .answerOnly || widget.ankiScrollMode == .both {
+            print("[ScrollText] buildAnswerLabel ankiScrollMode=\(widget.ankiScrollMode.rawValue) contentSize=\(content.frame.size)")
             
             let clipView = ClippingView()
             clipView.wantsLayer = true

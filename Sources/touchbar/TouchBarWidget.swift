@@ -46,6 +46,12 @@ public enum AnimationPreset: String, Codable, CaseIterable, Sendable {
     case matrix = "Matrix Rain 💾"
 }
 
+public enum AnkiScrollMode: String, Codable, CaseIterable, Sendable {
+    case none = "None"
+    case answerOnly = "Answer Only"
+    case both = "Both (Question & Answer)"
+}
+
 public struct AnkiDeckSettings: Codable, Hashable, Sendable {
     public var questionField: String
     public var answerField: String
@@ -172,6 +178,9 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
 
     // Anki trim text with trailing tail (ellipsis)
     public var ankiTrimText: Bool
+    
+    // Anki horizontal scroll mode
+    public var ankiScrollMode: AnkiScrollMode
 
     // Anki tap on TouchBar shows extra field content instead of playing audio
     public var ankiTapShowsExtra: Bool
@@ -249,6 +258,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         ankiEasyColorHex: String = "#3380E5",
         ankiAudioOnlyOnAnswer: Bool = true,
         ankiTrimText: Bool = true,
+        ankiScrollMode: AnkiScrollMode = .answerOnly,
         ankiTapShowsExtra: Bool = false,
         customGifPath: String = "",
         isHidden: Bool = false,
@@ -313,6 +323,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiEasyColorHex = ankiEasyColorHex
         self.ankiAudioOnlyOnAnswer = ankiAudioOnlyOnAnswer
         self.ankiTrimText = ankiTrimText
+        self.ankiScrollMode = ankiScrollMode
         self.ankiTapShowsExtra = ankiTapShowsExtra
         self.customGifPath = customGifPath
         self.isHidden = isHidden
@@ -347,6 +358,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         case ankiEasyColorHex
         case ankiAudioOnlyOnAnswer
         case ankiTrimText
+        case ankiScrollMode
         case ankiTapShowsExtra
         case customGifPath
         case isHidden
@@ -419,6 +431,8 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiEasyColorHex = try container.decodeIfPresent(String.self, forKey: .ankiEasyColorHex) ?? "#3380E5"
         self.ankiAudioOnlyOnAnswer = try container.decodeIfPresent(Bool.self, forKey: .ankiAudioOnlyOnAnswer) ?? true
         self.ankiTrimText = try container.decodeIfPresent(Bool.self, forKey: .ankiTrimText) ?? true
+        self.ankiScrollMode = (try? container.decodeIfPresent(AnkiScrollMode.self, forKey: .ankiScrollMode))
+            ?? (ankiTrimText ? .both : .none)
         self.ankiTapShowsExtra = try container.decodeIfPresent(Bool.self, forKey: .ankiTapShowsExtra) ?? false
         
         self.customGifPath = try container.decodeIfPresent(String.self, forKey: .customGifPath) ?? ""

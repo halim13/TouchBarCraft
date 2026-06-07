@@ -1522,15 +1522,19 @@ struct AnkiConfigView: View {
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.gray)
                     
-                    Toggle("Enable horizontal scrolling for long text", isOn: Binding(
-                        get: { widget.ankiTrimText },
+                    Picker("Horizontal Scroll:", selection: Binding(
+                        get: { widget.ankiScrollMode },
                         set: { val in
-                            state.widgets[index].ankiTrimText = val
+                            state.widgets[index].ankiScrollMode = val
                             state.saveConfig()
                             state.ankiState.refreshTouchBar()
                         }
-                    ))
-                    .toggleStyle(.checkbox)
+                    )) {
+                        ForEach(AnkiScrollMode.allCases, id: \.self) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.menu)
                     .font(.system(size: 11))
                     
                     Text("When enabled, text that exceeds the available width will be cut off with an ellipsis (…). When disabled, text is shown as-is without any trimming.")
