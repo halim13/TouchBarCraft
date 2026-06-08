@@ -688,24 +688,7 @@ public struct MainView: View {
                                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.05), lineWidth: 1))
                             
                             // Global Shortcuts Card
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("Global Shortcuts")
-                                    .font(.system(size: 13, weight: .bold))
-                                    .foregroundColor(.orange)
-                                
-                                Text("Set global hotkeys for app-wide actions. Requires Accessibility permission (already requested on first launch).")
-                                    .font(.system(size: 9))
-                                    .foregroundColor(.gray)
-                                    .italic()
-                                
-                                VStack(spacing: 4) {
-                                    HotkeyRecorderRow(action: .openSettings)
-                                }
-                            }
-                            .padding(14)
-                            .background(Color.white.opacity(0.03))
-                            .cornerRadius(8)
-                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.05), lineWidth: 1))
+                            GlobalShortcutsCard()
                         }
                         .padding(20)
                     }
@@ -717,6 +700,61 @@ public struct MainView: View {
         .background(Color(red: 18/255, green: 18/255, blue: 20/255))
         
     }
+
+}
+
+// MARK: - Global Shortcuts Card
+
+private struct GlobalShortcutsCard: View {
+    @State private var accessibilityGranted: Bool = AXIsProcessTrusted()
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Global Shortcuts")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(.orange)
+            
+            Text("Set global hotkeys for app-wide actions. Requires Accessibility permission.")
+                .font(.system(size: 9))
+                .foregroundColor(.gray)
+                .italic()
+            
+            HStack(spacing: 8) {
+                Image(systemName: accessibilityGranted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                    .foregroundColor(accessibilityGranted ? .green : .red)
+                    .font(.system(size: 10))
+                Text(accessibilityGranted ? "Accessibility: Active" : "Accessibility: Not Active — try toggling it off/on in System Settings")
+                    .font(.system(size: 9))
+                    .foregroundColor(accessibilityGranted ? .green : .red)
+                if !accessibilityGranted {
+                    Button("Re-check") {
+                            accessibilityGranted = AXIsProcessTrusted()
+                            if !accessibilityGranted {
+                                NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+                            }
+                        }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(.orange)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Color.orange.opacity(0.2))
+                    .cornerRadius(4)
+                }
+            }
+            
+            VStack(spacing: 4) {
+                HotkeyRecorderRow(action: .openSettings)
+            }
+        }
+        .padding(14)
+        .background(Color.white.opacity(0.03))
+        .cornerRadius(8)
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.05), lineWidth: 1))
+    }
+}
+
+extension MainView {
     
     private func moveUp(index: Int) {
         guard index > 0 else { return }

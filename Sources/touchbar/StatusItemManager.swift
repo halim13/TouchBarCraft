@@ -231,6 +231,11 @@ public final class StatusItemManager: NSObject {
     }
     
     @objc public func openSettings() {
+        if let window = settingsWindow, window.isVisible {
+            window.orderOut(nil)
+            return
+        }
+        
         if settingsWindow == nil {
             // Find existing or create new state
             let appState = AppState.shared ?? AppState()
