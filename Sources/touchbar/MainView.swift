@@ -686,6 +686,26 @@ public struct MainView: View {
                                 .background(Color.white.opacity(0.03))
                                 .cornerRadius(8)
                                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.05), lineWidth: 1))
+                            
+                            // Global Shortcuts Card
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Global Shortcuts")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(.orange)
+                                
+                                Text("Set global hotkeys for app-wide actions. Requires Accessibility permission (already requested on first launch).")
+                                    .font(.system(size: 9))
+                                    .foregroundColor(.gray)
+                                    .italic()
+                                
+                                VStack(spacing: 4) {
+                                    HotkeyRecorderRow(action: .openSettings)
+                                }
+                            }
+                            .padding(14)
+                            .background(Color.white.opacity(0.03))
+                            .cornerRadius(8)
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.05), lineWidth: 1))
                         }
                         .padding(20)
                     }
@@ -1550,7 +1570,7 @@ struct AnkiConfigView: View {
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.gray)
                     
-                    Toggle("Tap content shows extra field instead of audio", isOn: Binding(
+                    Toggle("Show extra field on tap / hotkey", isOn: Binding(
                         get: { state.widgets[index].ankiTapShowsExtra },
                         set: { val in
                             state.widgets[index].ankiTapShowsExtra = val
@@ -1561,7 +1581,7 @@ struct AnkiConfigView: View {
                     .toggleStyle(.checkbox)
                     .font(.system(size: 11))
                     
-                    Text("When enabled, tapping the answer text on the Touch Bar toggles between the regular answer and the extra answer field. The audio button still works separately. When disabled (default), tapping plays audio.")
+                    Text("When enabled, tapping the answer text on the Touch Bar or pressing the \"Toggle Extra Field\" hotkey toggles between the regular content and the extra field. One hotkey works for both question and answer phases automatically.")
                         .font(.system(size: 9))
                         .foregroundColor(.gray)
                         .italic()
@@ -2153,7 +2173,7 @@ struct AnkiConfigView: View {
                         .italic()
                     
                     VStack(spacing: 4) {
-                        ForEach(AnkiHotkeyAction.allCases.filter { $0 != .toggleNHKFloatingWindow }, id: \.rawValue) { action in
+                        ForEach(AnkiHotkeyAction.allCases.filter { $0 != .toggleNHKFloatingWindow && $0 != .openSettings }, id: \.rawValue) { action in
                             HotkeyRecorderRow(action: action)
                         }
                     }

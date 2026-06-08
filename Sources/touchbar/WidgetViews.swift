@@ -785,7 +785,7 @@ public struct WidgetAnkiView: View {
     
     @ViewBuilder
     private func noCardContent(anki: AnkiState) -> some View {
-        let message = anki.selectedDeck.isEmpty ? "Anki: Select Deck" : "Anki: Done"
+        let message = anki.selectedDeck.isEmpty ? "Anki: Select Deck" : "Anki: No cards to study"
         HStack(spacing: 8) {
             if isMediaOnLeft {
                 Text(message)

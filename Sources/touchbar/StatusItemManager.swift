@@ -16,6 +16,8 @@ public final class StatusItemManager: NSObject {
     private var gameControllerMenuItem: NSMenuItem?
     private var floatingOverlayMenuItem: NSMenuItem?
     
+    private var settingsMenuItem: NSMenuItem?
+    
     private override init() {
         super.init()
     }
@@ -62,6 +64,7 @@ public final class StatusItemManager: NSObject {
         let settingsItem = NSMenuItem(title: "Open Settings", action: #selector(openSettings), keyEquivalent: "")
         settingsItem.target = self
         menu.addItem(settingsItem)
+        self.settingsMenuItem = settingsItem
 
         menu.addItem(NSMenuItem.separator())
 
@@ -210,6 +213,7 @@ public final class StatusItemManager: NSObject {
         statusItem?.menu = menu
 
         refreshAnkiCardInfo()
+        refreshSettingsShortcut()
     }
     
     /// Update the mute menu item and tray icon without fully reconstructing the menu.
@@ -283,7 +287,7 @@ public final class StatusItemManager: NSObject {
         guard let headerItem = hotkeyHeaderMenuItem else { return }
         
         let bindings = GlobalHotkeyManager.shared.allBindings
-        let activeBindings = bindings.filter { $0.binding.isEnabled && $0.binding.isValid }
+        let activeBindings = bindings.filter { $0.binding.isEnabled && $0.binding.isValid && $0.action != .openSettings }
         let headerIndex = menu.index(of: headerItem)
         
         if activeBindings.isEmpty {
@@ -333,7 +337,7 @@ public final class StatusItemManager: NSObject {
 
         // Rebuild
         let bindings = GlobalHotkeyManager.shared.allBindings
-        let activeBindings = bindings.filter { $0.binding.isEnabled && $0.binding.isValid }
+        let activeBindings = bindings.filter { $0.binding.isEnabled && $0.binding.isValid && $0.action != .openSettings }
 
         if activeBindings.isEmpty {
             let emptyItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
@@ -366,6 +370,17 @@ public final class StatusItemManager: NSObject {
                 menu.insertItem(item, at: insertIndex)
                 insertIndex += 1
             }
+        }
+        refreshSettingsShortcut()
+    }
+
+    /// Update the settings menu item title to show its global shortcut if set.
+    private func refreshSettingsShortcut() {
+        let binding = GlobalHotkeyManager.shared.binding(for: .openSettings)
+        if binding.isEnabled && binding.isValid {
+            settingsMenuItem?.title = "Open Settings (\(binding.displayString))"
+        } else {
+            settingsMenuItem?.title = "Open Settings"
         }
     }
     

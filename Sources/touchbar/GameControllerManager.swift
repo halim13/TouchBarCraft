@@ -372,6 +372,10 @@ public final class GameControllerManager: NSObject {
             AnkiFloatingOverlayManager.shared.toggle()
         case .toggleNHKFloatingWindow:
             break // handled above
+        case .toggleExtra:
+            state.ankiState.toggleExtra()
+        case .openSettings:
+            StatusItemManager.shared.openSettings()
         }
     }
 

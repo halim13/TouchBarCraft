@@ -16,6 +16,8 @@ public enum AnkiHotkeyAction: Int, CaseIterable, Codable, Sendable {
     case touchBarAudio = 9
     case toggleOverlay = 10
     case toggleNHKFloatingWindow = 11
+    case toggleExtra = 12
+    case openSettings = 13
 
     public var displayName: String {
         switch self {
@@ -30,6 +32,8 @@ public enum AnkiHotkeyAction: Int, CaseIterable, Codable, Sendable {
         case .touchBarAudio: return "Toggle Touch Bar Audio"
         case .toggleOverlay: return "Toggle Floating Overlay"
         case .toggleNHKFloatingWindow: return "Toggle NHK Floating Window"
+        case .toggleExtra: return "Toggle Extra Field"
+        case .openSettings: return "Open Settings"
         }
     }
 
@@ -46,6 +50,8 @@ public enum AnkiHotkeyAction: Int, CaseIterable, Codable, Sendable {
         case .touchBarAudio: return "speaker.wave.2"
         case .toggleOverlay: return "rectangle.3.group.fill"
         case .toggleNHKFloatingWindow: return "newspaper.fill"
+        case .toggleExtra: return "text.alignleft"
+        case .openSettings: return "gearshape.fill"
         }
     }
 
@@ -400,6 +406,12 @@ public final class GlobalHotkeyManager: NSObject {
     private func executeAction(_ action: AnkiHotkeyAction) {
         guard let state = AppState.shared else { return }
 
+        // Open Settings — no widget visibility check needed
+        if action == .openSettings {
+            StatusItemManager.shared.openSettings()
+            return
+        }
+
         // For NHK actions, check NHK widget visibility
         if action == .toggleNHKFloatingWindow {
             let nhkWidget = state.widgets.first { $0.type == .nhkNews }
@@ -430,6 +442,10 @@ public final class GlobalHotkeyManager: NSObject {
         case .toggleOverlay:
             AnkiFloatingOverlayManager.shared.toggle()
         case .toggleNHKFloatingWindow:
+            break // handled above
+        case .toggleExtra:
+            state.ankiState.toggleExtra()
+        case .openSettings:
             break // handled above
         }
     }

@@ -332,16 +332,34 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
         currentCard?.answer ?? ""
     }
     
-    // MARK: - TouchBar Extra Field Toggle
+    // MARK: - Extra Field Toggle
 
     public func toggleTouchBarExtraQuestion() {
         touchBarShowingExtraQuestion.toggle()
         refreshTouchBar()
+        StatusItemManager.shared.refreshAnkiCardInfo()
+        AnkiFloatingOverlayManager.shared.refreshOverlay()
     }
 
     public func toggleTouchBarExtraAnswer() {
         touchBarShowingExtraAnswer.toggle()
         refreshTouchBar()
+        StatusItemManager.shared.refreshAnkiCardInfo()
+        AnkiFloatingOverlayManager.shared.refreshOverlay()
+    }
+
+    /// Toggle extra field display based on current phase:
+    /// question phase → toggle extra question field,
+    /// answer phase → toggle extra answer field.
+    public func toggleExtra() {
+        if isShowingAnswer {
+            touchBarShowingExtraAnswer.toggle()
+        } else {
+            touchBarShowingExtraQuestion.toggle()
+        }
+        refreshTouchBar()
+        StatusItemManager.shared.refreshAnkiCardInfo()
+        AnkiFloatingOverlayManager.shared.refreshOverlay()
     }
 
     // MARK: - Audio Controls
