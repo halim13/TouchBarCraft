@@ -335,10 +335,19 @@ public final class AppState {
         case .systemMonitor:
             newWidget = TouchBarWidget(
                 type: .systemMonitor,
-                title: "RAM Monitor",
-                iconName: "memorychip",
-                backgroundColorHex: "#F59E0B",
-                monitorType: .ram
+                title: "battery",
+                iconName: "battery.100",
+                backgroundColorHex: "#1E1E24",
+                textColorHex: "#FFFFFF",
+                actionType: .appleScript,
+                actionValue: "tell application \"System Events\" \n\tkey code 25 using {command down, shift down} \nend tell",
+                longPressActionType: .appleScript,
+                longPressActionValue: "tell application \"System Events\"\n    key code 23 using {command down, shift down}\nend tell",
+                monitorType: .battery,
+                batteryChargingIcon: "",
+                batteryFullIcon: "",
+                batteryLowIcon: "",
+                batteryNormalIcon: ""
             )
         case .media:
             newWidget = TouchBarWidget(
@@ -361,8 +370,27 @@ public final class AppState {
                 type: .anki,
                 title: "Anki Review",
                 iconName: "rectangle.stack.fill",
-                backgroundColorHex: "#2563EB",
-                textColorHex: "#FFFFFF"
+                backgroundColorHex: "#1E1E24",
+                textColorHex: "#FFFFFF",
+                ankiShowHard: false,
+                ankiShowEasy: false,
+                ankiQuestionField: "Word,Sentence",
+                ankiAnswerField: "Word Reading,Sentence Furigana",
+                ankiAudioField: "Sentence Audio",
+                ankiTouchBarAudioField: "Word Audio",
+                ankiExtraQuestionField: "Word Meaning",
+                ankiExtraAnswerField: "Word Meaning,Sentence Meaning",
+                ankiTextMaxWidth: 580,
+                fontSize: 20,
+                ankiBoldColorHex: "#00FA92",
+                ankiShowRemainingCounts: true,
+                ankiCombineFurigana: true,
+                ankiFuriganaFontSize: 8,
+                ankiFuriganaVerticalOffset: -2,
+                ankiFuriganaTextOffset: 3,
+                ankiAnswerTextOffset: 5,
+                ankiQuestionTextOffset: 5,
+                ankiTapShowsExtra: true
             )
         case .volumeSlider:
             newWidget = TouchBarWidget(
@@ -370,7 +398,9 @@ public final class AppState {
                 title: "Volume Slider",
                 iconName: "speaker.wave.3.fill",
                 backgroundColorHex: "#1E1E24",
-                textColorHex: "#FFFFFF"
+                textColorHex: "#FFFFFF",
+                volumeSliderWidth: 130,
+                volumeShowIcon: false
             )
         case .brightnessButtons:
             newWidget = TouchBarWidget(
@@ -378,15 +408,21 @@ public final class AppState {
                 title: "Brightness Controls",
                 iconName: "sun.max.fill",
                 backgroundColorHex: "#1E1E24",
-                textColorHex: "#FFFFFF"
+                textColorHex: "#FFFFFF",
+                brightnessButtonSize: 30
             )
         case .nhkNews:
             newWidget = TouchBarWidget(
                 type: .nhkNews,
                 title: "NHK Easy News",
                 iconName: "newspaper.fill",
-                backgroundColorHex: "#DC2626",
-                textColorHex: "#FFFFFF"
+                backgroundColorHex: "#1E1E24",
+                textColorHex: "#FFFFFF",
+                fontSize: 18,
+                nhkFuriganaFontSize: 6.5,
+                nhkNavOnLeft: true,
+                hideFromTouchBar: true,
+                customWidth: 740
             )
         case .dock:
             newWidget = TouchBarWidget(
