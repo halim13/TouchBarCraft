@@ -676,7 +676,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         let syncButton = buildSyncButton(for: widget, anki: anki)
         
         guard let card = anki.currentCard else {
-            let message = anki.isLoading ? "Anki: Loading..." : "Anki: Select Deck"
+            let message = anki.isLoading ? "Anki: Loading..." : (anki.selectedDeck.isEmpty ? "Anki: Select Deck" : "Anki: No cards to study")
             print("[ScrollText] NO CARD — showing '\(message)'")
             let label = NSTextField(labelWithString: message)
             label.font = NSFont.systemFont(ofSize: 12, weight: .medium)

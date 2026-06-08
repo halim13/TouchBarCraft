@@ -305,6 +305,7 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
     @Published public var sessionDuration: String = ""
     @Published public var deckName: String = ""
 
+    @Published public var hasDeckSelected: Bool = false
     @Published public var newCount: Int = 0
     @Published public var learnCount: Int = 0
     @Published public var reviewCount: Int = 0
@@ -393,6 +394,7 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
 
     private func updateFrom(state: AnkiState) {
         isConnected = state.isConnected
+        hasDeckSelected = !state.selectedDeck.isEmpty
         isLoading = state.isLoading
         isSyncing = state.isSyncing
         isShowingAnswer = state.isShowingAnswer
@@ -510,6 +512,13 @@ public struct FloatingOverlayContentView: View {
                 Text("Loading card...")
                     .font(.system(size: host.config.fontSize - 2))
                     .foregroundColor(.gray)
+            } else if host.hasDeckSelected {
+                Image(systemName: "checkmark.circle")
+                    .font(.system(size: 28))
+                    .foregroundColor(.gray)
+                Text("No cards to study")
+                    .font(.system(size: host.config.fontSize, weight: .medium))
+                    .foregroundColor(textColor)
             } else {
                 Image(systemName: "tray.full")
                     .font(.system(size: 28))

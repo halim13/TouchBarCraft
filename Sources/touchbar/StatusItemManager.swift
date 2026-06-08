@@ -495,7 +495,7 @@ public final class StatusItemManager: NSObject {
                 ankiAnswerMenuItem?.toolTip = nil
             }
         } else {
-            ankiDeckMenuItem?.title = anki.isConnected ? "No card loaded" : "Anki disconnected"
+            ankiDeckMenuItem?.title = anki.isConnected ? (anki.selectedDeck.isEmpty ? "No card loaded" : "No cards to study") : "Anki disconnected"
             ankiDeckMenuItem?.isEnabled = false
             ankiQuestionMenuItem?.title = "Question: —"
             ankiQuestionMenuItem?.isEnabled = false

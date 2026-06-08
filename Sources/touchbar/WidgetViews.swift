@@ -785,14 +785,15 @@ public struct WidgetAnkiView: View {
     
     @ViewBuilder
     private func noCardContent(anki: AnkiState) -> some View {
+        let message = anki.selectedDeck.isEmpty ? "Anki: Select Deck" : "Anki: Done"
         HStack(spacing: 8) {
             if isMediaOnLeft {
-                Text("Anki: Select Deck")
+                Text(message)
                     .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
                 syncButtonContent(anki: anki)
             } else {
                 syncButtonContent(anki: anki)
-                Text("Anki: Select Deck")
+                Text(message)
                     .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
             }
         }
