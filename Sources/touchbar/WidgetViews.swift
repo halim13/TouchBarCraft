@@ -578,7 +578,7 @@ public func parseHTMLTags(in text: String, defaultColor: Color, boldColor: Color
 /// Furigana text (e.g. 私[わたし]) is rendered as ruby text with the reading above the kanji.
 /// Uses VStack with tight spacing so total height fits within Touch Bar constraints.
 @MainActor
-public func parseFuriganaRichText(in text: String, defaultColor: Color, boldColor: Color, fontSize: CGFloat, furiganaFontSize: CGFloat = 0, verticalOffset: CGFloat = 0, textOffset: CGFloat = 0, furiganaColor: Color? = nil) -> some View {
+public func parseFuriganaRichText(in text: String, defaultColor: Color, boldColor: Color, fontSize: CGFloat, furiganaFontSize: CGFloat = 0, verticalOffset: CGFloat = 0, textOffset: CGFloat = 0, furiganaSegmentOffset: CGFloat? = nil, furiganaColor: Color? = nil) -> some View {
     let segments = parseRichSegments(from: text)
     
     // Determine furigana font size — use user-specified size if set, otherwise auto-calculate
@@ -606,16 +606,17 @@ public func parseFuriganaRichText(in text: String, defaultColor: Color, boldColo
                             .fixedSize()
                             .offset(y: -(computedFuriFontSize * 1.2 + verticalOffset))
                     }
+                    .offset(y: furiganaSegmentOffset ?? textOffset)
             } else {
                 Text(item.text)
                     .font(.system(size: fontSize, weight: item.isBold ? .bold : .regular))
                     .foregroundColor(item.isBold ? boldColor : defaultColor)
                     .if(item.isItalic) { $0.italic() }
                     .if(item.isUnderline) { $0.underline() }
+                    .offset(y: textOffset)
             }
         }
     }
-    .offset(y: textOffset)
 }
 
 // MARK: - View extension for conditional modifiers
@@ -875,14 +876,7 @@ public struct WidgetAnkiView: View {
     @ViewBuilder
     private func questionTextContent(anki: AnkiState) -> some View {
         HStack(spacing: 4) {
-            // Card type indicator: always visible before question text
-            // if let card = anki.currentCard, !card.cardTypeLabel.isEmpty {
-            //     Text(card.cardTypeLabel)
-            //         .font(.system(size: isSimulator ? 7 : 8, weight: .bold, design: .monospaced))
-            //         .foregroundColor(Color(hex: card.cardTypeColorHex).opacity(0.9))
-            //         // .underline(true)
-            // }
-            if widget.ankiCombineFurigana {
+            if widget.ankiCombineFurigana && anki.questionPreview.contains("[") && anki.questionPreview.contains("]") {
                 parseFuriganaRichText(
                     in: anki.questionPreview,
                     defaultColor: Color(hex: widget.textColorHex),
@@ -890,11 +884,13 @@ public struct WidgetAnkiView: View {
                     fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize,
                     furiganaFontSize: CGFloat(widget.ankiFuriganaFontSize),
                     verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
-                    textOffset: CGFloat(widget.ankiFuriganaTextOffset)
+                    textOffset: CGFloat(widget.ankiFuriganaSegmentOffset),
+                    furiganaSegmentOffset: CGFloat(widget.ankiFuriganaSegmentOffset)
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 parseBoldTags(in: anki.questionPreview, defaultColor: Color(hex: widget.textColorHex), boldColor: Color(hex: widget.ankiBoldColorHex), fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize)
+                    .offset(y: CGFloat(widget.ankiNonFuriganaSegmentOffset))
                     .if(widget.ankiScrollMode == .none) { $0.lineLimit(1).truncationMode(.tail) }
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -911,7 +907,7 @@ public struct WidgetAnkiView: View {
                     .frame(width: 6, height: 6)
             }
             let textContent: some View = Group {
-                if widget.ankiCombineFurigana {
+                if widget.ankiCombineFurigana && anki.answerPreview.contains("[") && anki.answerPreview.contains("]") {
                     parseFuriganaRichText(
                         in: anki.answerPreview,
                         defaultColor: Color(hex: widget.textColorHex),
@@ -919,10 +915,12 @@ public struct WidgetAnkiView: View {
                         fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize,
                         furiganaFontSize: CGFloat(widget.ankiFuriganaFontSize),
                         verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
-                        textOffset: CGFloat(widget.ankiFuriganaTextOffset)
+                        textOffset: CGFloat(widget.ankiFuriganaSegmentOffset),
+                        furiganaSegmentOffset: CGFloat(widget.ankiFuriganaSegmentOffset)
                     )
                 } else {
                     parseBoldTags(in: anki.answerPreview, defaultColor: Color(hex: widget.textColorHex), boldColor: Color(hex: widget.ankiBoldColorHex), fontSize: isSimulator ? widget.fontSize - 1 : widget.fontSize)
+                        .offset(y: CGFloat(widget.ankiNonFuriganaSegmentOffset))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

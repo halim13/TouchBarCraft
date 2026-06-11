@@ -387,9 +387,8 @@ public final class AppState {
                 ankiCombineFurigana: true,
                 ankiFuriganaFontSize: 8,
                 ankiFuriganaVerticalOffset: -2,
-                ankiFuriganaTextOffset: 3,
-                ankiAnswerTextOffset: 5,
-                ankiQuestionTextOffset: 5,
+                ankiFuriganaSegmentOffset: 3,
+                ankiNonFuriganaSegmentOffset: 5,
                 ankiTapShowsExtra: true
             )
         case .volumeSlider:

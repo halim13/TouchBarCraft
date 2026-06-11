@@ -344,7 +344,7 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
         if let widget = getAnkiWidget() {
             furiganaFontSize = widget.ankiFuriganaFontSize
             furiganaVerticalOffset = widget.ankiFuriganaVerticalOffset
-            furiganaTextOffset = widget.ankiFuriganaTextOffset
+            furiganaTextOffset = widget.ankiFuriganaSegmentOffset
             combineFurigana = widget.ankiCombineFurigana
             boldColorHex = widget.ankiBoldColorHex
             showAgain = widget.ankiShowAgain
@@ -645,10 +645,8 @@ public struct FloatingOverlayContentView: View {
                 }
             }
 
-            // Question in answer phase — strip HTML to plain text for preview
-            Text(stripHTMLForOverlay(host.questionText))
-                .font(.system(size: host.config.fontSize - 4))
-                .foregroundColor(Color(hex: host.config.questionAnswerColorHex).opacity(host.config.textOpacity))
+            // Question in answer phase — with furigana support when enabled
+            questionAnswerPreviewText(host.questionText)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .lineLimit(2)
                 .truncationMode(.tail)
@@ -874,6 +872,58 @@ public struct FloatingOverlayContentView: View {
                         .padding(.top, furiHeight)
                 }
             }
+        }
+    }
+
+    // MARK: - Question Preview in Answer Phase
+
+    @ViewBuilder
+    private func questionAnswerPreviewText(_ text: String) -> some View {
+        let previewFontSize = host.config.fontSize - 4
+        let previewColor = Color(hex: host.config.questionAnswerColorHex).opacity(host.config.textOpacity)
+
+        if host.combineFurigana {
+            let effFuriSize: CGFloat = {
+                if host.config.overlayFuriganaFontSize > 0 {
+                    return CGFloat(host.config.overlayFuriganaFontSize)
+                }
+                return CGFloat(host.furiganaFontSize)
+            }()
+            let renderedFuriSize: CGFloat = effFuriSize > 0
+                ? max(3, effFuriSize)
+                : max(4, previewFontSize * 0.25)
+            let segments = parseRichSegments(from: text)
+            let furiHeight = renderedFuriSize * 1.4 + CGFloat(host.furiganaVerticalOffset)
+
+            WrappingHStack(spacing: 2, lineSpacing: 4) {
+                ForEach(segments) { item in
+                    if let furi = item.furigana {
+                        VStack(spacing: 0) {
+                            Text(furi)
+                                .font(.system(size: renderedFuriSize, weight: .medium))
+                                .foregroundColor(previewColor.opacity(0.65))
+                                .multilineTextAlignment(.center)
+                                .fixedSize()
+                            Text(item.text)
+                                .font(.system(size: previewFontSize, weight: item.isBold ? .bold : .regular))
+                                .foregroundColor(previewColor)
+                                .if(item.isItalic) { $0.italic() }
+                                .if(item.isUnderline) { $0.underline() }
+                        }
+                    } else {
+                        Text(item.text)
+                            .font(.system(size: previewFontSize, weight: item.isBold ? .bold : .regular))
+                            .foregroundColor(previewColor)
+                            .if(item.isItalic) { $0.italic() }
+                            .if(item.isUnderline) { $0.underline() }
+                            .padding(.top, furiHeight)
+                    }
+                }
+            }
+        } else {
+            Text(stripHTMLForOverlay(text))
+                .font(.system(size: previewFontSize))
+                .foregroundColor(previewColor)
         }
     }
 

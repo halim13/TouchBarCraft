@@ -959,9 +959,11 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
             displayText = widget.ankiCombineFurigana ? card.question : stripFuriganaBrackets(card.question)
         }
         
+        let textHasFurigana = displayText.contains("[") && displayText.contains("]")
+        
         let contentView: NSView
         if showExtraQ {
-            if widget.ankiCombineFurigana {
+            if widget.ankiCombineFurigana && textHasFurigana {
                 contentView = buildFuriganaRichLabel(
                     text: displayText,
                     fontSize: CGFloat(widget.fontSize),
@@ -971,23 +973,22 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
                     buttonAction: tapTogglesExtra ? #selector(ankiExtraQuestionTapped(_:)) : nil,
                     manualFuriFontSize: CGFloat(widget.ankiFuriganaFontSize),
                     verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
-                    textVerticalOffset: CGFloat(widget.ankiFuriganaQuestionTextOffset),
-                    ankiTrimText: false
+                    textVerticalOffset: CGFloat(widget.ankiFuriganaSegmentOffset),
+                    ankiTrimText: false,
+                    furiganaSegmentOffset: CGFloat(widget.ankiFuriganaSegmentOffset)
                 )
             } else {
-                let questionTextOffset = CGFloat(widget.ankiQuestionTextOffset)
                 let attributed = parseBoldTags(in: displayText, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
                 contentView = makeLabelContainer(
                     attributedString: attributed,
-                    textVerticalOffset: questionTextOffset,
+                    textVerticalOffset: CGFloat(widget.ankiNonFuriganaSegmentOffset),
                     ankiTrimText: false,
                     addTapGesture: tapTogglesExtra,
                     tapTarget: tapTogglesExtra ? self : nil,
                     tapAction: tapTogglesExtra ? #selector(ankiExtraQuestionTapped(_:)) : nil
                 )
             }
-        } else if widget.ankiCombineFurigana {
-            let furiganaTextOffset = CGFloat(widget.ankiFuriganaQuestionTextOffset)
+        } else if widget.ankiCombineFurigana && textHasFurigana {
             contentView = buildFuriganaRichLabel(
                 text: displayText,
                 fontSize: CGFloat(widget.fontSize),
@@ -997,15 +998,15 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
                 buttonAction: tapTogglesExtra ? #selector(ankiExtraQuestionTapped(_:)) : nil,
                 manualFuriFontSize: CGFloat(widget.ankiFuriganaFontSize),
                 verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
-                textVerticalOffset: furiganaTextOffset,
-                ankiTrimText: false
+                textVerticalOffset: CGFloat(widget.ankiFuriganaSegmentOffset),
+                ankiTrimText: false,
+                furiganaSegmentOffset: CGFloat(widget.ankiFuriganaSegmentOffset)
             )
         } else {
-            let questionTextOffset = CGFloat(widget.ankiQuestionTextOffset)
             let attributed = parseBoldTags(in: displayText, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
             contentView = makeLabelContainer(
                 attributedString: attributed,
-                textVerticalOffset: questionTextOffset,
+                textVerticalOffset: CGFloat(widget.ankiNonFuriganaSegmentOffset),
                 ankiTrimText: false,
                 addTapGesture: tapTogglesExtra,
                 tapTarget: tapTogglesExtra ? self : nil,
@@ -1092,9 +1093,11 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
             displayText = card.answer
         }
         
+        let textHasFurigana = displayText.contains("[") && displayText.contains("]")
+        
         let content: NSView
         if showExtraA {
-            if widget.ankiCombineFurigana {
+            if widget.ankiCombineFurigana && textHasFurigana {
                 content = buildFuriganaRichLabel(
                     text: displayText,
                     fontSize: CGFloat(widget.fontSize),
@@ -1104,22 +1107,22 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
                     buttonAction: #selector(ankiExtraAnswerTapped(_:)),
                     manualFuriFontSize: CGFloat(widget.ankiFuriganaFontSize),
                     verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
-                    textVerticalOffset: CGFloat(widget.ankiFuriganaTextOffset),
-                    ankiTrimText: false
+                    textVerticalOffset: CGFloat(widget.ankiFuriganaSegmentOffset),
+                    ankiTrimText: false,
+                    furiganaSegmentOffset: CGFloat(widget.ankiFuriganaSegmentOffset)
                 )
             } else {
                 let attributed = parseBoldTags(in: displayText, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
                 content = makeLabelContainer(
                     attributedString: attributed,
-                    textVerticalOffset: CGFloat(widget.ankiAnswerTextOffset),
+                    textVerticalOffset: CGFloat(widget.ankiNonFuriganaSegmentOffset),
                     ankiTrimText: false,
                     addTapGesture: true,
                     tapTarget: self,
                     tapAction: #selector(ankiExtraAnswerTapped(_:))
                 )
             }
-        } else if tapIsExtra && widget.ankiCombineFurigana {
-            let textVerticalOffset = CGFloat(widget.ankiFuriganaTextOffset)
+        } else if tapIsExtra && widget.ankiCombineFurigana && textHasFurigana {
             content = buildFuriganaRichLabel(
                 text: displayText,
                 fontSize: CGFloat(widget.fontSize),
@@ -1129,11 +1132,11 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
                 buttonAction: #selector(ankiExtraAnswerTapped(_:)),
                 manualFuriFontSize: CGFloat(widget.ankiFuriganaFontSize),
                 verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
-                textVerticalOffset: textVerticalOffset,
-                ankiTrimText: false
+                textVerticalOffset: CGFloat(widget.ankiFuriganaSegmentOffset),
+                ankiTrimText: false,
+                furiganaSegmentOffset: CGFloat(widget.ankiFuriganaSegmentOffset)
             )
-        } else if widget.ankiCombineFurigana {
-            let textVerticalOffset = CGFloat(widget.ankiFuriganaTextOffset)
+        } else if widget.ankiCombineFurigana && textHasFurigana {
             content = buildFuriganaRichLabel(
                 text: displayText,
                 fontSize: CGFloat(widget.fontSize),
@@ -1143,14 +1146,15 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
                 buttonAction: #selector(ankiTouchBarAudioTapped(_:)),
                 manualFuriFontSize: CGFloat(widget.ankiFuriganaFontSize),
                 verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
-                textVerticalOffset: textVerticalOffset,
-                ankiTrimText: false
+                textVerticalOffset: CGFloat(widget.ankiFuriganaSegmentOffset),
+                ankiTrimText: false,
+                furiganaSegmentOffset: CGFloat(widget.ankiFuriganaSegmentOffset)
             )
         } else {
             let attributed = parseBoldTags(in: displayText, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
             content = makeLabelContainer(
                 attributedString: attributed,
-                textVerticalOffset: CGFloat(widget.ankiAnswerTextOffset),
+                textVerticalOffset: CGFloat(widget.ankiNonFuriganaSegmentOffset),
                 ankiTrimText: false,
                 addTapGesture: true,
                 tapTarget: self,
@@ -1199,7 +1203,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
     /// Build a rich text view with furigana ruby annotations using vertical NSStackView.
     /// Parses both HTML tags (bold/italic/underline) and furigana [furi] patterns.
     /// Uses vertical stacking with zero spacing so furigana sits directly above kanji.
-    private func buildFuriganaRichLabel(text: String, fontSize: CGFloat, textColor: NSColor, boldColor: NSColor, isButton: Bool, buttonAction: Selector? = nil, manualFuriFontSize: CGFloat = 0, verticalOffset: CGFloat = 0, textVerticalOffset: CGFloat = 0, ankiTrimText: Bool = true, furiganaColor: NSColor? = nil) -> NSView {
+    private func buildFuriganaRichLabel(text: String, fontSize: CGFloat, textColor: NSColor, boldColor: NSColor, isButton: Bool, buttonAction: Selector? = nil, manualFuriFontSize: CGFloat = 0, verticalOffset: CGFloat = 0, textVerticalOffset: CGFloat = 0, ankiTrimText: Bool = true, furiganaColor: NSColor? = nil, furiganaSegmentOffset: CGFloat? = nil) -> NSView {
         // First parse HTML tags into styled chunks (same logic as parseBoldTags)
         struct StyledChunk {
             let text: String
@@ -1335,10 +1339,11 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
                     
                     container.addSubview(baseLabel)
                     baseLabel.translatesAutoresizingMaskIntoConstraints = false
+                    let effectiveFuriOffset = furiganaSegmentOffset ?? textVerticalOffset
                     NSLayoutConstraint.activate([
                         baseLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor),
                         baseLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-                        baseLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor, constant: textVerticalOffset)
+                        baseLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor, constant: effectiveFuriOffset)
                     ])
                     
                     let furiLabel = NSTextField(labelWithString: furi)

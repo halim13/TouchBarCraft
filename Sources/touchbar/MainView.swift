@@ -1365,15 +1365,15 @@ struct AnkiConfigView: View {
                         }
                         
                         HStack(spacing: 8) {
-                            Text("Text Offset (Ans):")
+                            Text("Furi Seg Offset:")
                                 .font(.system(size: 11))
                                 .frame(width: 120, alignment: .leading)
                             
                             TextField("0", text: Binding(
-                                get: { String(format: "%.0f", widget.ankiFuriganaTextOffset) },
+                                get: { String(format: "%.0f", widget.ankiFuriganaSegmentOffset) },
                                 set: { val in
                                     if let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)) {
-                                        state.widgets[index].ankiFuriganaTextOffset = max(0, num)
+                                        state.widgets[index].ankiFuriganaSegmentOffset = num
                                         state.saveConfig()
                                         state.ankiState.refreshTouchBar()
                                     }
@@ -1388,15 +1388,15 @@ struct AnkiConfigView: View {
                         }
                         
                         HStack(spacing: 8) {
-                            Text("Text Offset (Q):")
+                            Text("Text Offset:")
                                 .font(.system(size: 11))
                                 .frame(width: 120, alignment: .leading)
                             
                             TextField("0", text: Binding(
-                                get: { String(format: "%.0f", widget.ankiFuriganaQuestionTextOffset) },
+                                get: { String(format: "%.0f", widget.ankiNonFuriganaSegmentOffset) },
                                 set: { val in
                                     if let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)) {
-                                        state.widgets[index].ankiFuriganaQuestionTextOffset = max(0, num)
+                                        state.widgets[index].ankiNonFuriganaSegmentOffset = num
                                         state.saveConfig()
                                         state.ankiState.refreshTouchBar()
                                     }
@@ -1435,52 +1435,18 @@ struct AnkiConfigView: View {
                             .buttonStyle(.plain)
                             .disabled(widget.ankiFuriganaVerticalOffset == 0)
                             
-                            Button(action: {
-                                state.widgets[index].ankiFuriganaTextOffset = 0
-                                state.saveConfig()
-                                state.ankiState.refreshTouchBar()
-                            }) {
-                                Text("Reset Text Offset")
-                                    .font(.system(size: 9))
-                                    .foregroundColor(widget.ankiFuriganaTextOffset == 0 ? .gray : .orange)
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(widget.ankiFuriganaTextOffset == 0)
                         }
                     } else {
                         HStack(spacing: 8) {
-                            Text("Question Text Offset:")
+                            Text("Text Offset:")
                                 .font(.system(size: 11))
                                 .frame(width: 120, alignment: .leading)
                             
                             TextField("0", text: Binding(
-                                get: { String(format: "%.0f", widget.ankiQuestionTextOffset) },
+                                get: { String(format: "%.0f", widget.ankiNonFuriganaSegmentOffset) },
                                 set: { val in
                                     if let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)) {
-                                        state.widgets[index].ankiQuestionTextOffset = num
-                                        state.saveConfig()
-                                        state.ankiState.refreshTouchBar()
-                                    }
-                                }
-                            ))
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 80)
-                            
-                            Text("pt")
-                                .font(.system(size: 10))
-                                .foregroundColor(.gray)
-                        }
-                        
-                        HStack(spacing: 8) {
-                            Text("Answer Text Offset:")
-                                .font(.system(size: 11))
-                                .frame(width: 120, alignment: .leading)
-                            
-                            TextField("0", text: Binding(
-                                get: { String(format: "%.0f", widget.ankiAnswerTextOffset) },
-                                set: { val in
-                                    if let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)) {
-                                        state.widgets[index].ankiAnswerTextOffset = num
+                                        state.widgets[index].ankiNonFuriganaSegmentOffset = num
                                         state.saveConfig()
                                         state.ankiState.refreshTouchBar()
                                     }

@@ -161,17 +161,14 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     // Anki furigana vertical offset adjustment (pt). Positive = move up, negative = move down.
     public var ankiFuriganaVerticalOffset: Double
 
-    // Anki furigana text vertical offset adjustment (pt). Positive = move text down (gives more room for furigana above).
-    public var ankiFuriganaTextOffset: Double
+    // Anki offset for base text in segments that have furigana, in furigana mode.
+    // Applies to both question and answer.
+    public var ankiFuriganaSegmentOffset: Double
 
-    // Anki furigana question text offset for Touch Bar (pt). Separate from ankiFuriganaTextOffset.
-    public var ankiFuriganaQuestionTextOffset: Double
-
-    // Anki answer text vertical offset when furigana is disabled (pt). Separate from ankiFuriganaTextOffset.
-    public var ankiAnswerTextOffset: Double
-    
-    // Anki question text vertical offset for physical Touch Bar (pt). Positive = move text down, negative = move up.
-    public var ankiQuestionTextOffset: Double
+    // Anki offset for base text in segments that don't have furigana.
+    // Used in both furigana mode (non-furigana segments) and non-furigana mode (all text).
+    // Applies to both question and answer.
+    public var ankiNonFuriganaSegmentOffset: Double
     
     // Anki audio play only after answer is revealed
     public var ankiAudioOnlyOnAnswer: Bool
@@ -248,10 +245,8 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         ankiCombineFurigana: Bool = false,
         ankiFuriganaFontSize: Double = 0,
         ankiFuriganaVerticalOffset: Double = 0,
-        ankiFuriganaTextOffset: Double = 0,
-        ankiFuriganaQuestionTextOffset: Double = 0,
-        ankiAnswerTextOffset: Double = 0,
-        ankiQuestionTextOffset: Double = 0,
+        ankiFuriganaSegmentOffset: Double = 0,
+        ankiNonFuriganaSegmentOffset: Double = 0,
         ankiAgainColorHex: String = "#E53333",
         ankiHardColorHex: String = "#E58019",
         ankiGoodColorHex: String = "#19B24C",
@@ -313,10 +308,8 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiCombineFurigana = ankiCombineFurigana
         self.ankiFuriganaFontSize = ankiFuriganaFontSize
         self.ankiFuriganaVerticalOffset = ankiFuriganaVerticalOffset
-        self.ankiFuriganaTextOffset = ankiFuriganaTextOffset
-        self.ankiFuriganaQuestionTextOffset = ankiFuriganaQuestionTextOffset
-        self.ankiAnswerTextOffset = ankiAnswerTextOffset
-        self.ankiQuestionTextOffset = ankiQuestionTextOffset
+        self.ankiFuriganaSegmentOffset = ankiFuriganaSegmentOffset
+        self.ankiNonFuriganaSegmentOffset = ankiNonFuriganaSegmentOffset
         self.ankiAgainColorHex = ankiAgainColorHex
         self.ankiHardColorHex = ankiHardColorHex
         self.ankiGoodColorHex = ankiGoodColorHex
@@ -348,10 +341,8 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         case ankiCombineFurigana
         case ankiFuriganaFontSize
         case ankiFuriganaVerticalOffset
-        case ankiFuriganaTextOffset
-        case ankiFuriganaQuestionTextOffset
-        case ankiAnswerTextOffset
-        case ankiQuestionTextOffset
+        case ankiFuriganaSegmentOffset
+        case ankiNonFuriganaSegmentOffset
         case ankiAgainColorHex
         case ankiHardColorHex
         case ankiGoodColorHex
@@ -421,10 +412,8 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiCombineFurigana = try container.decodeIfPresent(Bool.self, forKey: .ankiCombineFurigana) ?? false
         self.ankiFuriganaFontSize = try container.decodeIfPresent(Double.self, forKey: .ankiFuriganaFontSize) ?? 0
         self.ankiFuriganaVerticalOffset = try container.decodeIfPresent(Double.self, forKey: .ankiFuriganaVerticalOffset) ?? 0
-        self.ankiFuriganaTextOffset = try container.decodeIfPresent(Double.self, forKey: .ankiFuriganaTextOffset) ?? 0
-        self.ankiFuriganaQuestionTextOffset = try container.decodeIfPresent(Double.self, forKey: .ankiFuriganaQuestionTextOffset) ?? 0
-        self.ankiAnswerTextOffset = try container.decodeIfPresent(Double.self, forKey: .ankiAnswerTextOffset) ?? 0
-        self.ankiQuestionTextOffset = try container.decodeIfPresent(Double.self, forKey: .ankiQuestionTextOffset) ?? 0
+        self.ankiFuriganaSegmentOffset = try container.decodeIfPresent(Double.self, forKey: .ankiFuriganaSegmentOffset) ?? 0
+        self.ankiNonFuriganaSegmentOffset = try container.decodeIfPresent(Double.self, forKey: .ankiNonFuriganaSegmentOffset) ?? 0
         self.ankiAgainColorHex = try container.decodeIfPresent(String.self, forKey: .ankiAgainColorHex) ?? "#E53333"
         self.ankiHardColorHex = try container.decodeIfPresent(String.self, forKey: .ankiHardColorHex) ?? "#E58019"
         self.ankiGoodColorHex = try container.decodeIfPresent(String.self, forKey: .ankiGoodColorHex) ?? "#19B24C"
