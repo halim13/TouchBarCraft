@@ -961,16 +961,31 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         
         let contentView: NSView
         if showExtraQ {
-            let questionTextOffset = CGFloat(widget.ankiQuestionTextOffset)
-            let attributed = parseBoldTags(in: displayText, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
-            contentView = makeLabelContainer(
-                attributedString: attributed,
-                textVerticalOffset: questionTextOffset,
-                ankiTrimText: false,
-                addTapGesture: tapTogglesExtra,
-                tapTarget: tapTogglesExtra ? self : nil,
-                tapAction: tapTogglesExtra ? #selector(ankiExtraQuestionTapped(_:)) : nil
-            )
+            if widget.ankiCombineFurigana {
+                contentView = buildFuriganaRichLabel(
+                    text: displayText,
+                    fontSize: CGFloat(widget.fontSize),
+                    textColor: textColor,
+                    boldColor: boldColor,
+                    isButton: tapTogglesExtra,
+                    buttonAction: tapTogglesExtra ? #selector(ankiExtraQuestionTapped(_:)) : nil,
+                    manualFuriFontSize: CGFloat(widget.ankiFuriganaFontSize),
+                    verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
+                    textVerticalOffset: CGFloat(widget.ankiFuriganaQuestionTextOffset),
+                    ankiTrimText: false
+                )
+            } else {
+                let questionTextOffset = CGFloat(widget.ankiQuestionTextOffset)
+                let attributed = parseBoldTags(in: displayText, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
+                contentView = makeLabelContainer(
+                    attributedString: attributed,
+                    textVerticalOffset: questionTextOffset,
+                    ankiTrimText: false,
+                    addTapGesture: tapTogglesExtra,
+                    tapTarget: tapTogglesExtra ? self : nil,
+                    tapAction: tapTogglesExtra ? #selector(ankiExtraQuestionTapped(_:)) : nil
+                )
+            }
         } else if widget.ankiCombineFurigana {
             let furiganaTextOffset = CGFloat(widget.ankiFuriganaQuestionTextOffset)
             contentView = buildFuriganaRichLabel(
@@ -1079,15 +1094,30 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         
         let content: NSView
         if showExtraA {
-            let attributed = parseBoldTags(in: displayText, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
-            content = makeLabelContainer(
-                attributedString: attributed,
-                textVerticalOffset: CGFloat(widget.ankiAnswerTextOffset),
-                ankiTrimText: false,
-                addTapGesture: true,
-                tapTarget: self,
-                tapAction: #selector(ankiExtraAnswerTapped(_:))
-            )
+            if widget.ankiCombineFurigana {
+                content = buildFuriganaRichLabel(
+                    text: displayText,
+                    fontSize: CGFloat(widget.fontSize),
+                    textColor: textColor,
+                    boldColor: boldColor,
+                    isButton: true,
+                    buttonAction: #selector(ankiExtraAnswerTapped(_:)),
+                    manualFuriFontSize: CGFloat(widget.ankiFuriganaFontSize),
+                    verticalOffset: CGFloat(widget.ankiFuriganaVerticalOffset),
+                    textVerticalOffset: CGFloat(widget.ankiFuriganaTextOffset),
+                    ankiTrimText: false
+                )
+            } else {
+                let attributed = parseBoldTags(in: displayText, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
+                content = makeLabelContainer(
+                    attributedString: attributed,
+                    textVerticalOffset: CGFloat(widget.ankiAnswerTextOffset),
+                    ankiTrimText: false,
+                    addTapGesture: true,
+                    tapTarget: self,
+                    tapAction: #selector(ankiExtraAnswerTapped(_:))
+                )
+            }
         } else if tapIsExtra && widget.ankiCombineFurigana {
             let textVerticalOffset = CGFloat(widget.ankiFuriganaTextOffset)
             content = buildFuriganaRichLabel(

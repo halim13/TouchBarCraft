@@ -803,14 +803,78 @@ public struct FloatingOverlayContentView: View {
 
     // MARK: - Extra Field Text (HTML-aware)
 
+    /// Strip all HTML tags except bold/italic/underline, and decode HTML entities
+    private func stripUnknownHTMLTags(_ html: String) -> String {
+        var text = html
+        // Strip all tags except <b>, <strong>, <i>, <em>, <u> and their closing variants
+        text = text.replacingOccurrences(of: "<(?!/?(b|strong|i|em|u)\\b)[^>]+>", with: "", options: .regularExpression)
+        // Decode common HTML entities
+        text = text.replacingOccurrences(of: "&nbsp;", with: " ")
+        text = text.replacingOccurrences(of: "&amp;", with: "&")
+        text = text.replacingOccurrences(of: "&lt;", with: "<")
+        text = text.replacingOccurrences(of: "&gt;", with: ">")
+        text = text.replacingOccurrences(of: "&quot;", with: "\"")
+        text = text.replacingOccurrences(of: "&#39;", with: "'")
+        // Collapse multiple whitespace
+        text = text.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     @ViewBuilder
     private func extraFieldText(_ text: String) -> some View {
-        parseHTMLTags(
-            in: text,
-            defaultColor: Color(hex: host.config.extraFieldColorHex).opacity(host.config.textOpacity),
-            boldColor: Color(hex: host.config.extraFieldColorHex).opacity(host.config.textOpacity),
-            fontSize: extraFieldFontSize()
-        )
+        let cleanedText = stripUnknownHTMLTags(text)
+        if host.combineFurigana {
+            extraFieldFuriganaText(cleanedText)
+        } else {
+            parseHTMLTags(
+                in: cleanedText,
+                defaultColor: Color(hex: host.config.extraFieldColorHex).opacity(host.config.textOpacity),
+                boldColor: Color(hex: host.config.extraFieldColorHex).opacity(host.config.textOpacity),
+                fontSize: extraFieldFontSize()
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func extraFieldFuriganaText(_ text: String) -> some View {
+        let segments = parseRichSegments(from: text)
+        let effFuriSize: CGFloat = {
+            if host.config.overlayFuriganaFontSize > 0 {
+                return CGFloat(host.config.overlayFuriganaFontSize)
+            }
+            return CGFloat(host.furiganaFontSize)
+        }()
+        let renderedFuriSize: CGFloat = effFuriSize > 0
+            ? max(3, effFuriSize)
+            : max(4, extraFieldFontSize() * 0.25)
+        let furiHeight = renderedFuriSize * 1.4 + CGFloat(host.furiganaVerticalOffset)
+        let extraColor = Color(hex: host.config.extraFieldColorHex).opacity(host.config.textOpacity)
+
+        WrappingHStack(spacing: 2, lineSpacing: 4) {
+            ForEach(segments) { item in
+                if let furi = item.furigana {
+                    VStack(spacing: 0) {
+                        Text(furi)
+                            .font(.system(size: renderedFuriSize, weight: .medium))
+                            .foregroundColor(extraColor.opacity(0.65))
+                            .multilineTextAlignment(.center)
+                            .fixedSize()
+                        Text(item.text)
+                            .font(.system(size: extraFieldFontSize(), weight: item.isBold ? .bold : .regular))
+                            .foregroundColor(extraColor)
+                            .if(item.isItalic) { $0.italic() }
+                            .if(item.isUnderline) { $0.underline() }
+                    }
+                } else {
+                    Text(item.text)
+                        .font(.system(size: extraFieldFontSize(), weight: item.isBold ? .bold : .regular))
+                        .foregroundColor(extraColor)
+                        .if(item.isItalic) { $0.italic() }
+                        .if(item.isUnderline) { $0.underline() }
+                        .padding(.top, furiHeight)
+                }
+            }
+        }
     }
 
     // MARK: - Card Content Text
@@ -853,7 +917,9 @@ public struct FloatingOverlayContentView: View {
                     VStack(spacing: 0) {
                         Text(furi)
                             .font(.system(size: renderedFuriSize, weight: .medium))
-                            .foregroundColor(Color(hex: host.boldColorHex).opacity(0.65 * host.config.textOpacity))
+                            .foregroundColor(item.isBold
+                                ? Color(hex: host.boldColorHex).opacity(0.65 * host.config.textOpacity)
+                                : textColor.opacity(0.65))
                             .multilineTextAlignment(.center)
                             .fixedSize()
                         Text(item.text)

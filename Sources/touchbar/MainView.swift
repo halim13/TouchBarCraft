@@ -2810,7 +2810,10 @@ struct ActionConfigurationView: View {
     @Binding var actionType: ActionType
     @Binding var actionValue: String
     let soundPresets: [String]
-    
+
+    @State private var editorText: String = ""
+    @FocusState private var isFocused: Bool
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Picker(title, selection: $actionType) {
@@ -2819,20 +2822,29 @@ struct ActionConfigurationView: View {
                 }
             }
             .pickerStyle(.menu)
-            
+            .onChange(of: actionType) { _ in
+                editorText = actionValue
+            }
+
             if actionType == .shellCommand || actionType == .appleScript {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(actionType == .shellCommand ? "Shell command to run:" : "AppleScript to run:")
                         .font(.system(size: 10))
                         .foregroundColor(.gray)
-                    
-                    TextEditor(text: $actionValue)
-                    .font(.system(size: 10, design: .monospaced))
-                    .frame(height: 50)
-                    .padding(4)
-                    .background(Color.black.opacity(0.3))
-                    .cornerRadius(4)
-                    
+
+                    TextEditor(text: $editorText)
+                        .focused($isFocused)
+                        .font(.system(size: 10, design: .monospaced))
+                        .frame(height: 50)
+                        .padding(4)
+                        .background(Color.black.opacity(0.3))
+                        .cornerRadius(4)
+                        .onChange(of: isFocused) { focused in
+                            if !focused {
+                                actionValue = editorText
+                            }
+                        }
+
                     Text(actionType == .shellCommand ? "e.g. 'open -a Safari', 'say Done', or a path to a script" : "e.g. 'tell application \"System Events\" to key code 25 using {command down, shift down}'")
                         .font(.system(size: 9))
                         .foregroundColor(.gray)
@@ -2865,6 +2877,9 @@ struct ActionConfigurationView: View {
                     .font(.system(size: 10))
                     .foregroundColor(.gray)
             }
+        }
+        .onAppear {
+            editorText = actionValue
         }
     }
 }
