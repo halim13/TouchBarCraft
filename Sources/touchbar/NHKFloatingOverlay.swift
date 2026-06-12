@@ -6,7 +6,14 @@ import AppKit
 private enum FKC: String {
     case enabled, fontSize, textColorHex, furiganaFontSize, furiganaColorHex
     case windowWidth, windowHeight, windowX, windowY
+    case translationEnabled, translationTargetLanguage, translationShowMode, translationColorHex
     var key: String { "NHKF_\(rawValue)" }
+}
+
+public enum NHKTranslationShowMode: String, CaseIterable, Sendable {
+    case off = "Off"
+    case toggle = "Toggle"
+    case always = "Always"
 }
 
 @MainActor
@@ -40,6 +47,35 @@ public final class NHKFloatingWindowManager: NSObject {
     public var furiganaColorHex: String {
         get { defaults.string(forKey: FKC.furiganaColorHex.key) ?? "#FFD60A" }
         set { defaults.set(newValue, forKey: FKC.furiganaColorHex.key) }
+    }
+
+    // -- Translation --
+    public var translationEnabled: Bool {
+        get { defaults.bool(forKey: FKC.translationEnabled.key) }
+        set { defaults.set(newValue, forKey: FKC.translationEnabled.key) }
+    }
+
+    public var translationTargetLanguage: String {
+        get { defaults.string(forKey: FKC.translationTargetLanguage.key) ?? "en" }
+        set { defaults.set(newValue, forKey: FKC.translationTargetLanguage.key) }
+    }
+
+    public var translationShowMode: NHKTranslationShowMode {
+        get {
+            let raw = defaults.string(forKey: FKC.translationShowMode.key) ?? NHKTranslationShowMode.toggle.rawValue
+            return NHKTranslationShowMode(rawValue: raw) ?? .toggle
+        }
+        set { defaults.set(newValue.rawValue, forKey: FKC.translationShowMode.key) }
+    }
+
+    public var translationColorHex: String {
+        get { defaults.string(forKey: FKC.translationColorHex.key) ?? "#40E0D0" }
+        set { defaults.set(newValue, forKey: FKC.translationColorHex.key) }
+    }
+
+    public var targetLanguage: TranslationLanguage {
+        get { TranslationLanguage.find(by: translationTargetLanguage) }
+        set { translationTargetLanguage = newValue.id }
     }
 
     // -- Window state --
@@ -185,11 +221,19 @@ public final class NHKFloatingOverlayHost: ObservableObject {
     @Published public var articleTitles: [(index: Int, title: String, description: String)] = []
     @Published public var articleURL: URL?
 
+    // Translation
+    @Published public var translatedChunks: [String] = []
+    @Published public var translatedTitle: String = ""
+    @Published public var isTranslating: Bool = false
+    @Published public var showTranslation: Bool = false
+    @Published public var translationError: String = ""
+
     // Rendering config — mirrored from NHKFloatingWindowManager so SwiftUI re-renders on change
     @Published public var fontSize: Double = 16
     @Published public var textColorHex: String = "#FFFFFF"
     @Published public var furiganaFontSize: Double = 0
     @Published public var furiganaColorHex: String = "#FFD60A"
+    @Published public var translationColorHex: String = "#40E0D0"
 
     public var nhkState: NHKNewsState? {
         AppState.shared?.nhkNewsState
@@ -216,6 +260,62 @@ public final class NHKFloatingOverlayHost: ObservableObject {
         textColorHex = mgr.textColorHex
         furiganaFontSize = mgr.furiganaFontSize
         furiganaColorHex = mgr.furiganaColorHex
+        translationColorHex = mgr.translationColorHex
+
+        // Sync translation state
+        if mgr.translationEnabled && mgr.translationShowMode == .always {
+            showTranslation = true
+            Task { await translateCurrentContent() }
+        } else if !mgr.translationEnabled {
+            showTranslation = false
+            translatedChunks = []
+            translatedTitle = ""
+        }
+    }
+
+    @MainActor
+    public func toggleTranslation() {
+        let mgr = NHKFloatingWindowManager.shared
+        guard mgr.translationEnabled else { return }
+        showTranslation.toggle()
+        if showTranslation {
+            Task { await translateCurrentContent() }
+        }
+    }
+
+    @MainActor
+    public func translateCurrentContent() async {
+        guard nhkState != nil else { return }
+        let mgr = NHKFloatingWindowManager.shared
+        let targetLang = mgr.translationTargetLanguage
+        guard targetLang != "ja" else {
+            showTranslation = false
+            return
+        }
+
+        isTranslating = true
+        translationError = ""
+
+        do {
+            // Translate title
+            if !title.isEmpty {
+                translatedTitle = try await TranslationService.shared.translate(title, target: targetLang)
+            }
+
+            // Translate visible chunks
+            let visibleChunks = chunks
+            var translated: [String] = []
+            for chunk in visibleChunks {
+                let t = try await TranslationService.shared.translate(chunk, target: targetLang)
+                translated.append(t)
+            }
+            translatedChunks = translated
+        } catch {
+            translationError = error.localizedDescription
+            translatedChunks = chunks
+            translatedTitle = title
+        }
+        isTranslating = false
     }
 
     private func isFooterChunk(_ chunk: String) -> Bool {
@@ -254,6 +354,7 @@ public struct NHKFloatingContentView: View {
         return s > 0 ? max(4, CGFloat(s)) : 0
     }
     private var furiColor: Color { Color(hex: host.furiganaColorHex) }
+    private var tColor: Color { Color(hex: host.translationColorHex) }
 
     public var body: some View {
         VStack(spacing: 0) {
@@ -283,14 +384,24 @@ public struct NHKFloatingContentView: View {
     @ViewBuilder
     private var headerView: some View {
         if host.isReadingMode, !host.title.isEmpty {
-            Text(host.title)
-                .font(.system(size: fSize + 2, weight: .bold))
-                .foregroundColor(fColor)
-                .lineLimit(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 6)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(host.title)
+                    .font(.system(size: fSize + 2, weight: .bold))
+                    .foregroundColor(fColor)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                if host.showTranslation, !host.translatedTitle.isEmpty, host.translatedTitle != host.title {
+                    Text(host.translatedTitle)
+                        .font(.system(size: fSize, weight: .semibold))
+                        .foregroundColor(tColor)
+                        .lineLimit(2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 6)
 
             Divider().background(Color.white.opacity(0.15))
         }
@@ -315,6 +426,21 @@ public struct NHKFloatingContentView: View {
             .foregroundColor(fColor.opacity(0.7))
 
             Spacer()
+
+            if NHKFloatingWindowManager.shared.translationEnabled {
+                Button(action: { host.toggleTranslation() }) {
+                    Image(systemName: host.showTranslation ? "translate" : "character.bubble")
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(host.showTranslation ? tColor : fColor.opacity(0.7))
+                .help(host.showTranslation ? "Show Original" : "Translate")
+
+                if host.isTranslating {
+                    ProgressView()
+                        .scaleEffect(0.5)
+                        .frame(width: 14, height: 14)
+                }
+            }
 
             if host.isAudioAvailable {
                 Button(action: { host.playPauseAudio() }) {
@@ -409,7 +535,35 @@ public struct NHKFloatingContentView: View {
         } else {
             VStack(alignment: .leading, spacing: 14) {
                 ForEach(Array(host.chunks.enumerated()), id: \.offset) { idx, chunk in
-                    chunkRow(idx: idx, chunk: chunk)
+                    VStack(alignment: .leading, spacing: 4) {
+                        chunkRow(idx: idx, chunk: chunk)
+                        if host.showTranslation, idx < host.translatedChunks.count {
+                            let translated = host.translatedChunks[idx]
+                            if !translated.isEmpty {
+                                Divider().background(tColor.opacity(0.3))
+                                Text(translated)
+                                    .font(.system(size: fSize))
+                                    .foregroundColor(tColor)
+                                    .opacity(0.9)
+                            }
+                        }
+                    }
+                }
+                if host.isTranslating {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .scaleEffect(0.6)
+                        Text("Translating...")
+                            .font(.system(size: 11))
+                            .foregroundColor(.gray)
+                    }
+                    .padding(.top, 4)
+                }
+                if !host.translationError.isEmpty {
+                    Text(host.translationError)
+                        .font(.system(size: 10))
+                        .foregroundColor(.orange)
+                        .padding(.top, 2)
                 }
             }
             .padding(16)

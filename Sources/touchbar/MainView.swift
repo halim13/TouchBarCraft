@@ -2353,6 +2353,11 @@ struct NHKNewsConfigView: View {
     let widget: TouchBarWidget
     let index: Int
     let state: AppState
+
+    @AppStorage("NHKF_translationEnabled") private var translationEnabled = false
+    @AppStorage("NHKF_translationTargetLanguage") private var translationTargetLanguage = "en"
+    @AppStorage("NHKF_translationShowMode") private var translationShowModeRaw = NHKTranslationShowMode.toggle.rawValue
+    @AppStorage("NHKF_translationColorHex") private var translationColorHex = "#40E0D0"
     
     var body: some View {
         let nhk = state.nhkNewsState
@@ -2579,6 +2584,94 @@ struct NHKNewsConfigView: View {
                     ))
                 }
             }
+
+            Divider()
+
+            // MARK: - Translation Settings
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Translation")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.teal)
+
+                Toggle("Enable Translation", isOn: $translationEnabled)
+                    .toggleStyle(.switch)
+                    .font(.system(size: 11))
+                    .onChange(of: translationEnabled) { _, _ in
+                        if !translationEnabled {
+                            translationShowModeRaw = NHKTranslationShowMode.toggle.rawValue
+                        }
+                        NHKFloatingWindowManager.shared.refreshContent()
+                    }
+
+                if translationEnabled {
+                    HStack(spacing: 8) {
+                        Text("Target Language:")
+                            .font(.system(size: 11))
+                            .frame(width: 110, alignment: .leading)
+
+                        Picker("", selection: $translationTargetLanguage) {
+                            ForEach(TranslationLanguage.supported.filter { $0.id != "ja" }) { lang in
+                                HStack {
+                                    Text(lang.nativeName)
+                                    Text("(\(lang.displayName))")
+                                        .foregroundColor(.gray)
+                                }.tag(lang.id)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .frame(maxWidth: 200)
+                        .onChange(of: translationTargetLanguage) { _, _ in
+                            NHKFloatingWindowManager.shared.refreshContent()
+                        }
+                    }
+
+                    Picker("Show Translation:", selection: Binding(
+                        get: { NHKTranslationShowMode(rawValue: translationShowModeRaw) ?? .toggle },
+                        set: { translationShowModeRaw = $0.rawValue }
+                    )) {
+                        ForEach(NHKTranslationShowMode.allCases, id: \.self) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .font(.system(size: 10))
+                    .onChange(of: translationShowModeRaw) { _, _ in
+                        NHKFloatingWindowManager.shared.refreshContent()
+                    }
+
+                    HStack(spacing: 8) {
+                        Text("Translation Color:")
+                            .font(.system(size: 11))
+                            .frame(width: 110, alignment: .leading)
+
+                        TextField("#HEX", text: $translationColorHex)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 90)
+                            .onChange(of: translationColorHex) { _, _ in
+                                NHKFloatingWindowManager.shared.refreshContent()
+                            }
+
+                        ColorPicker("", selection: Binding(
+                            get: { Color(hex: translationColorHex) },
+                            set: { color in
+                                if let hex = color.toHex() {
+                                    translationColorHex = hex
+                                    NHKFloatingWindowManager.shared.refreshContent()
+                                }
+                            }
+                        ))
+                    }
+
+                    Text("'Toggle' adds a button to toggle translation. 'Always' shows translation automatically.")
+                        .font(.system(size: 9))
+                        .foregroundColor(.gray)
+                        .italic()
+                }
+            }
+            .padding(12)
+            .background(Color.white.opacity(0.03))
+            .cornerRadius(6)
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.05), lineWidth: 1))
 
             Divider()
 
