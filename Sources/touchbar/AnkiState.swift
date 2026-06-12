@@ -293,7 +293,7 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
             if success {
                 self.connectionError = ""
                 fetchDecks()
-                await loadCurrentCard()
+                startReview(deck: selectedDeck)
             } else {
                 self.connectionError = "Failed to sync with AnkiWeb"
                 refreshTouchBar()
