@@ -4,6 +4,7 @@ import Observation
 import AppKit
 import AVFoundation
 
+
 @Observable
 @MainActor
 public final class AnkiState: NSObject, AVAudioPlayerDelegate {
@@ -411,13 +412,11 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
     public func playTouchBarAudio() {
         guard !isMuted, let card = currentCard, let filename = card.touchBarSoundFilename else { return }
         
-        // If audioOnlyOnAnswer is active and answer is not yet shown, don't play
         if let widget = getActiveAnkiWidget(), widget.ankiAudioOnlyOnAnswer, !isShowingAnswer {
             print("AnkiState: Touch Bar audio ditahan karena answer belum direveal (audioOnlyOnAnswer aktif)")
             return
         }
         
-        // Stop currently playing sound if any
         currentTouchBarSound?.stop()
         currentTouchBarSound = nil
         isTouchBarAudioPlaying = false
@@ -427,17 +426,10 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
                 let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
                 do {
                     try data.write(to: tempURL)
-                    
                     await MainActor.run {
-                        do {
-                            let sound = try AVAudioPlayer(contentsOf: tempURL)
-                            sound.delegate = self
-                            self.currentTouchBarSound = sound
+                        if let player = self.prepareAudioPlayer(from: tempURL) {
+                            self.currentTouchBarSound = player
                             self.isTouchBarAudioPlaying = true
-                            sound.play()
-                            // self.refreshTouchBar()
-                        } catch {
-                            print("AnkiState: Failed to play Touch Bar audio using AVAudioPlayer: \(error)")
                         }
                     }
                 } catch {
@@ -450,13 +442,11 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
     public func playAudio() {
         guard !isMuted, let card = currentCard, let filename = card.soundFilename else { return }
         
-        // If audioOnlyOnAnswer is active and answer is not yet shown, don't play
         if let widget = getActiveAnkiWidget(), widget.ankiAudioOnlyOnAnswer, !isShowingAnswer {
             print("AnkiState: Audio ditahan karena answer belum direveal (audioOnlyOnAnswer aktif)")
             return
         }
         
-        // Stop currently playing sound if any
         currentSound?.stop()
         currentSound = nil
         isAudioPlaying = false
@@ -466,17 +456,10 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
                 let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
                 do {
                     try data.write(to: tempURL)
-                    
                     await MainActor.run {
-                        do {
-                            let sound = try AVAudioPlayer(contentsOf: tempURL)
-                            sound.delegate = self
-                            self.currentSound = sound
+                        if let player = self.prepareAudioPlayer(from: tempURL) {
+                            self.currentSound = player
                             self.isAudioPlaying = true
-                            sound.play()
-                            // self.refreshTouchBar()
-                        } catch {
-                            print("AnkiState: Failed to play audio using AVAudioPlayer: \(error)")
                         }
                     }
                 } catch {
@@ -486,8 +469,125 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
         }
     }
     
+    /// Try to create an AVAudioPlayer for the given file. Attempts direct playback
+    /// first. If that fails (unsupported format like OGG Vorbis), tries:
+    ///   1. AVAudioFile-based conversion to WAV
+    ///   2. ffmpeg-based conversion to WAV (if ffmpeg is installed)
+    private func prepareAudioPlayer(from url: URL) -> AVAudioPlayer? {
+        if let player = try? AVAudioPlayer(contentsOf: url) {
+            player.delegate = self
+            if player.play() {
+                return player
+            }
+            print("AnkiState: AVAudioPlayer.play() returned false, attempting conversion")
+        }
+
+        let wavURL: URL
+        if let converted = convertViaAVAudioFile(from: url) {
+            wavURL = converted
+        } else if let converted = convertViaFFmpeg(from: url) {
+            wavURL = converted
+        } else {
+            print("AnkiState: Format audio tidak didukung. Coba konversi file ke MP3 atau WAV.")
+            return nil
+        }
+
+        guard let convertedPlayer = try? AVAudioPlayer(contentsOf: wavURL) else {
+            print("AnkiState: Gagal memuat hasil konversi audio")
+            try? FileManager.default.removeItem(at: wavURL)
+            return nil
+        }
+        convertedPlayer.delegate = self
+        guard convertedPlayer.play() else {
+            print("AnkiState: Gagal memainkan hasil konversi audio")
+            try? FileManager.default.removeItem(at: wavURL)
+            return nil
+        }
+        return convertedPlayer
+    }
+
+    /// Convert audio to WAV using AVAudioFile (works for formats supported by AudioToolbox).
+    private func convertViaAVAudioFile(from url: URL) -> URL? {
+        guard let sourceFile = try? AVAudioFile(forReading: url) else {
+            return nil
+        }
+        guard sourceFile.length > 0 else {
+            print("AnkiState: AVAudioFile membaca 0 frame (format tidak didukung oleh system)")
+            return nil
+        }
+
+        let wavURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + ".wav")
+
+        guard let wavFile = try? AVAudioFile(
+            forWriting: wavURL,
+            settings: sourceFile.processingFormat.settings
+        ) else {
+            print("AnkiState: Gagal membuat file WAV sementara")
+            return nil
+        }
+
+        let capacity = AVAudioFrameCount(sourceFile.length)
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: sourceFile.processingFormat, frameCapacity: capacity) else {
+            print("AnkiState: Gagal mengalokasi buffer audio")
+            try? FileManager.default.removeItem(at: wavURL)
+            return nil
+        }
+
+        do {
+            try sourceFile.read(into: buffer)
+            try wavFile.write(from: buffer)
+        } catch {
+            print("AnkiState: Gagal mengkonversi audio via AVAudioFile: \(error)")
+            try? FileManager.default.removeItem(at: wavURL)
+            return nil
+        }
+        return wavURL
+    }
+
+    /// Convert audio to WAV using ffmpeg (handles OGG Vorbis and many other formats).
+    private func convertViaFFmpeg(from url: URL) -> URL? {
+        let ffmpegPaths = [
+            "/opt/homebrew/bin/ffmpeg",
+            "/usr/local/bin/ffmpeg",
+            "/usr/bin/ffmpeg",
+        ]
+        guard let ffmpegPath = ffmpegPaths.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) else {
+            print("AnkiState: ffmpeg tidak ditemukan. Install dengan: brew install ffmpeg")
+            return nil
+        }
+
+        let wavURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + ".wav")
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: ffmpegPath)
+        process.arguments = [
+            "-y",
+            "-i", url.path,
+            "-acodec", "pcm_s16le",
+            "-ar", "44100",
+            "-ac", "2",
+            wavURL.path,
+        ]
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+            guard process.terminationStatus == 0 else {
+                print("AnkiState: ffmpeg gagal dengan status \(process.terminationStatus)")
+                try? FileManager.default.removeItem(at: wavURL)
+                return nil
+            }
+            return wavURL
+        } catch {
+            print("AnkiState: Gagal menjalankan ffmpeg: \(error)")
+            try? FileManager.default.removeItem(at: wavURL)
+            return nil
+        }
+    }
+
     nonisolated public func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        // Use ObjectIdentifier to safely compare player identity across actor boundaries
         let playerId = ObjectIdentifier(player)
         Task { @MainActor in
             if let tbSound = self.currentTouchBarSound, ObjectIdentifier(tbSound) == playerId {
@@ -497,7 +597,6 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
                 self.isAudioPlaying = false
                 self.currentSound = nil
             }
-            // self.refreshTouchBar()
         }
     }
 }
