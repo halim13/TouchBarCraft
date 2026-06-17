@@ -59,14 +59,26 @@ public struct AnkiDeckSettings: Codable, Hashable, Sendable {
     public var touchBarAudioField: String
     public var extraQuestionField: String
     public var extraAnswerField: String
+    public var overlayQuestionField: String
+    public var overlayAnswerField: String
+    public var overlayAudioField: String
+    public var overlayExtraQuestionField: String
+    public var overlayExtraAnswerField: String
+    public var overlayBoldColorHex: String
     
-    public init(questionField: String, answerField: String, audioField: String, touchBarAudioField: String = "Audio", extraQuestionField: String = "", extraAnswerField: String = "") {
+    public init(questionField: String, answerField: String, audioField: String, touchBarAudioField: String = "Audio", extraQuestionField: String = "", extraAnswerField: String = "", overlayQuestionField: String = "", overlayAnswerField: String = "", overlayAudioField: String = "", overlayExtraQuestionField: String = "", overlayExtraAnswerField: String = "", overlayBoldColorHex: String = "") {
         self.questionField = questionField
         self.answerField = answerField
         self.audioField = audioField
         self.touchBarAudioField = touchBarAudioField
         self.extraQuestionField = extraQuestionField
         self.extraAnswerField = extraAnswerField
+        self.overlayQuestionField = overlayQuestionField
+        self.overlayAnswerField = overlayAnswerField
+        self.overlayAudioField = overlayAudioField
+        self.overlayExtraQuestionField = overlayExtraQuestionField
+        self.overlayExtraAnswerField = overlayExtraAnswerField
+        self.overlayBoldColorHex = overlayBoldColorHex
     }
 }
 

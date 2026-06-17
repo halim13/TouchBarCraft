@@ -873,43 +873,17 @@ struct AnkiConfigView: View {
     let state: AppState
     @AppStorage("AnkiTouchBar.isMediaOnLeft") private var isMediaOnLeft: Bool = false
     
+    @State private var touchBarExpanded: Bool = true
+    @State private var overlayExpanded: Bool = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Custom Width
-            HStack(spacing: 8) {
-                Text("Custom Width:")
-                    .font(.system(size: 11))
-                    .frame(width: 95, alignment: .leading)
-                
-                TextField("0 = auto", text: Binding(
-                    get: { String(Int(widget.customWidth)) },
-                    set: { val in
-                        if let num = Double(val.filter { $0.isNumber }) {
-                            state.widgets[index].customWidth = num
-                            state.saveConfig()
-                        }
-                    }
-                ))
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 80)
-                
-                Text("px")
-                    .font(.system(size: 11))
-                    .foregroundColor(.gray)
-            }
-            
-            Toggle("Hide from Touch Bar (keep keyboard & floating window)", isOn: Binding(
-                get: { widget.hideFromTouchBar },
-                set: { state.widgets[index].hideFromTouchBar = $0; state.saveConfig() }
-            ))
-            .toggleStyle(.switch)
-            .font(.system(size: 11))
-
-            Divider()
+            // ── Connection & Deck ──────────────────────────────────────
+            groupHeader(icon: "antenna.radiowaves.left.and.right", title: "Connection & Deck", color: .blue)
 
             HStack {
-                Text("Connection Status:")
-                    .font(.system(size: 11, weight: .bold))
+                Text("Status:")
+                    .font(.system(size: 11))
                 Spacer()
                 if state.ankiState.isConnected {
                     Text("Connected")
@@ -929,12 +903,12 @@ struct AnkiConfigView: View {
                         .cornerRadius(4)
                 }
             }
-            
+
             if !state.ankiState.isConnected {
                 Text("Ensure Anki is open and AnkiConnect add-on is installed.")
                     .font(.system(size: 10))
                     .foregroundColor(.orange)
-                
+
                 Button("Reconnect") {
                     state.ankiState.checkConnection()
                     state.ankiState.fetchDecks()
@@ -942,17 +916,12 @@ struct AnkiConfigView: View {
                 .buttonStyle(.bordered)
                 .controlSize(.small)
             } else {
-                // Deck Selection
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Deck Selection")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.gray)
-                    
-                    Picker("Deck Name:", selection: Binding(
+                    Picker("Deck:", selection: Binding(
                         get: { state.widgets[index].ankiDeckName },
                         set: { deck in
-                            // Save current field values for the old deck before switching
                             let oldDeck = state.widgets[index].ankiDeckName
+                            let overlayConfig = AnkiFloatingOverlayManager.shared.config
                             if !oldDeck.isEmpty {
                                 state.widgets[index].ankiDeckSettings[oldDeck] = AnkiDeckSettings(
                                     questionField: state.widgets[index].ankiQuestionField,
@@ -960,12 +929,16 @@ struct AnkiConfigView: View {
                                     audioField: state.widgets[index].ankiAudioField,
                                     touchBarAudioField: state.widgets[index].ankiTouchBarAudioField,
                                     extraQuestionField: state.widgets[index].ankiExtraQuestionField,
-                                    extraAnswerField: state.widgets[index].ankiExtraAnswerField
+                                    extraAnswerField: state.widgets[index].ankiExtraAnswerField,
+                                    overlayQuestionField: overlayConfig.questionField,
+                                    overlayAnswerField: overlayConfig.answerField,
+                                    overlayAudioField: overlayConfig.audioField,
+                                    overlayExtraQuestionField: overlayConfig.extraQuestionField,
+                                    overlayExtraAnswerField: overlayConfig.extraAnswerField,
+                                    overlayBoldColorHex: overlayConfig.boldColorHex
                                 )
                             }
                             state.widgets[index].ankiDeckName = deck
-                            // Restore saved settings for the newly selected deck
-                            // If deck has no saved preset, reset all fields to empty string to avoid ambiguity
                             if !deck.isEmpty {
                                 if let saved = state.widgets[index].ankiDeckSettings[deck] {
                                     state.widgets[index].ankiQuestionField = saved.questionField
@@ -974,14 +947,29 @@ struct AnkiConfigView: View {
                                     state.widgets[index].ankiTouchBarAudioField = saved.touchBarAudioField
                                     state.widgets[index].ankiExtraQuestionField = saved.extraQuestionField
                                     state.widgets[index].ankiExtraAnswerField = saved.extraAnswerField
+                                    var overlayCfg = overlayConfig
+                                    overlayCfg.questionField = saved.overlayQuestionField
+                                    overlayCfg.answerField = saved.overlayAnswerField
+                                    overlayCfg.audioField = saved.overlayAudioField
+                                    overlayCfg.extraQuestionField = saved.overlayExtraQuestionField
+                                    overlayCfg.extraAnswerField = saved.overlayExtraAnswerField
+                                    overlayCfg.boldColorHex = saved.overlayBoldColorHex
+                                    AnkiFloatingOverlayManager.shared.config = overlayCfg
                                 } else {
-                                    // No saved preset → reset all fields to empty
                                     state.widgets[index].ankiQuestionField = ""
                                     state.widgets[index].ankiAnswerField = ""
                                     state.widgets[index].ankiAudioField = ""
                                     state.widgets[index].ankiTouchBarAudioField = ""
                                     state.widgets[index].ankiExtraQuestionField = ""
                                     state.widgets[index].ankiExtraAnswerField = ""
+                                    var overlayCfg = overlayConfig
+                                    overlayCfg.questionField = ""
+                                    overlayCfg.answerField = ""
+                                    overlayCfg.audioField = ""
+                                    overlayCfg.extraQuestionField = ""
+                                    overlayCfg.extraAnswerField = ""
+                                    overlayCfg.boldColorHex = ""
+                                    AnkiFloatingOverlayManager.shared.config = overlayCfg
                                 }
                             }
                             state.saveConfig()
@@ -994,1290 +982,896 @@ struct AnkiConfigView: View {
                         }
                     }
                     .pickerStyle(.menu)
-                    .onAppear {
-                        state.ankiState.fetchDecks()
-                    }
-                    
+                    .onAppear { state.ankiState.fetchDecks() }
+
                     HStack(spacing: 8) {
-                        Button("🔄 Refresh Decks") {
-                            state.ankiState.fetchDecks()
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        
-                        Button("📤 Sync AnkiWeb") {
-                            state.ankiState.syncDecks()
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.blue)
-                        .controlSize(.small)
+                        Button("Refresh Decks") { state.ankiState.fetchDecks() }
+                            .buttonStyle(.bordered).controlSize(.small)
+                        Button("Sync AnkiWeb") { state.ankiState.syncDecks() }
+                            .buttonStyle(.borderedProminent).tint(.blue).controlSize(.small)
                     }
                 }
-                
-                Divider()
-                
-                // Custom Fields mapping
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Card Fields Mapping")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.gray)
-                    
-                    HStack {
-                        Text("Question Field:")
-                            .font(.system(size: 11))
-                            .frame(width: 95, alignment: .leading)
-                        TextField("e.g. Front", text: Binding(
+            }
+
+            Divider()
+
+            // ── Touch Bar Settings ─────────────────────────────────────
+            DisclosureGroup(isExpanded: $touchBarExpanded) {
+                VStack(alignment: .leading, spacing: 12) {
+                    // Card Fields
+                    VStack(alignment: .leading, spacing: 8) {
+                        groupSubHeader("Card Fields")
+
+                        ankiFieldRow("Question:", text: Binding(
                             get: { state.widgets[index].ankiQuestionField },
                             set: { val in
                                 state.widgets[index].ankiQuestionField = val
-                                let deck = state.widgets[index].ankiDeckName
-                                if !deck.isEmpty {
-                                    var settings = state.widgets[index].ankiDeckSettings[deck] ?? AnkiDeckSettings(
-                                        questionField: val,
-                                        answerField: state.widgets[index].ankiAnswerField,
-                                        audioField: state.widgets[index].ankiAudioField
-                                    )
-                                    settings.questionField = val
-                                    state.widgets[index].ankiDeckSettings[deck] = settings
-                                }
-                                state.saveConfig()
-                                Task {
-                                    await state.ankiState.loadCurrentCard()
-                                }
+                                saveFieldToDeckSettings { $0.questionField = val }
+                                Task { await state.ankiState.loadCurrentCard() }
                             }
                         ))
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(size: 11))
-                    }
-                    
-                    HStack {
-                        Text("Answer Field:")
-                            .font(.system(size: 11))
-                            .frame(width: 95, alignment: .leading)
-                        TextField("e.g. Back", text: Binding(
+
+                        ankiFieldRow("Answer:", text: Binding(
                             get: { state.widgets[index].ankiAnswerField },
                             set: { val in
                                 state.widgets[index].ankiAnswerField = val
-                                let deck = state.widgets[index].ankiDeckName
-                                if !deck.isEmpty {
-                                    var settings = state.widgets[index].ankiDeckSettings[deck] ?? AnkiDeckSettings(
-                                        questionField: state.widgets[index].ankiQuestionField,
-                                        answerField: val,
-                                        audioField: state.widgets[index].ankiAudioField
-                                    )
-                                    settings.answerField = val
-                                    state.widgets[index].ankiDeckSettings[deck] = settings
-                                }
-                                state.saveConfig()
-                                Task {
-                                    await state.ankiState.loadCurrentCard()
-                                }
+                                saveFieldToDeckSettings { $0.answerField = val }
+                                Task { await state.ankiState.loadCurrentCard() }
                             }
                         ))
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(size: 11))
-                    }
-                    
-                    HStack {
-                        Text("Audio Field:")
-                            .font(.system(size: 11))
-                            .frame(width: 95, alignment: .leading)
-                        TextField("e.g. Audio", text: Binding(
+
+                        ankiFieldRow("Audio (Play btn):", text: Binding(
                             get: { state.widgets[index].ankiAudioField },
                             set: { val in
                                 state.widgets[index].ankiAudioField = val
-                                let deck = state.widgets[index].ankiDeckName
-                                if !deck.isEmpty {
-                                    var settings = state.widgets[index].ankiDeckSettings[deck] ?? AnkiDeckSettings(
-                                        questionField: state.widgets[index].ankiQuestionField,
-                                        answerField: state.widgets[index].ankiAnswerField,
-                                        audioField: val
-                                    )
-                                    settings.audioField = val
-                                    state.widgets[index].ankiDeckSettings[deck] = settings
-                                }
-                                state.saveConfig()
-                                Task {
-                                    await state.ankiState.loadCurrentCard()
-                                }
+                                saveFieldToDeckSettings { $0.audioField = val }
+                                Task { await state.ankiState.loadCurrentCard() }
                             }
                         ))
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(size: 11))
-                    }
-                    
-                    HStack {
-                        Text("Touch Bar Audio:")
-                            .font(.system(size: 11))
-                            .frame(width: 95, alignment: .leading)
-                        TextField("e.g. Audio", text: Binding(
+
+                        ankiFieldRow("TB Tap Audio:", text: Binding(
                             get: { state.widgets[index].ankiTouchBarAudioField },
                             set: { val in
                                 state.widgets[index].ankiTouchBarAudioField = val
-                                let deck = state.widgets[index].ankiDeckName
-                                if !deck.isEmpty {
-                                    var settings = state.widgets[index].ankiDeckSettings[deck] ?? AnkiDeckSettings(
-                                        questionField: state.widgets[index].ankiQuestionField,
-                                        answerField: state.widgets[index].ankiAnswerField,
-                                        audioField: state.widgets[index].ankiAudioField
-                                    )
-                                    settings.touchBarAudioField = val
-                                    state.widgets[index].ankiDeckSettings[deck] = settings
-                                }
-                                state.saveConfig()
-                                Task {
-                                    await state.ankiState.loadCurrentCard()
-                                }
+                                saveFieldToDeckSettings { $0.touchBarAudioField = val }
+                                Task { await state.ankiState.loadCurrentCard() }
                             }
                         ))
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(size: 11))
-                    }
-                    
-                    Text("Audio Field: used by Play/Stop button. Touch Bar Audio: played when tapping the answer text on the physical Touch Bar.")
-                        .font(.system(size: 9))
-                        .foregroundColor(.gray)
-                        .italic()
-                }
-                
-                Divider()
-                
-                // Custom Width & Aesthetic Setting
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Widget Custom Width & Aesthetics")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.gray)
-                    
-                    HStack(spacing: 8) {
-                        Text("Max Text Width:")
-                            .font(.system(size: 11))
-                            .frame(width: 105, alignment: .leading)
-                        
-                        TextField("", text: Binding(
-                            get: { String(Int(widget.ankiTextMaxWidth)) },
-                            set: { val in
-                                if let num = Double(val.filter { $0.isNumber }) {
-                                    state.widgets[index].ankiTextMaxWidth = num
-                                    state.saveConfig()
-                                    state.ankiState.refreshTouchBar()
-                                }
-                            }
-                        ))
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 80)
-                        
-                        Text("px")
-                            .font(.system(size: 11))
-                            .foregroundColor(.gray)
-                    }
-                    
-                    HStack(spacing: 8) {
-                        Text("Bold Custom Color:")
-                            .font(.system(size: 11))
-                            .frame(width: 105, alignment: .leading)
-                        
-                        TextField("#HEX", text: Binding(
-                            get: { widget.ankiBoldColorHex },
-                            set: { val in
-                                state.widgets[index].ankiBoldColorHex = val
-                                state.saveConfig()
-                                state.ankiState.refreshTouchBar()
-                            }
-                        ))
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 80)
-                        
-                        ColorPicker("", selection: Binding(
-                            get: { Color(hex: widget.ankiBoldColorHex) },
-                            set: { color in
-                                if let hexString = color.toHex() {
-                                    state.widgets[index].ankiBoldColorHex = hexString
-                                    state.saveConfig()
-                                    state.ankiState.refreshTouchBar()
-                                }
-                            }
-                        ))
-                    }
-                }
-                
-                Divider()
-                
-                // Selectable Answers/Buttons
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Enabled Touch Bar Answer Buttons")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.gray)
-                    
-                    VStack(alignment: .leading, spacing: 6) {
-                        Toggle("Again (1)", isOn: Binding(
-                            get: { widget.ankiShowAgain },
-                            set: { val in
-                                state.widgets[index].ankiShowAgain = val
-                                state.saveConfig()
-                                state.ankiState.refreshTouchBar()
-                            }
-                        ))
-                        .toggleStyle(.checkbox)
-                        
-                        Toggle("Hard (2)", isOn: Binding(
-                            get: { widget.ankiShowHard },
-                            set: { val in
-                                state.widgets[index].ankiShowHard = val
-                                state.saveConfig()
-                                state.ankiState.refreshTouchBar()
-                            }
-                        ))
-                        .toggleStyle(.checkbox)
-                        
-                        Toggle("Good (3)", isOn: Binding(
-                            get: { widget.ankiShowGood },
-                            set: { val in
-                                state.widgets[index].ankiShowGood = val
-                                state.saveConfig()
-                                state.ankiState.refreshTouchBar()
-                            }
-                        ))
-                        .toggleStyle(.checkbox)
-                        
-                        Toggle("Easy (4)", isOn: Binding(
-                            get: { widget.ankiShowEasy },
-                            set: { val in
-                                state.widgets[index].ankiShowEasy = val
-                                state.saveConfig()
-                                state.ankiState.refreshTouchBar()
-                            }
-                        ))
-                        .toggleStyle(.checkbox)
-                    }
-                    .font(.system(size: 11))
-                }
-                
-                Divider()
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Rating Button Custom Colors")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.gray)
-                    
-                    ratingColorRow(label: "Again Color:", hex: widget.ankiAgainColorHex) { state.widgets[index].ankiAgainColorHex = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
-                    ratingColorRow(label: "Hard Color:", hex: widget.ankiHardColorHex) { state.widgets[index].ankiHardColorHex = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
-                    ratingColorRow(label: "Good Color:", hex: widget.ankiGoodColorHex) { state.widgets[index].ankiGoodColorHex = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
-                    ratingColorRow(label: "Easy Color:", hex: widget.ankiEasyColorHex) { state.widgets[index].ankiEasyColorHex = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
-                    
-                    Button(action: {
-                        state.widgets[index].ankiAgainColorHex = "#E53333"
-                        state.widgets[index].ankiHardColorHex = "#E58019"
-                        state.widgets[index].ankiGoodColorHex = "#19B24C"
-                        state.widgets[index].ankiEasyColorHex = "#3380E5"
-                        state.saveConfig()
-                        state.ankiState.refreshTouchBar()
-                    }) {
-                        Text("Reset to Default Colors")
+
+                        Text("Audio Field → Play/Stop button. TB Tap Audio → played when tapping answer on physical Touch Bar.")
                             .font(.system(size: 9))
-                            .foregroundColor(.orange)
+                            .foregroundColor(.gray)
+                            .italic()
                     }
-                    .buttonStyle(.plain)
-                }
-                
-                Divider()
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Remaining Cards Display")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.gray)
-                    
-                    Toggle("Show Remaining Cards Status (New, Learn, Review)", isOn: Binding(
-                        get: { widget.ankiShowRemainingCounts },
-                        set: { val in
-                            state.widgets[index].ankiShowRemainingCounts = val
-                            state.saveConfig()
-                            state.ankiState.refreshTouchBar()
-                        }
-                    ))
-                    .toggleStyle(.checkbox)
-                    .font(.system(size: 11))
-                }
-                
-                Divider()
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Furigana Display")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.gray)
-                    
-                    Toggle("Combine Furigana (e.g. 私[わたし] → 私 with わたし above)", isOn: Binding(
-                        get: { widget.ankiCombineFurigana },
-                        set: { val in
-                            state.widgets[index].ankiCombineFurigana = val
-                            state.saveConfig()
-                            state.ankiState.refreshTouchBar()
-                            StatusItemManager.shared.refreshFuriganaState()
-                        }
-                    ))
-                    .toggleStyle(.checkbox)
-                    .font(.system(size: 11))
-                    
-                    if widget.ankiCombineFurigana {
-                        HStack(spacing: 8) {
-                            Text("Furigana Font Size:")
-                                .font(.system(size: 11))
-                                .frame(width: 120, alignment: .leading)
-                            
-                            TextField("0", text: Binding(
-                                get: { widget.ankiFuriganaFontSize == 0 ? "0" : String(format: "%.0f", widget.ankiFuriganaFontSize) },
-                                set: { val in
-                                    if let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)) {
-                                        state.widgets[index].ankiFuriganaFontSize = max(0, num)
-                                        state.saveConfig()
-                                        state.ankiState.refreshTouchBar()
-                                    }
-                                }
-                            ))
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 80)
-                            
-                            Text("pt (0 = auto)")
-                                .font(.system(size: 10))
-                                .foregroundColor(.gray)
-                        }
-                        
-                        HStack(spacing: 8) {
-                            Text("Furigana Offset:")
-                                .font(.system(size: 11))
-                                .frame(width: 120, alignment: .leading)
-                            
-                            TextField("0", text: Binding(
-                                get: { String(format: "%.0f", widget.ankiFuriganaVerticalOffset) },
-                                set: { val in
-                                    if let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)) {
-                                        state.widgets[index].ankiFuriganaVerticalOffset = num
-                                        state.saveConfig()
-                                        state.ankiState.refreshTouchBar()
-                                    }
-                                }
-                            ))
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 80)
-                            
-                            Text("pt")
-                                .font(.system(size: 10))
-                                .foregroundColor(.gray)
-                        }
-                        
-                        HStack(spacing: 8) {
-                            Text("Furi Seg Offset:")
-                                .font(.system(size: 11))
-                                .frame(width: 120, alignment: .leading)
-                            
-                            TextField("0", text: Binding(
-                                get: { String(format: "%.0f", widget.ankiFuriganaSegmentOffset) },
-                                set: { val in
-                                    if let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)) {
-                                        state.widgets[index].ankiFuriganaSegmentOffset = num
-                                        state.saveConfig()
-                                        state.ankiState.refreshTouchBar()
-                                    }
-                                }
-                            ))
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 80)
-                            
-                            Text("pt")
-                                .font(.system(size: 10))
-                                .foregroundColor(.gray)
-                        }
-                        
-                        HStack(spacing: 8) {
-                            Text("Text Offset:")
-                                .font(.system(size: 11))
-                                .frame(width: 120, alignment: .leading)
-                            
-                            TextField("0", text: Binding(
-                                get: { String(format: "%.0f", widget.ankiNonFuriganaSegmentOffset) },
-                                set: { val in
-                                    if let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)) {
-                                        state.widgets[index].ankiNonFuriganaSegmentOffset = num
-                                        state.saveConfig()
-                                        state.ankiState.refreshTouchBar()
-                                    }
-                                }
-                            ))
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 80)
-                            
-                            Text("pt")
-                                .font(.system(size: 10))
-                                .foregroundColor(.gray)
-                        }
-                        
-                        HStack(spacing: 8) {
-                            Button(action: {
-                                state.widgets[index].ankiFuriganaFontSize = 0
-                                state.saveConfig()
-                                state.ankiState.refreshTouchBar()
-                            }) {
-                                Text("Reset Font Size")
-                                    .font(.system(size: 9))
-                                    .foregroundColor(widget.ankiFuriganaFontSize == 0 ? .gray : .orange)
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(widget.ankiFuriganaFontSize == 0)
-                            
-                            Button(action: {
-                                state.widgets[index].ankiFuriganaVerticalOffset = 0
-                                state.saveConfig()
-                                state.ankiState.refreshTouchBar()
-                            }) {
-                                Text("Reset Furi Offset")
-                                    .font(.system(size: 9))
-                                    .foregroundColor(widget.ankiFuriganaVerticalOffset == 0 ? .gray : .orange)
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(widget.ankiFuriganaVerticalOffset == 0)
-                            
-                        }
-                    } else {
-                        HStack(spacing: 8) {
-                            Text("Text Offset:")
-                                .font(.system(size: 11))
-                                .frame(width: 120, alignment: .leading)
-                            
-                            TextField("0", text: Binding(
-                                get: { String(format: "%.0f", widget.ankiNonFuriganaSegmentOffset) },
-                                set: { val in
-                                    if let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)) {
-                                        state.widgets[index].ankiNonFuriganaSegmentOffset = num
-                                        state.saveConfig()
-                                        state.ankiState.refreshTouchBar()
-                                    }
-                                }
-                            ))
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 80)
-                            
-                            Text("pt")
-                                .font(.system(size: 10))
-                                .foregroundColor(.gray)
-                        }
-                    }
-                    
-                    Text("When enabled, Japanese furigana readings in brackets will be displayed above the kanji text.")
-                        .font(.system(size: 9))
-                        .foregroundColor(.gray)
-                        .italic()
-                }
-                
-                Divider()
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Touch Bar Layout Toggle")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.gray)
-                    
-                    Toggle("Move media controls (Rating/Audio/Reveal) to the left side", isOn: Binding(
-                        get: { isMediaOnLeft },
-                        set: { val in
-                            isMediaOnLeft = val
-                            let presenterClass: AnyClass? = NSClassFromString("touchbar.TouchBarPresenter")
-                            let refreshSelector = NSSelectorFromString("refreshTouchBar")
-                            if let presenter = presenterClass as? NSObject.Type {
-                                presenter.perform(refreshSelector)
-                            }
-                        }
-                    ))
-                    .toggleStyle(.checkbox)
-                    .font(.system(size: 11))
-                    
-                    Text("When enabled: media controls appear on the left, Sync on the right. Default: Sync on left, media controls on right.")
-                        .font(.system(size: 9))
-                        .foregroundColor(.gray)
-                        .italic()
-                }
-                
-                Divider()
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Audio Mute Toggle")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.gray)
-                    
-                    Toggle("Mute Anki Audio", isOn: Binding(
-                        get: { state.ankiState.isMuted },
-                        set: { _ in
-                            state.ankiState.toggleMute()
-                            state.saveConfig()
-                            StatusItemManager.shared.refreshMuteState()
-                        }
-                    ))
-                    .toggleStyle(.checkbox)
-                    .font(.system(size: 11))
-                    
-                    Text("When muted, audio playback from Anki cards (both Play/Stop button and Touch Bar tap) will be suppressed.")
-                        .font(.system(size: 9))
-                        .foregroundColor(.gray)
-                        .italic()
-                    
+
                     Divider()
-                    
-                    Text("Audio Play Restrictions")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.gray)
-                    
-                    Toggle("Only play audio after answer is revealed", isOn: Binding(
-                        get: { state.widgets[index].ankiAudioOnlyOnAnswer },
-                        set: { val in
-                            state.widgets[index].ankiAudioOnlyOnAnswer = val
-                            state.saveConfig()
+
+                    // Text & Colors
+                    VStack(alignment: .leading, spacing: 8) {
+                        groupSubHeader("Text & Colors")
+
+                        HStack(spacing: 8) {
+                            Text("Max Text Width:")
+                                .font(.system(size: 11))
+                                .frame(width: 95, alignment: .leading)
+                            TextField("", text: Binding(
+                                get: { String(Int(widget.ankiTextMaxWidth)) },
+                                set: { val in
+                                    if let num = Double(val.filter { $0.isNumber }) {
+                                        state.widgets[index].ankiTextMaxWidth = num
+                                        state.saveConfig()
+                                        state.ankiState.refreshTouchBar()
+                                    }
+                                }
+                            ))
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 80)
+                            Text("px").font(.system(size: 11)).foregroundColor(.gray)
                         }
-                    ))
-                    .toggleStyle(.checkbox)
-                    .font(.system(size: 11))
-                    
-                    Text("When enabled, audio (Play/Stop button and Touch Bar audio) will not play until you reveal the answer first. Prevents hearing the answer audio while still on the question.")
-                        .font(.system(size: 9))
-                        .foregroundColor(.gray)
-                        .italic()
-                }
-                
-                Divider()
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Text Display")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.gray)
-                    
-                    Picker("Horizontal Scroll:", selection: Binding(
-                        get: { widget.ankiScrollMode },
-                        set: { val in
-                            state.widgets[index].ankiScrollMode = val
-                            state.saveConfig()
-                            state.ankiState.refreshTouchBar()
+
+                        HStack(spacing: 8) {
+                            Text("Bold Color:")
+                                .font(.system(size: 11))
+                                .frame(width: 95, alignment: .leading)
+                            TextField("#HEX", text: Binding(
+                                get: { widget.ankiBoldColorHex },
+                                set: { state.widgets[index].ankiBoldColorHex = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                            ))
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 80)
+                            ColorPicker("", selection: Binding(
+                                get: { Color(hex: widget.ankiBoldColorHex) },
+                                set: { color in if let h = color.toHex() { state.widgets[index].ankiBoldColorHex = h; state.saveConfig(); state.ankiState.refreshTouchBar() } }
+                            ))
                         }
-                    )) {
-                        ForEach(AnkiScrollMode.allCases, id: \.self) { mode in
-                            Text(mode.rawValue).tag(mode)
+
+                        HStack(spacing: 8) {
+                            Text("Horizontal Scroll:")
+                                .font(.system(size: 11))
+                                .frame(width: 95, alignment: .leading)
+                            Picker("", selection: Binding(
+                                get: { widget.ankiScrollMode },
+                                set: { state.widgets[index].ankiScrollMode = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                            )) {
+                                ForEach(AnkiScrollMode.allCases, id: \.self) { mode in
+                                    Text(mode.rawValue).tag(mode)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .font(.system(size: 11))
                         }
                     }
-                    .pickerStyle(.menu)
-                    .font(.system(size: 11))
-                    
-                    Text("When enabled, text that exceeds the available width will be cut off with an ellipsis (…). When disabled, text is shown as-is without any trimming.")
-                        .font(.system(size: 9))
-                        .foregroundColor(.gray)
-                        .italic()
-                }
-                
-                Divider()
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Touch Bar Tap Behavior")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.gray)
-                    
-                    Toggle("Show extra field on tap / hotkey", isOn: Binding(
-                        get: { state.widgets[index].ankiTapShowsExtra },
-                        set: { val in
-                            state.widgets[index].ankiTapShowsExtra = val
+
+                    Divider()
+
+                    // Answer Buttons
+                    VStack(alignment: .leading, spacing: 8) {
+                        groupSubHeader("Answer Buttons")
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Toggle("Again (1)", isOn: Binding(
+                                get: { widget.ankiShowAgain },
+                                set: { state.widgets[index].ankiShowAgain = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                            ))
+                            Toggle("Hard (2)", isOn: Binding(
+                                get: { widget.ankiShowHard },
+                                set: { state.widgets[index].ankiShowHard = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                            ))
+                            Toggle("Good (3)", isOn: Binding(
+                                get: { widget.ankiShowGood },
+                                set: { state.widgets[index].ankiShowGood = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                            ))
+                            Toggle("Easy (4)", isOn: Binding(
+                                get: { widget.ankiShowEasy },
+                                set: { state.widgets[index].ankiShowEasy = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                            ))
+                        }
+                        .toggleStyle(.checkbox)
+                        .font(.system(size: 11))
+
+                        Divider()
+
+                        ratingColorRow(label: "Again:", hex: widget.ankiAgainColorHex) { state.widgets[index].ankiAgainColorHex = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                        ratingColorRow(label: "Hard:", hex: widget.ankiHardColorHex) { state.widgets[index].ankiHardColorHex = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                        ratingColorRow(label: "Good:", hex: widget.ankiGoodColorHex) { state.widgets[index].ankiGoodColorHex = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                        ratingColorRow(label: "Easy:", hex: widget.ankiEasyColorHex) { state.widgets[index].ankiEasyColorHex = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+
+                        Button(action: {
+                            state.widgets[index].ankiAgainColorHex = "#E53333"
+                            state.widgets[index].ankiHardColorHex = "#E58019"
+                            state.widgets[index].ankiGoodColorHex = "#19B24C"
+                            state.widgets[index].ankiEasyColorHex = "#3380E5"
                             state.saveConfig()
                             state.ankiState.refreshTouchBar()
+                        }) {
+                            Text("Reset to Default Colors")
+                                .font(.system(size: 9))
+                                .foregroundColor(.orange)
                         }
-                    ))
-                    .toggleStyle(.checkbox)
-                    .font(.system(size: 11))
-                    
-                    Text("When enabled, tapping the answer text on the Touch Bar or pressing the \"Toggle Extra Field\" hotkey toggles between the regular content and the extra field. One hotkey works for both question and answer phases automatically.")
-                        .font(.system(size: 9))
-                        .foregroundColor(.gray)
-                        .italic()
-                }
-                
-                Divider()
-                
-                // MARK: - Floating Overlay (Alternatif Touch Bar Fisik)
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Image(systemName: "rectangle.3.group.fill")
-                            .font(.system(size: 12))
-                            .foregroundColor(.teal)
-                        Text("Floating Overlay — Physical Touch Bar Alternative")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.teal)
+                        .buttonStyle(.plain)
                     }
-                    
-                    Text("If the physical Touch Bar is not working/broken, enable the floating overlay window that displays Anki card content on screen.")
-                        .font(.system(size: 9))
-                        .foregroundColor(.gray)
-                        .italic()
-                    
+
+                    Divider()
+
+                    // Furigana
+                    VStack(alignment: .leading, spacing: 8) {
+                        groupSubHeader("Furigana")
+
+                        Toggle("Combine Furigana (私[わたし] → 私 with わたし above)", isOn: Binding(
+                            get: { widget.ankiCombineFurigana },
+                            set: { val in
+                                state.widgets[index].ankiCombineFurigana = val
+                                state.saveConfig()
+                                state.ankiState.refreshTouchBar()
+                                StatusItemManager.shared.refreshFuriganaState()
+                            }
+                        ))
+                        .toggleStyle(.checkbox)
+                        .font(.system(size: 11))
+
+                        if widget.ankiCombineFurigana {
+                            HStack(spacing: 8) {
+                                Text("Font Size:")
+                                    .font(.system(size: 11))
+                                    .frame(width: 95, alignment: .leading)
+                                TextField("0 = auto", text: Binding(
+                                    get: { widget.ankiFuriganaFontSize == 0 ? "0" : String(format: "%.0f", widget.ankiFuriganaFontSize) },
+                                    set: { val in
+                                        if let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                                            state.widgets[index].ankiFuriganaFontSize = max(0, num)
+                                            state.saveConfig()
+                                            state.ankiState.refreshTouchBar()
+                                        }
+                                    }
+                                ))
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 70)
+                                Text("pt").font(.system(size: 10)).foregroundColor(.gray)
+                            }
+
+                            HStack(spacing: 8) {
+                                Text("V Offset:")
+                                    .font(.system(size: 11))
+                                    .frame(width: 95, alignment: .leading)
+                                TextField("0", text: Binding(
+                                    get: { String(format: "%.0f", widget.ankiFuriganaVerticalOffset) },
+                                    set: { val in
+                                        if let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                                            state.widgets[index].ankiFuriganaVerticalOffset = num
+                                            state.saveConfig()
+                                            state.ankiState.refreshTouchBar()
+                                        }
+                                    }
+                                ))
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 70)
+                                Text("pt").font(.system(size: 10)).foregroundColor(.gray)
+                            }
+
+                            HStack(spacing: 8) {
+                                Text("Seg Offset:")
+                                    .font(.system(size: 11))
+                                    .frame(width: 95, alignment: .leading)
+                                TextField("0", text: Binding(
+                                    get: { String(format: "%.0f", widget.ankiFuriganaSegmentOffset) },
+                                    set: { val in
+                                        if let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                                            state.widgets[index].ankiFuriganaSegmentOffset = num
+                                            state.saveConfig()
+                                            state.ankiState.refreshTouchBar()
+                                        }
+                                    }
+                                ))
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 70)
+                                Text("pt").font(.system(size: 10)).foregroundColor(.gray)
+                            }
+
+                            HStack(spacing: 8) {
+                                Text("Text Offset:")
+                                    .font(.system(size: 11))
+                                    .frame(width: 95, alignment: .leading)
+                                TextField("0", text: Binding(
+                                    get: { String(format: "%.0f", widget.ankiNonFuriganaSegmentOffset) },
+                                    set: { val in
+                                        if let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                                            state.widgets[index].ankiNonFuriganaSegmentOffset = num
+                                            state.saveConfig()
+                                            state.ankiState.refreshTouchBar()
+                                        }
+                                    }
+                                ))
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 70)
+                                Text("pt").font(.system(size: 10)).foregroundColor(.gray)
+                            }
+
+                            HStack(spacing: 8) {
+                                Button("Reset Size") {
+                                    state.widgets[index].ankiFuriganaFontSize = 0
+                                    state.saveConfig()
+                                    state.ankiState.refreshTouchBar()
+                                }
+                                .font(.system(size: 9))
+                                .foregroundColor(widget.ankiFuriganaFontSize == 0 ? .gray : .orange)
+                                .buttonStyle(.plain)
+                                .disabled(widget.ankiFuriganaFontSize == 0)
+
+                                Button("Reset V Offset") {
+                                    state.widgets[index].ankiFuriganaVerticalOffset = 0
+                                    state.saveConfig()
+                                    state.ankiState.refreshTouchBar()
+                                }
+                                .font(.system(size: 9))
+                                .foregroundColor(widget.ankiFuriganaVerticalOffset == 0 ? .gray : .orange)
+                                .buttonStyle(.plain)
+                                .disabled(widget.ankiFuriganaVerticalOffset == 0)
+                            }
+                        } else {
+                            HStack(spacing: 8) {
+                                Text("Text Offset:")
+                                    .font(.system(size: 11))
+                                    .frame(width: 95, alignment: .leading)
+                                TextField("0", text: Binding(
+                                    get: { String(format: "%.0f", widget.ankiNonFuriganaSegmentOffset) },
+                                    set: { val in
+                                        if let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                                            state.widgets[index].ankiNonFuriganaSegmentOffset = num
+                                            state.saveConfig()
+                                            state.ankiState.refreshTouchBar()
+                                        }
+                                    }
+                                ))
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 70)
+                                Text("pt").font(.system(size: 10)).foregroundColor(.gray)
+                            }
+                        }
+                    }
+
+                    Divider()
+
+                    // Extra Fields (Touch Bar)
+                    VStack(alignment: .leading, spacing: 8) {
+                        groupSubHeader("Extra Fields")
+                        Text("Extra text displayed below the main content on the Touch Bar. Combine multiple fields with commas (e.g. Word, Reading).")
+                            .font(.system(size: 9))
+                            .foregroundColor(.gray)
+                            .italic()
+
+                        HStack(spacing: 8) {
+                            Text("Extra Question:")
+                                .font(.system(size: 11))
+                                .frame(width: 95, alignment: .leading)
+                            TextField("e.g. ExtraFront", text: Binding(
+                                get: { state.widgets[index].ankiExtraQuestionField },
+                                set: { state.widgets[index].ankiExtraQuestionField = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                            ))
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 11))
+                        }
+
+                        HStack(spacing: 8) {
+                            Text("Extra Answer:")
+                                .font(.system(size: 11))
+                                .frame(width: 95, alignment: .leading)
+                            TextField("e.g. ExtraBack", text: Binding(
+                                get: { state.widgets[index].ankiExtraAnswerField },
+                                set: { state.widgets[index].ankiExtraAnswerField = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                            ))
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 11))
+                        }
+
+                        Toggle("Show extra field on tap / hotkey", isOn: Binding(
+                            get: { state.widgets[index].ankiTapShowsExtra },
+                            set: { state.widgets[index].ankiTapShowsExtra = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                        ))
+                        .toggleStyle(.checkbox).font(.system(size: 11))
+                    }
+
+                    Divider()
+
+                    // Misc
+                    VStack(alignment: .leading, spacing: 8) {
+                        groupSubHeader("Other")
+
+                        Toggle("Show remaining cards (New/Learn/Review)", isOn: Binding(
+                            get: { widget.ankiShowRemainingCounts },
+                            set: { state.widgets[index].ankiShowRemainingCounts = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                        ))
+                        .toggleStyle(.checkbox).font(.system(size: 11))
+
+                        Toggle("Move rating buttons to left side", isOn: Binding(
+                            get: { isMediaOnLeft },
+                            set: { val in
+                                isMediaOnLeft = val
+                                let c: AnyClass? = NSClassFromString("touchbar.TouchBarPresenter")
+                                (c as? NSObject.Type)?.perform(NSSelectorFromString("refreshTouchBar"))
+                            }
+                        ))
+                        .toggleStyle(.checkbox).font(.system(size: 11))
+
+                        Toggle("Only play audio after answer revealed", isOn: Binding(
+                            get: { state.widgets[index].ankiAudioOnlyOnAnswer },
+                            set: { state.widgets[index].ankiAudioOnlyOnAnswer = $0; state.saveConfig() }
+                        ))
+                        .toggleStyle(.checkbox).font(.system(size: 11))
+
+                        Toggle("Mute Anki Audio", isOn: Binding(
+                            get: { state.ankiState.isMuted },
+                            set: { _ in state.ankiState.toggleMute(); state.saveConfig(); StatusItemManager.shared.refreshMuteState() }
+                        ))
+                        .toggleStyle(.checkbox).font(.system(size: 11))
+                    }
+                }
+            } label: {
+                HStack {
+                    Image(systemName: "menubar.rectangle").font(.system(size: 12)).foregroundColor(.purple)
+                    Text("Touch Bar Settings").font(.system(size: 12, weight: .bold)).foregroundColor(.primary)
+                }
+            }
+
+            Divider()
+
+            // ── Floating Overlay ───────────────────────────────────────
+            DisclosureGroup(isExpanded: $overlayExpanded) {
+                VStack(alignment: .leading, spacing: 12) {
+                    // Enable/Disable Floating Overlay
                     Toggle("Enable Floating Overlay", isOn: Binding(
                         get: { AnkiFloatingOverlayManager.shared.config.isEnabled },
                         set: { val in
                             var config = AnkiFloatingOverlayManager.shared.config
                             config.isEnabled = val
                             AnkiFloatingOverlayManager.shared.config = config
-                            if val {
-                                AnkiFloatingOverlayManager.shared.show()
-                            } else {
-                                AnkiFloatingOverlayManager.shared.hide()
-                            }
                         }
                     ))
-                    .toggleStyle(.checkbox)
-                    .font(.system(size: 11))
-                    
-                    if AnkiFloatingOverlayManager.shared.config.isEnabled {
-                        Divider()
-                        
-                        VStack(alignment: .leading, spacing: 10) {
-                            // Font Size
-                            HStack(spacing: 8) {
-                                Text("Font Size:")
-                                    .font(.system(size: 11))
-                                    .frame(width: 100, alignment: .leading)
-                                
-                                Slider(value: Binding(
-                                    get: { AnkiFloatingOverlayManager.shared.config.fontSize },
-                                    set: { val in
-                                        var config = AnkiFloatingOverlayManager.shared.config
-                                        config.fontSize = val
-                                        AnkiFloatingOverlayManager.shared.config = config
-                                        AnkiFloatingOverlayManager.shared.refreshOverlay()
-                                    }
-                                ), in: 10...32, step: 1)
-                                
-                                Text("\(Int(AnkiFloatingOverlayManager.shared.config.fontSize))pt")
-                                    .font(.system(size: 10, design: .monospaced))
-                                    .foregroundColor(.gray)
-                                    .frame(width: 35, alignment: .trailing)
-                            }
-                            
-                            // Furigana Font Size
-                            HStack(spacing: 8) {
-                                Text("Furigana Font:")
-                                    .font(.system(size: 11))
-                                    .frame(width: 100, alignment: .leading)
-                                
-                                Slider(value: Binding(
-                                    get: { AnkiFloatingOverlayManager.shared.config.overlayFuriganaFontSize },
-                                    set: { val in
-                                        var config = AnkiFloatingOverlayManager.shared.config
-                                        config.overlayFuriganaFontSize = val
-                                        AnkiFloatingOverlayManager.shared.config = config
-                                        AnkiFloatingOverlayManager.shared.refreshOverlay()
-                                    }
-                                ), in: 0...20, step: 1)
-                                
-                                Text(AnkiFloatingOverlayManager.shared.config.overlayFuriganaFontSize > 0 ? "\(Int(AnkiFloatingOverlayManager.shared.config.overlayFuriganaFontSize))pt" : "Auto")
-                                    .font(.system(size: 10, design: .monospaced))
-                                    .foregroundColor(.gray)
-                                    .frame(width: 40, alignment: .trailing)
-                            }
-                            
-                            Divider()
-                            
-                            // Window Transparency
-                            HStack(spacing: 8) {
-                                Text("Window Opacity:")
-                                    .font(.system(size: 11))
-                                    .frame(width: 100, alignment: .leading)
-                                
-                                Slider(value: Binding(
-                                    get: { AnkiFloatingOverlayManager.shared.config.windowOpacity },
-                                    set: { val in
-                                        var config = AnkiFloatingOverlayManager.shared.config
-                                        config.windowOpacity = val
-                                        AnkiFloatingOverlayManager.shared.config = config
-                                    }
-                                ), in: 0.1...1.0, step: 0.05)
-                                
-                                Text("\(Int(AnkiFloatingOverlayManager.shared.config.windowOpacity * 100))%")
-                                    .font(.system(size: 10, design: .monospaced))
-                                    .foregroundColor(.gray)
-                                    .frame(width: 35, alignment: .trailing)
-                            }
-                            
-                            // Text Transparency
-                            HStack(spacing: 8) {
-                                Text("Text Opacity:")
-                                    .font(.system(size: 11))
-                                    .frame(width: 100, alignment: .leading)
-                                
-                                Slider(value: Binding(
-                                    get: { AnkiFloatingOverlayManager.shared.config.textOpacity },
-                                    set: { val in
-                                        var config = AnkiFloatingOverlayManager.shared.config
-                                        config.textOpacity = val
-                                        AnkiFloatingOverlayManager.shared.config = config
-                                        AnkiFloatingOverlayManager.shared.refreshOverlay()
-                                    }
-                                ), in: 0.1...1.0, step: 0.05)
-                                
-                                Text("\(Int(AnkiFloatingOverlayManager.shared.config.textOpacity * 100))%")
-                                    .font(.system(size: 10, design: .monospaced))
-                                    .foregroundColor(.gray)
-                                    .frame(width: 35, alignment: .trailing)
-                            }
-                            
-                            // Window Width
-                            // HStack(spacing: 8) {
-                            //     Text("Window Width:")
-                            //         .font(.system(size: 11))
-                            //         .frame(width: 100, alignment: .leading)
-                                
-                            //     Slider(value: Binding(
-                            //         get: { AnkiFloatingOverlayManager.shared.config.windowWidth },
-                            //         set: { val in
-                            //             var config = AnkiFloatingOverlayManager.shared.config
-                            //             config.windowWidth = val
-                            //             AnkiFloatingOverlayManager.shared.config = config
-                            //         }
-                            //     ), in: 200...2000, step: 10)
-                                
-                            //     Text("\(Int(AnkiFloatingOverlayManager.shared.config.windowWidth))px")
-                            //         .font(.system(size: 10, design: .monospaced))
-                            //         .foregroundColor(.gray)
-                            //         .frame(width: 45, alignment: .trailing)
-                            // }
-                            
-                            // Window Height
-                            // HStack(spacing: 8) {
-                            //     Text("Window Height:")
-                            //         .font(.system(size: 11))
-                            //         .frame(width: 100, alignment: .leading)
-                                
-                            //     Slider(value: Binding(
-                            //         get: { AnkiFloatingOverlayManager.shared.config.windowHeight },
-                            //         set: { val in
-                            //             var config = AnkiFloatingOverlayManager.shared.config
-                            //             config.windowHeight = val
-                            //             AnkiFloatingOverlayManager.shared.config = config
-                            //         }
-                            //     ), in: 150...1200, step: 10)
-                                
-                            //     Text("\(Int(AnkiFloatingOverlayManager.shared.config.windowHeight))px")
-                            //         .font(.system(size: 10, design: .monospaced))
-                            //         .foregroundColor(.gray)
-                            //         .frame(width: 45, alignment: .trailing)
-                            // }
-                            
-                            // Divider()
-                            
-                            // Text Color
-                            HStack(spacing: 8) {
-                                Text("Text Color:")
-                                    .font(.system(size: 11))
-                                    .frame(width: 100, alignment: .leading)
-                                
-                                TextField("#HEX", text: Binding(
-                                    get: { AnkiFloatingOverlayManager.shared.config.textColorHex },
-                                    set: { val in
-                                        var config = AnkiFloatingOverlayManager.shared.config
-                                        config.textColorHex = val
-                                        AnkiFloatingOverlayManager.shared.config = config
-                                        AnkiFloatingOverlayManager.shared.refreshOverlay()
-                                    }
-                                ))
-                                .textFieldStyle(.roundedBorder)
-                                .frame(width: 90)
-                                
-                                ColorPicker("", selection: Binding(
-                                    get: { Color(hex: AnkiFloatingOverlayManager.shared.config.textColorHex) },
-                                    set: { color in
-                                        if let hexString = color.toHex() {
-                                            var config = AnkiFloatingOverlayManager.shared.config
-                                            config.textColorHex = hexString
-                                            AnkiFloatingOverlayManager.shared.config = config
-                                            AnkiFloatingOverlayManager.shared.refreshOverlay()
-                                        }
-                                    }
-                                ))
-                            }
-                            
-                            // Background Color
-                            HStack(spacing: 8) {
-                                Text("Background Color:")
-                                    .font(.system(size: 11))
-                                    .frame(width: 100, alignment: .leading)
-                                
-                                TextField("#HEX", text: Binding(
-                                    get: { AnkiFloatingOverlayManager.shared.config.backgroundColorHex },
-                                    set: { val in
-                                        var config = AnkiFloatingOverlayManager.shared.config
-                                        config.backgroundColorHex = val
-                                        AnkiFloatingOverlayManager.shared.config = config
-                                        AnkiFloatingOverlayManager.shared.refreshOverlay()
-                                    }
-                                ))
-                                .textFieldStyle(.roundedBorder)
-                                .frame(width: 90)
-                                
-                                ColorPicker("", selection: Binding(
-                                    get: { Color(hex: AnkiFloatingOverlayManager.shared.config.backgroundColorHex) },
-                                    set: { color in
-                                        if let hexString = color.toHex() {
-                                            var config = AnkiFloatingOverlayManager.shared.config
-                                            config.backgroundColorHex = hexString
-                                            AnkiFloatingOverlayManager.shared.config = config
-                                            AnkiFloatingOverlayManager.shared.refreshOverlay()
-                                        }
-                                    }
-                                ))
-                            }
-                            
-                            // Question Answer Color
-                            HStack(spacing: 8) {
-                                Text("Question Preview Color:")
-                                    .font(.system(size: 11))
-                                    .frame(width: 100, alignment: .leading)
-                                
-                                TextField("#HEX", text: Binding(
-                                    get: { AnkiFloatingOverlayManager.shared.config.questionAnswerColorHex },
-                                    set: { val in
-                                        var config = AnkiFloatingOverlayManager.shared.config
-                                        config.questionAnswerColorHex = val
-                                        AnkiFloatingOverlayManager.shared.config = config
-                                        AnkiFloatingOverlayManager.shared.refreshOverlay()
-                                    }
-                                ))
-                                .textFieldStyle(.roundedBorder)
-                                .frame(width: 90)
-                                
-                                ColorPicker("", selection: Binding(
-                                    get: { Color(hex: AnkiFloatingOverlayManager.shared.config.questionAnswerColorHex) },
-                                    set: { color in
-                                        if let hexString = color.toHex() {
-                                            var config = AnkiFloatingOverlayManager.shared.config
-                                            config.questionAnswerColorHex = hexString
-                                            AnkiFloatingOverlayManager.shared.config = config
-                                            AnkiFloatingOverlayManager.shared.refreshOverlay()
-                                        }
-                                    }
-                                ))
-                            }
-                            
-                            Text("Question Preview Color changes the question text color shown in the answer view (previously gray).")
-                                .font(.system(size: 9))
-                                .foregroundColor(.gray)
-                                .italic()
-                            
-                            Divider()
-                            
-                            // Show/Hide Toggles
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("Displayed Controls:")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(.gray)
-                                
-                                Toggle("Rating Buttons (Again/Hard/Good/Easy)", isOn: Binding(
-                                    get: { AnkiFloatingOverlayManager.shared.config.showRatingButtons },
-                                    set: { val in
-                                        var config = AnkiFloatingOverlayManager.shared.config
-                                        config.showRatingButtons = val
-                                        AnkiFloatingOverlayManager.shared.config = config
-                                        AnkiFloatingOverlayManager.shared.refreshOverlay()
-                                    }
-                                ))
-                                .toggleStyle(.checkbox)
-                                
-                                Toggle("Audio Button (Play/Stop)", isOn: Binding(
-                                    get: { AnkiFloatingOverlayManager.shared.config.showAudioButton },
-                                    set: { val in
-                                        var config = AnkiFloatingOverlayManager.shared.config
-                                        config.showAudioButton = val
-                                        AnkiFloatingOverlayManager.shared.config = config
-                                        AnkiFloatingOverlayManager.shared.refreshOverlay()
-                                    }
-                                ))
-                                .toggleStyle(.checkbox)
-                                
-                                Toggle("Sync Button", isOn: Binding(
-                                    get: { AnkiFloatingOverlayManager.shared.config.showSyncButton },
-                                    set: { val in
-                                        var config = AnkiFloatingOverlayManager.shared.config
-                                        config.showSyncButton = val
-                                        AnkiFloatingOverlayManager.shared.config = config
-                                        AnkiFloatingOverlayManager.shared.refreshOverlay()
-                                    }
-                                ))
-                                .toggleStyle(.checkbox)
-                                
-                                Toggle("Reveal Answer Button", isOn: Binding(
-                                    get: { AnkiFloatingOverlayManager.shared.config.showRevealButton },
-                                    set: { val in
-                                        var config = AnkiFloatingOverlayManager.shared.config
-                                        config.showRevealButton = val
-                                        AnkiFloatingOverlayManager.shared.config = config
-                                        AnkiFloatingOverlayManager.shared.refreshOverlay()
-                                    }
-                                ))
-                                .toggleStyle(.checkbox)
-                                
-                                Toggle("Header (Deck Name & Counter)", isOn: Binding(
-                                    get: { AnkiFloatingOverlayManager.shared.config.showHeader },
-                                    set: { val in
-                                        var config = AnkiFloatingOverlayManager.shared.config
-                                        config.showHeader = val
-                                        AnkiFloatingOverlayManager.shared.config = config
-                                        AnkiFloatingOverlayManager.shared.refreshOverlay()
-                                    }
-                                ))
-                                .toggleStyle(.checkbox)
-                                
-                                if AnkiFloatingOverlayManager.shared.config.showHeader {
-                                    Toggle("Swap Deck Name & Counter position", isOn: Binding(
-                                        get: { AnkiFloatingOverlayManager.shared.config.swapHeaderDeckAndCounts },
-                                        set: { val in
-                                            var config = AnkiFloatingOverlayManager.shared.config
-                                            config.swapHeaderDeckAndCounts = val
-                                            AnkiFloatingOverlayManager.shared.config = config
-                                            AnkiFloatingOverlayManager.shared.refreshOverlay()
-                                        }
-                                    ))
-                                    .toggleStyle(.checkbox)
-                                    .font(.system(size: 10))
-                                }
-                                
-                                if !AnkiFloatingOverlayManager.shared.config.showHeader {
-                                    Toggle("Counts Only (N/L/R) — without header", isOn: Binding(
-                                        get: { AnkiFloatingOverlayManager.shared.config.showCounts },
-                                        set: { val in
-                                            var config = AnkiFloatingOverlayManager.shared.config
-                                            config.showCounts = val
-                                            AnkiFloatingOverlayManager.shared.config = config
-                                            AnkiFloatingOverlayManager.shared.refreshOverlay()
-                                        }
-                                    ))
-                                    .toggleStyle(.checkbox)
-                                    .font(.system(size: 10))
-                                }
-                            }
-                            .font(.system(size: 11))
-                            
-                            Divider()
-                            
-                            // Extra Fields Configuration
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("Extra Fields (Overlay):")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(.gray)
-                                
-                                Text("Extra fields displayed below the main content in the overlay. To combine multiple fields, separate with commas (e.g. Word, Reading).")
-                                    .font(.system(size: 9))
-                                    .foregroundColor(.gray)
-                                    .italic()
-                                    .lineLimit(nil)
-                                    .padding(.bottom, 4)
-                                
-                                HStack(spacing: 8) {
-                                    Text("Extra Question Field:")
-                                        .font(.system(size: 11))
-                                        .frame(width: 130, alignment: .leading)
-                                    
-                                    TextField("e.g. ExtraFront", text: Binding(
-                                        get: { state.widgets[index].ankiExtraQuestionField },
-                                        set: { val in
-                                            state.widgets[index].ankiExtraQuestionField = val
-                                            let deck = state.widgets[index].ankiDeckName
-                                            if !deck.isEmpty {
-                                                var settings = state.widgets[index].ankiDeckSettings[deck] ?? AnkiDeckSettings(
-                                                    questionField: state.widgets[index].ankiQuestionField,
-                                                    answerField: state.widgets[index].ankiAnswerField,
-                                                    audioField: state.widgets[index].ankiAudioField
-                                                )
-                                                settings.extraQuestionField = val
-                                                state.widgets[index].ankiDeckSettings[deck] = settings
-                                            }
-                                            state.saveConfig()
-                                            AnkiFloatingOverlayManager.shared.refreshOverlay()
-                                        }
-                                    ))
-                                    .textFieldStyle(.roundedBorder)
-                                    .font(.system(size: 11))
-                                }
-                                
-                                Toggle("Show extra question field only on answer phase", isOn: Binding(
-                                    get: { AnkiFloatingOverlayManager.shared.config.extraQuestionOnlyOnAnswer },
-                                    set: { val in
-                                        var config = AnkiFloatingOverlayManager.shared.config
-                                        config.extraQuestionOnlyOnAnswer = val
-                                        AnkiFloatingOverlayManager.shared.config = config
-                                        AnkiFloatingOverlayManager.shared.refreshOverlay()
-                                    }
-                                ))
-                                .toggleStyle(.checkbox)
-                                .font(.system(size: 11))
-                                
-                                HStack(spacing: 8) {
-                                    Text("Extra Answer Field:")
-                                        .font(.system(size: 11))
-                                        .frame(width: 130, alignment: .leading)
-                                    
-                                    TextField("e.g. ExtraBack", text: Binding(
-                                        get: { state.widgets[index].ankiExtraAnswerField },
-                                        set: { val in
-                                            state.widgets[index].ankiExtraAnswerField = val
-                                            let deck = state.widgets[index].ankiDeckName
-                                            if !deck.isEmpty {
-                                                var settings = state.widgets[index].ankiDeckSettings[deck] ?? AnkiDeckSettings(
-                                                    questionField: state.widgets[index].ankiQuestionField,
-                                                    answerField: state.widgets[index].ankiAnswerField,
-                                                    audioField: state.widgets[index].ankiAudioField
-                                                )
-                                                settings.extraAnswerField = val
-                                                state.widgets[index].ankiDeckSettings[deck] = settings
-                                            }
-                                            state.saveConfig()
-                                            AnkiFloatingOverlayManager.shared.refreshOverlay()
-                                        }
-                                    ))
-                                    .textFieldStyle(.roundedBorder)
-                                    .font(.system(size: 11))
-                                }
-                                
-                                HStack(spacing: 8) {
-                                    Text("Field Text Color:")
-                                        .font(.system(size: 11))
-                                        .frame(width: 130, alignment: .leading)
-                                    
-                                    TextField("#HEX", text: Binding(
-                                        get: { AnkiFloatingOverlayManager.shared.config.extraFieldColorHex },
-                                        set: { val in
-                                            var config = AnkiFloatingOverlayManager.shared.config
-                                            config.extraFieldColorHex = val
-                                            AnkiFloatingOverlayManager.shared.config = config
-                                            AnkiFloatingOverlayManager.shared.refreshOverlay()
-                                        }
-                                    ))
-                                    .textFieldStyle(.roundedBorder)
-                                    .frame(width: 90)
-                                    
-                                    ColorPicker("", selection: Binding(
-                                        get: { Color(hex: AnkiFloatingOverlayManager.shared.config.extraFieldColorHex) },
-                                        set: { color in
-                                            if let hexString = color.toHex() {
-                                                var config = AnkiFloatingOverlayManager.shared.config
-                                                config.extraFieldColorHex = hexString
-                                                AnkiFloatingOverlayManager.shared.config = config
-                                                AnkiFloatingOverlayManager.shared.refreshOverlay()
-                                            }
-                                        }
-                                    ))
-                                }
-                                
-                                HStack(spacing: 8) {
-                                    Text("Field Font Size:")
-                                        .font(.system(size: 11))
-                                        .frame(width: 130, alignment: .leading)
-                                    
-                                    Slider(value: Binding(
-                                        get: { AnkiFloatingOverlayManager.shared.config.extraFieldFontSize },
-                                        set: { val in
-                                            var config = AnkiFloatingOverlayManager.shared.config
-                                            config.extraFieldFontSize = val
-                                            AnkiFloatingOverlayManager.shared.config = config
-                                            AnkiFloatingOverlayManager.shared.refreshOverlay()
-                                        }
-                                    ), in: 0...28, step: 1)
-                                    
-                                    Text(AnkiFloatingOverlayManager.shared.config.extraFieldFontSize > 0 ? "\(Int(AnkiFloatingOverlayManager.shared.config.extraFieldFontSize))pt" : "Auto")
-                                        .font(.system(size: 10, design: .monospaced))
-                                        .foregroundColor(.gray)
-                                        .frame(width: 40, alignment: .trailing)
-                                }
-                                
-                                Text("Leave question/answer fields empty to hide extra fields. These fields only appear in the overlay (not on the physical Touch Bar). Set font size to 0 to follow the main font size minus 4pt.")
-                                    .font(.system(size: 9))
-                                    .foregroundColor(.gray)
-                                    .italic()
-                                    .lineLimit(nil)
-                            }
-                            
-                            Divider()
-                            
-                            // Focus Mode
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("Focus Mode:")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(.gray)
-                                
-                                Toggle("Hide Title Bar & Close Button", isOn: Binding(
-                                    get: { AnkiFloatingOverlayManager.shared.config.hideTitleBar },
-                                    set: { val in
-                                        var config = AnkiFloatingOverlayManager.shared.config
-                                        config.hideTitleBar = val
-                                        AnkiFloatingOverlayManager.shared.config = config
-                                    }
-                                ))
-                                .toggleStyle(.checkbox)
-                                .font(.system(size: 11))
-                                
-                                Text("Hides the title bar and close button (X) for a more focused view. Drag the window by grabbing the content area.")
-                                    .font(.system(size: 9))
-                                    .foregroundColor(.gray)
-                                    .italic()
-                                    .lineLimit(nil)
-                            }
-                            
-                            Divider()
-                            
-                            // Test buttons
-                            HStack(spacing: 8) {
-                                Button(action: {
-                                    if AnkiFloatingOverlayManager.shared.config.isEnabled {
-                                        AnkiFloatingOverlayManager.shared.show()
-                                    }
-                                }) {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "eye.fill")
-                                            .font(.system(size: 10))
-                                        Text("Show Overlay")
-                                            .font(.system(size: 10))
-                                    }
-                                    .padding(.vertical, 5)
-                                    .padding(.horizontal, 10)
-                                    .background(Color.teal.opacity(0.2))
-                                    .foregroundColor(.teal)
-                                    .cornerRadius(6)
-                                }
-                                .buttonStyle(.plain)
-                                
-                                Button(action: {
-                                    AnkiFloatingOverlayManager.shared.hide()
-                                }) {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "eye.slash.fill")
-                                            .font(.system(size: 10))
-                                        Text("Hide")
-                                            .font(.system(size: 10))
-                                    }
-                                    .padding(.vertical, 5)
-                                    .padding(.horizontal, 10)
-                                    .background(Color.red.opacity(0.2))
-                                    .foregroundColor(.red)
-                                    .cornerRadius(6)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
-                }
-                
-                Divider()
-                
-                // MARK: - Global Keyboard Shortcuts
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Global Keyboard Shortcuts")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.gray)
-                    
-                    Text("Set global hotkeys that work even when TouchBarCraft is in the background. Requires Accessibility permission (already requested on first launch).")
-                        .font(.system(size: 9))
-                        .foregroundColor(.gray)
-                        .italic()
-                    
-                    VStack(spacing: 4) {
-                        ForEach(AnkiHotkeyAction.allCases.filter { $0 != .toggleNHKFloatingWindow && $0 != .openSettings }, id: \.rawValue) { action in
-                            HotkeyRecorderRow(action: action)
-                        }
-                    }
-                }
-                
-                Divider()
-                
-                // MARK: - Game Controller Support
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Game Controller / Joystick Support (EXPERIMENTAL)")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.gray)
-                    
-                    HStack(spacing: 6) {
-                        Image(systemName: "gamecontroller.fill")
-                            .font(.system(size: 12))
-                            .foregroundColor(.green)
-                        Text(GameControllerManager.shared.controllerStatusString)
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundColor(GameControllerManager.shared.hasConnectedController ? .green : .gray)
-                    }
-                    
-                    Toggle("Enable Game Controller Support", isOn: Binding(
-                        get: { GameControllerManager.shared.isEnabled },
-                        set: { GameControllerManager.shared.isEnabled = $0 }
-                    ))
-                    .toggleStyle(.checkbox)
-                    .font(.system(size: 11))
-                    
-                    Toggle("Gaming Mode (disable controller while playing games)", isOn: Binding(
-                        get: { GameControllerManager.shared.isGamingMode },
-                        set: { GameControllerManager.shared.isGamingMode = $0 }
-                    ))
-                    .toggleStyle(.checkbox)
-                    .font(.system(size: 11))
-                    .disabled(!GameControllerManager.shared.isEnabled)
-                    
-                    if GameControllerManager.shared.isEnabled && !GameControllerManager.shared.isGamingMode {
-                        Text("✓ Controller input active — buttons are mapped to Anki actions")
-                            .font(.system(size: 9))
-                            .foregroundColor(.green)
-                    } else if GameControllerManager.shared.isGamingMode {
-                        Text("⚠ Gaming mode ON — controller input for Anki is disabled")
-                            .font(.system(size: 9))
-                            .foregroundColor(.orange)
-                    } else {
-                        Text("Controller support is disabled")
+                    .toggleStyle(.switch)
+                    .font(.system(size: 12, weight: .medium))
+
+                    // Overlay Card Fields (independent from Touch Bar)
+                    VStack(alignment: .leading, spacing: 8) {
+                        groupSubHeader("Overlay Card Fields")
+                        Text("Set custom fields for the floating overlay. Leave empty to use the same fields as the Touch Bar.")
                             .font(.system(size: 9))
                             .foregroundColor(.gray)
-                    }
-                    
-                    // Custom button mapping
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Custom Button Mapping:")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundColor(.gray)
-                        
-                        Text("Assign each controller button to an Anki action. Defaults are used if not customized.")
-                            .font(.system(size: 8))
-                            .foregroundColor(.gray.opacity(0.7))
                             .italic()
-                        
-                        ForEach(GameControllerButton.allCases, id: \.rawValue) { button in
-                            ControllerMappingRow(button: button)
+
+                        ankiFieldRow("Question:", text: Binding(
+                            get: { AnkiFloatingOverlayManager.shared.config.questionField },
+                            set: { var c = AnkiFloatingOverlayManager.shared.config; c.questionField = $0; AnkiFloatingOverlayManager.shared.config = c; saveOverlayToDeckSettings(); AnkiFloatingOverlayManager.shared.refreshOverlay() }
+                        ))
+
+                        ankiFieldRow("Answer:", text: Binding(
+                            get: { AnkiFloatingOverlayManager.shared.config.answerField },
+                            set: { var c = AnkiFloatingOverlayManager.shared.config; c.answerField = $0; AnkiFloatingOverlayManager.shared.config = c; saveOverlayToDeckSettings(); AnkiFloatingOverlayManager.shared.refreshOverlay() }
+                        ))
+
+                        ankiFieldRow("Audio:", text: Binding(
+                            get: { AnkiFloatingOverlayManager.shared.config.audioField },
+                            set: { var c = AnkiFloatingOverlayManager.shared.config; c.audioField = $0; AnkiFloatingOverlayManager.shared.config = c; saveOverlayToDeckSettings(); AnkiFloatingOverlayManager.shared.refreshOverlay() }
+                        ))
+                    }
+
+                    Divider()
+
+                    // Extra Fields
+                    VStack(alignment: .leading, spacing: 8) {
+                        groupSubHeader("Extra Fields")
+
+                        ankiFieldRow("Extra Question:", text: Binding(
+                            get: { AnkiFloatingOverlayManager.shared.config.extraQuestionField },
+                            set: { var c = AnkiFloatingOverlayManager.shared.config; c.extraQuestionField = $0; AnkiFloatingOverlayManager.shared.config = c; saveOverlayToDeckSettings(); AnkiFloatingOverlayManager.shared.refreshOverlay() }
+                        ))
+
+                        Toggle("Show extra question only on answer phase", isOn: Binding(
+                            get: { AnkiFloatingOverlayManager.shared.config.extraQuestionOnlyOnAnswer },
+                            set: { var c = AnkiFloatingOverlayManager.shared.config; c.extraQuestionOnlyOnAnswer = $0; AnkiFloatingOverlayManager.shared.config = c; saveOverlayToDeckSettings(); AnkiFloatingOverlayManager.shared.refreshOverlay() }
+                        ))
+                        .toggleStyle(.checkbox).font(.system(size: 11))
+
+                        ankiFieldRow("Extra Answer:", text: Binding(
+                            get: { AnkiFloatingOverlayManager.shared.config.extraAnswerField },
+                            set: { var c = AnkiFloatingOverlayManager.shared.config; c.extraAnswerField = $0; AnkiFloatingOverlayManager.shared.config = c; saveOverlayToDeckSettings(); AnkiFloatingOverlayManager.shared.refreshOverlay() }
+                        ))
+
+                        HStack(spacing: 8) {
+                            Text("Text Color:")
+                                .font(.system(size: 11))
+                                .frame(width: 95, alignment: .leading)
+                            TextField("#HEX", text: Binding(
+                                get: { AnkiFloatingOverlayManager.shared.config.extraFieldColorHex },
+                                set: { var c = AnkiFloatingOverlayManager.shared.config; c.extraFieldColorHex = $0; AnkiFloatingOverlayManager.shared.config = c; AnkiFloatingOverlayManager.shared.refreshOverlay() }
+                            ))
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 80)
+                            ColorPicker("", selection: Binding(
+                                get: { Color(hex: AnkiFloatingOverlayManager.shared.config.extraFieldColorHex) },
+                                set: { color in if let h = color.toHex() { var c = AnkiFloatingOverlayManager.shared.config; c.extraFieldColorHex = h; AnkiFloatingOverlayManager.shared.config = c; AnkiFloatingOverlayManager.shared.refreshOverlay() } }
+                            ))
+                        }
+
+                        HStack(spacing: 8) {
+                            Text("Font Size:")
+                                .font(.system(size: 11))
+                                .frame(width: 95, alignment: .leading)
+                            Slider(value: Binding(
+                                get: { AnkiFloatingOverlayManager.shared.config.extraFieldFontSize },
+                                set: { var c = AnkiFloatingOverlayManager.shared.config; c.extraFieldFontSize = $0; AnkiFloatingOverlayManager.shared.config = c; AnkiFloatingOverlayManager.shared.refreshOverlay() }
+                            ), in: 0...28, step: 1)
+                            Text(AnkiFloatingOverlayManager.shared.config.extraFieldFontSize > 0 ? "\(Int(AnkiFloatingOverlayManager.shared.config.extraFieldFontSize))pt" : "Auto")
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundColor(.gray)
+                                .frame(width: 40)
                         }
                     }
-                    .padding(8)
-                    .background(Color.white.opacity(0.03))
-                    .cornerRadius(6)
-                    
-                    Text("Connect a PS4, PS5, Xbox, or MFi controller via Bluetooth or USB. Supports most standard gamepads out of the box.")
+
+                    Divider()
+
+                    // Appearance
+                    VStack(alignment: .leading, spacing: 8) {
+                        groupSubHeader("Appearance")
+
+                        HStack(spacing: 8) {
+                            Text("Font Size:")
+                                .font(.system(size: 11))
+                                .frame(width: 95, alignment: .leading)
+                            Slider(value: Binding(
+                                get: { AnkiFloatingOverlayManager.shared.config.fontSize },
+                                set: { var c = AnkiFloatingOverlayManager.shared.config; c.fontSize = $0; AnkiFloatingOverlayManager.shared.config = c; AnkiFloatingOverlayManager.shared.refreshOverlay() }
+                            ), in: 10...32, step: 1)
+                            Text("\(Int(AnkiFloatingOverlayManager.shared.config.fontSize))pt")
+                                .font(.system(size: 10, design: .monospaced)).foregroundColor(.gray)
+                                .frame(width: 35)
+                        }
+
+                        HStack(spacing: 8) {
+                            Text("Furigana Font:")
+                                .font(.system(size: 11))
+                                .frame(width: 95, alignment: .leading)
+                            Slider(value: Binding(
+                                get: { AnkiFloatingOverlayManager.shared.config.overlayFuriganaFontSize },
+                                set: { var c = AnkiFloatingOverlayManager.shared.config; c.overlayFuriganaFontSize = $0; AnkiFloatingOverlayManager.shared.config = c; AnkiFloatingOverlayManager.shared.refreshOverlay() }
+                            ), in: 0...20, step: 1)
+                            Text(AnkiFloatingOverlayManager.shared.config.overlayFuriganaFontSize > 0 ? "\(Int(AnkiFloatingOverlayManager.shared.config.overlayFuriganaFontSize))pt" : "Auto")
+                                .font(.system(size: 10, design: .monospaced)).foregroundColor(.gray)
+                                .frame(width: 40)
+                        }
+
+                        HStack(spacing: 8) {
+                            Text("Window Opacity:")
+                                .font(.system(size: 11))
+                                .frame(width: 95, alignment: .leading)
+                            Slider(value: Binding(
+                                get: { AnkiFloatingOverlayManager.shared.config.windowOpacity },
+                                set: { var c = AnkiFloatingOverlayManager.shared.config; c.windowOpacity = $0; AnkiFloatingOverlayManager.shared.config = c }
+                            ), in: 0.1...1.0, step: 0.05)
+                            Text("\(Int(AnkiFloatingOverlayManager.shared.config.windowOpacity * 100))%")
+                                .font(.system(size: 10, design: .monospaced)).foregroundColor(.gray)
+                                .frame(width: 35)
+                        }
+
+                        HStack(spacing: 8) {
+                            Text("Text Opacity:")
+                                .font(.system(size: 11))
+                                .frame(width: 95, alignment: .leading)
+                            Slider(value: Binding(
+                                get: { AnkiFloatingOverlayManager.shared.config.textOpacity },
+                                set: { var c = AnkiFloatingOverlayManager.shared.config; c.textOpacity = $0; AnkiFloatingOverlayManager.shared.config = c; AnkiFloatingOverlayManager.shared.refreshOverlay() }
+                            ), in: 0.1...1.0, step: 0.05)
+                            Text("\(Int(AnkiFloatingOverlayManager.shared.config.textOpacity * 100))%")
+                                .font(.system(size: 10, design: .monospaced)).foregroundColor(.gray)
+                                .frame(width: 35)
+                        }
+
+                        HStack(spacing: 8) {
+                            Text("Text Color:")
+                                .font(.system(size: 11))
+                                .frame(width: 95, alignment: .leading)
+                            TextField("#HEX", text: Binding(
+                                get: { AnkiFloatingOverlayManager.shared.config.textColorHex },
+                                set: { var c = AnkiFloatingOverlayManager.shared.config; c.textColorHex = $0; AnkiFloatingOverlayManager.shared.config = c; AnkiFloatingOverlayManager.shared.refreshOverlay() }
+                            ))
+                            .textFieldStyle(.roundedBorder).frame(width: 80)
+                            ColorPicker("", selection: Binding(
+                                get: { Color(hex: AnkiFloatingOverlayManager.shared.config.textColorHex) },
+                                set: { color in if let h = color.toHex() { var c = AnkiFloatingOverlayManager.shared.config; c.textColorHex = h; AnkiFloatingOverlayManager.shared.config = c; AnkiFloatingOverlayManager.shared.refreshOverlay() } }
+                            ))
+                        }
+
+                        HStack(spacing: 8) {
+                            Text("Bg Color:")
+                                .font(.system(size: 11))
+                                .frame(width: 95, alignment: .leading)
+                            TextField("#HEX", text: Binding(
+                                get: { AnkiFloatingOverlayManager.shared.config.backgroundColorHex },
+                                set: { var c = AnkiFloatingOverlayManager.shared.config; c.backgroundColorHex = $0; AnkiFloatingOverlayManager.shared.config = c; AnkiFloatingOverlayManager.shared.refreshOverlay() }
+                            ))
+                            .textFieldStyle(.roundedBorder).frame(width: 80)
+                            ColorPicker("", selection: Binding(
+                                get: { Color(hex: AnkiFloatingOverlayManager.shared.config.backgroundColorHex) },
+                                set: { color in if let h = color.toHex() { var c = AnkiFloatingOverlayManager.shared.config; c.backgroundColorHex = h; AnkiFloatingOverlayManager.shared.config = c; AnkiFloatingOverlayManager.shared.refreshOverlay() } }
+                            ))
+                        }
+
+                        HStack(spacing: 8) {
+                            Text("Q Preview Color:")
+                                .font(.system(size: 11))
+                                .frame(width: 95, alignment: .leading)
+                            TextField("#HEX", text: Binding(
+                                get: { AnkiFloatingOverlayManager.shared.config.questionAnswerColorHex },
+                                set: { var c = AnkiFloatingOverlayManager.shared.config; c.questionAnswerColorHex = $0; AnkiFloatingOverlayManager.shared.config = c; AnkiFloatingOverlayManager.shared.refreshOverlay() }
+                            ))
+                            .textFieldStyle(.roundedBorder).frame(width: 80)
+                            ColorPicker("", selection: Binding(
+                                get: { Color(hex: AnkiFloatingOverlayManager.shared.config.questionAnswerColorHex) },
+                                set: { color in if let h = color.toHex() { var c = AnkiFloatingOverlayManager.shared.config; c.questionAnswerColorHex = h; AnkiFloatingOverlayManager.shared.config = c; AnkiFloatingOverlayManager.shared.refreshOverlay() } }
+                            ))
+                        }
+
+                        HStack(spacing: 8) {
+                            Text("Bold Color:")
+                                .font(.system(size: 11))
+                                .frame(width: 95, alignment: .leading)
+                            TextField("#HEX", text: Binding(
+                                get: { AnkiFloatingOverlayManager.shared.config.boldColorHex },
+                                set: { var c = AnkiFloatingOverlayManager.shared.config; c.boldColorHex = $0; AnkiFloatingOverlayManager.shared.config = c; saveOverlayToDeckSettings(); AnkiFloatingOverlayManager.shared.refreshOverlay() }
+                            ))
+                            .textFieldStyle(.roundedBorder).frame(width: 80)
+                            ColorPicker("", selection: Binding(
+                                get: { Color(hex: AnkiFloatingOverlayManager.shared.config.boldColorHex.isEmpty ? "#FFD60A" : AnkiFloatingOverlayManager.shared.config.boldColorHex) },
+                                set: { color in if let h = color.toHex() { var c = AnkiFloatingOverlayManager.shared.config; c.boldColorHex = h; AnkiFloatingOverlayManager.shared.config = c; saveOverlayToDeckSettings(); AnkiFloatingOverlayManager.shared.refreshOverlay() } }
+                            ))
+                        }
+                    }
+
+                    Divider()
+
+                    // Controls
+                    VStack(alignment: .leading, spacing: 8) {
+                        groupSubHeader("Controls")
+
+                        Toggle("Rating Buttons", isOn: Binding(
+                            get: { AnkiFloatingOverlayManager.shared.config.showRatingButtons },
+                            set: { var c = AnkiFloatingOverlayManager.shared.config; c.showRatingButtons = $0; AnkiFloatingOverlayManager.shared.config = c; AnkiFloatingOverlayManager.shared.refreshOverlay() }
+                        ))
+                        Toggle("Audio Button", isOn: Binding(
+                            get: { AnkiFloatingOverlayManager.shared.config.showAudioButton },
+                            set: { var c = AnkiFloatingOverlayManager.shared.config; c.showAudioButton = $0; AnkiFloatingOverlayManager.shared.config = c; AnkiFloatingOverlayManager.shared.refreshOverlay() }
+                        ))
+                        Toggle("Sync Button", isOn: Binding(
+                            get: { AnkiFloatingOverlayManager.shared.config.showSyncButton },
+                            set: { var c = AnkiFloatingOverlayManager.shared.config; c.showSyncButton = $0; AnkiFloatingOverlayManager.shared.config = c; AnkiFloatingOverlayManager.shared.refreshOverlay() }
+                        ))
+                        Toggle("Reveal Button", isOn: Binding(
+                            get: { AnkiFloatingOverlayManager.shared.config.showRevealButton },
+                            set: { var c = AnkiFloatingOverlayManager.shared.config; c.showRevealButton = $0; AnkiFloatingOverlayManager.shared.config = c; AnkiFloatingOverlayManager.shared.refreshOverlay() }
+                        ))
+                        Toggle("Header (Deck Name & Counter)", isOn: Binding(
+                            get: { AnkiFloatingOverlayManager.shared.config.showHeader },
+                            set: { var c = AnkiFloatingOverlayManager.shared.config; c.showHeader = $0; AnkiFloatingOverlayManager.shared.config = c; AnkiFloatingOverlayManager.shared.refreshOverlay() }
+                        ))
+                        if AnkiFloatingOverlayManager.shared.config.showHeader {
+                            Toggle("Swap deck name & counter position", isOn: Binding(
+                                get: { AnkiFloatingOverlayManager.shared.config.swapHeaderDeckAndCounts },
+                                set: { var c = AnkiFloatingOverlayManager.shared.config; c.swapHeaderDeckAndCounts = $0; AnkiFloatingOverlayManager.shared.config = c; AnkiFloatingOverlayManager.shared.refreshOverlay() }
+                            ))
+                            .toggleStyle(.checkbox).font(.system(size: 10)).padding(.leading, 16)
+                        }
+                        if !AnkiFloatingOverlayManager.shared.config.showHeader {
+                            Toggle("Counts only (without header)", isOn: Binding(
+                                get: { AnkiFloatingOverlayManager.shared.config.showCounts },
+                                set: { var c = AnkiFloatingOverlayManager.shared.config; c.showCounts = $0; AnkiFloatingOverlayManager.shared.config = c; AnkiFloatingOverlayManager.shared.refreshOverlay() }
+                            ))
+                            .toggleStyle(.checkbox).font(.system(size: 10)).padding(.leading, 16)
+                        }
+                        Toggle("Hide Title Bar (focus mode)", isOn: Binding(
+                            get: { AnkiFloatingOverlayManager.shared.config.hideTitleBar },
+                            set: { var c = AnkiFloatingOverlayManager.shared.config; c.hideTitleBar = $0; AnkiFloatingOverlayManager.shared.config = c }
+                        ))
+                    }
+                    .toggleStyle(.checkbox).font(.system(size: 11))
+
+                    Divider()
+
+                    HStack(spacing: 8) {
+                        Button(action: { AnkiFloatingOverlayManager.shared.show() }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "eye.fill").font(.system(size: 10))
+                                Text("Show Overlay").font(.system(size: 10))
+                            }
+                            .padding(.vertical, 5).padding(.horizontal, 10)
+                            .background(Color.teal.opacity(0.2)).foregroundColor(.teal).cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+
+                        Button(action: { AnkiFloatingOverlayManager.shared.hide() }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "eye.slash.fill").font(.system(size: 10))
+                                Text("Hide").font(.system(size: 10))
+                            }
+                            .padding(.vertical, 5).padding(.horizontal, 10)
+                            .background(Color.red.opacity(0.2)).foregroundColor(.red).cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            } label: {
+                HStack {
+                    Image(systemName: "rectangle.3.group.fill").font(.system(size: 12)).foregroundColor(.teal)
+                    Text("Floating Overlay").font(.system(size: 12, weight: .bold)).foregroundColor(.primary)
+                }
+            }
+
+            Divider()
+
+            // ── Widget ─────────────────────────────────────────────────
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Image(systemName: "paintbrush").font(.system(size: 12)).foregroundColor(.orange)
+                    Text("Widget").font(.system(size: 12, weight: .bold))
+                }
+
+                HStack(spacing: 8) {
+                    Text("Custom Width:")
+                        .font(.system(size: 11))
+                        .frame(width: 95, alignment: .leading)
+                    TextField("0 = auto", text: Binding(
+                        get: { String(Int(widget.customWidth)) },
+                        set: { val in
+                            if let num = Double(val.filter { $0.isNumber }) {
+                                state.widgets[index].customWidth = num
+                                state.saveConfig()
+                            }
+                        }
+                    ))
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 80)
+                    Text("px").font(.system(size: 11)).foregroundColor(.gray)
+                }
+
+                Toggle("Hide from Touch Bar (keep keyboard & overlay)", isOn: Binding(
+                    get: { widget.hideFromTouchBar },
+                    set: { state.widgets[index].hideFromTouchBar = $0; state.saveConfig() }
+                ))
+                .toggleStyle(.switch).font(.system(size: 11))
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Image(systemName: "chart.bar").font(.system(size: 12)).foregroundColor(.gray)
+                    Text("Session Stats").font(.system(size: 12, weight: .bold))
+                }
+                HStack {
+                    Text("Cards Reviewed:")
+                    Spacer()
+                    Text("\(state.ankiState.cardsReviewed)").fontWeight(.bold)
+                }
+                HStack {
+                    Text("Time Elapsed:")
+                    Spacer()
+                    Text(state.ankiState.sessionDuration).fontWeight(.bold)
+                }
+            }
+            .font(.system(size: 11)).foregroundColor(.gray)
+
+            Divider()
+
+            // MARK: - Global Keyboard Shortcuts
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Global Keyboard Shortcuts")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.gray)
+
+                Text("Set global hotkeys that work even when TouchBarCraft is in the background. Requires Accessibility permission (already requested on first launch).")
+                    .font(.system(size: 9))
+                    .foregroundColor(.gray)
+                    .italic()
+
+                VStack(spacing: 4) {
+                    ForEach(AnkiHotkeyAction.allCases.filter { $0 != .toggleNHKFloatingWindow && $0 != .openSettings }, id: \.rawValue) { action in
+                        HotkeyRecorderRow(action: action)
+                    }
+                }
+            }
+
+            Divider()
+
+            // MARK: - Game Controller Support
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Game Controller / Joystick Support (EXPERIMENTAL)")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.gray)
+
+                HStack(spacing: 6) {
+                    Image(systemName: "gamecontroller.fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(.green)
+                    Text(GameControllerManager.shared.controllerStatusString)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(GameControllerManager.shared.hasConnectedController ? .green : .gray)
+                }
+
+                Toggle("Enable Game Controller Support", isOn: Binding(
+                    get: { GameControllerManager.shared.isEnabled },
+                    set: { GameControllerManager.shared.isEnabled = $0 }
+                ))
+                .toggleStyle(.checkbox)
+                .font(.system(size: 11))
+
+                Toggle("Gaming Mode (disable controller while playing games)", isOn: Binding(
+                    get: { GameControllerManager.shared.isGamingMode },
+                    set: { GameControllerManager.shared.isGamingMode = $0 }
+                ))
+                .toggleStyle(.checkbox)
+                .font(.system(size: 11))
+                .disabled(!GameControllerManager.shared.isEnabled)
+
+                if GameControllerManager.shared.isEnabled && !GameControllerManager.shared.isGamingMode {
+                    Text("✓ Controller input active — buttons are mapped to Anki actions")
+                        .font(.system(size: 9))
+                        .foregroundColor(.green)
+                } else if GameControllerManager.shared.isGamingMode {
+                    Text("⚠ Gaming mode ON — controller input for Anki is disabled")
+                        .font(.system(size: 9))
+                        .foregroundColor(.orange)
+                } else {
+                    Text("Controller support is disabled")
                         .font(.system(size: 9))
                         .foregroundColor(.gray)
-                        .italic()
                 }
-                
-                Divider()
-                
+
+                // Custom button mapping
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Review Stats:")
-                        .font(.system(size: 11, weight: .bold))
-                    HStack {
-                        Text("Cards Reviewed:")
-                        Spacer()
-                        Text("\(state.ankiState.cardsReviewed)")
-                            .fontWeight(.bold)
-                    }
-                    HStack {
-                        Text("Time Elapsed:")
-                        Spacer()
-                        Text(state.ankiState.sessionDuration)
-                            .fontWeight(.bold)
+                    Text("Custom Button Mapping:")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(.gray)
+
+                    Text("Assign each controller button to an Anki action. Defaults are used if not customized.")
+                        .font(.system(size: 8))
+                        .foregroundColor(.gray.opacity(0.7))
+                        .italic()
+
+                    ForEach(GameControllerButton.allCases, id: \.rawValue) { button in
+                        ControllerMappingRow(button: button)
                     }
                 }
-                .font(.system(size: 11))
-                .foregroundColor(.gray)
+                .padding(8)
+                .background(Color.white.opacity(0.03))
+                .cornerRadius(6)
+
+                Text("Connect a PS4, PS5, Xbox, or MFi controller via Bluetooth or USB. Supports most standard gamepads out of the box.")
+                    .font(.system(size: 9))
+                    .foregroundColor(.gray)
+                    .italic()
             }
+
+            Divider()
         }
     }
-    
+
+    // MARK: - Helpers
+
+    private func groupHeader(icon: String, title: String, color: Color) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon).font(.system(size: 12)).foregroundColor(color)
+            Text(title).font(.system(size: 12, weight: .bold))
+        }
+    }
+
+    private func groupSubHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 11, weight: .bold))
+            .foregroundColor(.gray)
+    }
+
+    private func ankiFieldRow(_ label: String, text: Binding<String>) -> some View {
+        HStack(spacing: 8) {
+            Text(label)
+                .font(.system(size: 11))
+                .frame(width: 95, alignment: .leading)
+            TextField("", text: text)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(size: 11))
+        }
+    }
+
+    private func saveFieldToDeckSettings(_ update: (inout AnkiDeckSettings) -> Void) {
+        let deck = state.widgets[index].ankiDeckName
+        if !deck.isEmpty {
+            var settings = state.widgets[index].ankiDeckSettings[deck] ?? AnkiDeckSettings(
+                questionField: state.widgets[index].ankiQuestionField,
+                answerField: state.widgets[index].ankiAnswerField,
+                audioField: state.widgets[index].ankiAudioField
+            )
+            update(&settings)
+            state.widgets[index].ankiDeckSettings[deck] = settings
+        }
+        state.saveConfig()
+    }
+
+    private func saveOverlayToDeckSettings() {
+        let deck = state.widgets[index].ankiDeckName
+        if !deck.isEmpty {
+            let overlayConfig = AnkiFloatingOverlayManager.shared.config
+            var settings = state.widgets[index].ankiDeckSettings[deck] ?? AnkiDeckSettings(
+                questionField: state.widgets[index].ankiQuestionField,
+                answerField: state.widgets[index].ankiAnswerField,
+                audioField: state.widgets[index].ankiAudioField
+            )
+            settings.overlayQuestionField = overlayConfig.questionField
+            settings.overlayAnswerField = overlayConfig.answerField
+            settings.overlayAudioField = overlayConfig.audioField
+            settings.overlayExtraQuestionField = overlayConfig.extraQuestionField
+            settings.overlayExtraAnswerField = overlayConfig.extraAnswerField
+            settings.overlayBoldColorHex = overlayConfig.boldColorHex
+            state.widgets[index].ankiDeckSettings[deck] = settings
+        }
+        state.saveConfig()
+    }
+
     @ViewBuilder
     private func ratingColorRow(label: String, hex: String, onChange: @escaping (String) -> Void) -> some View {
         HStack(spacing: 8) {

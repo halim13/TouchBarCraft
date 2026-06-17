@@ -23,12 +23,17 @@ public struct AnkiFloatingOverlayConfig: Codable, Sendable {
     public var showCounts: Bool
     public var positionX: Double
     public var positionY: Double
+    // Overlay-specific field configuration (independent from Touch Bar widget)
+    public var questionField: String       // Overlay question field(s), comma-separated; empty = use widget config
+    public var answerField: String         // Overlay answer field(s), comma-separated; empty = use widget config
+    public var audioField: String          // Overlay audio field; empty = use widget config
     public var extraQuestionField: String  // Additional question field for overlay (comma-separated)
     public var extraAnswerField: String    // Additional answer field for overlay (comma-separated)
     public var extraQuestionOnlyOnAnswer: Bool // Show extra question field only on answer phase
     public var extraFieldColorHex: String  // Text color for extra fields
     public var extraFieldFontSize: Double   // Font size for extra fields (0 = use main fontSize - 4)
     public var swapHeaderDeckAndCounts: Bool // Swap deck name and counter position in header
+    public var boldColorHex: String         // Bold color for overlay; empty = use widget's bold color
 
     public static let defaults = AnkiFloatingOverlayConfig(
         isEnabled: false,
@@ -50,12 +55,16 @@ public struct AnkiFloatingOverlayConfig: Codable, Sendable {
         showCounts: false,
         positionX: 0,
         positionY: 0,
+        questionField: "",
+        answerField: "",
+        audioField: "",
         extraQuestionField: "",
         extraAnswerField: "",
         extraQuestionOnlyOnAnswer: false,
         extraFieldColorHex: "#00CED1",
         extraFieldFontSize: 0,
-        swapHeaderDeckAndCounts: false
+        swapHeaderDeckAndCounts: false,
+        boldColorHex: ""
     )
 
     private static let userDefaultsKey = "AnkiFloatingOverlayConfig"
@@ -349,20 +358,35 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
             furiganaVerticalOffset = widget.ankiFuriganaVerticalOffset
             furiganaTextOffset = widget.ankiFuriganaSegmentOffset
             combineFurigana = widget.ankiCombineFurigana
-            boldColorHex = widget.ankiBoldColorHex
+            boldColorHex = config.boldColorHex.isEmpty ? widget.ankiBoldColorHex : config.boldColorHex
             showAgain = widget.ankiShowAgain
             showHard = widget.ankiShowHard
             showGood = widget.ankiShowGood
             showEasy = widget.ankiShowEasy
         }
-        // Populate extra fields from the widget's per-deck settings (not the global config)
-        let widget = getAnkiWidget()
-        let extraQField = widget?.ankiExtraQuestionField ?? config.extraQuestionField
-        let extraAField = widget?.ankiExtraAnswerField ?? config.extraAnswerField
+
         if let card = state.currentCard {
+            // Compute question/answer from overlay-specific field config if set,
+            // otherwise fall back to the card's pre-rendered values (from widget config)
+            let qField = config.questionField.isEmpty ? nil : config.questionField
+            let aField = config.answerField.isEmpty ? nil : config.answerField
+            questionText = qField.flatMap { extractOverlayFieldValue(from: $0, fields: card.fields) }
+                ?? card.question
+            answerText = aField.flatMap { extractOverlayFieldValue(from: $0, fields: card.fields) }
+                ?? card.answer
+
+            // Extra fields: overlay config takes precedence, fall back to widget config
+            let extraQField = config.extraQuestionField.isEmpty
+                ? (getAnkiWidget()?.ankiExtraQuestionField ?? "")
+                : config.extraQuestionField
+            let extraAField = config.extraAnswerField.isEmpty
+                ? (getAnkiWidget()?.ankiExtraAnswerField ?? "")
+                : config.extraAnswerField
             extraQuestionText = extractExtraFieldValue(from: extraQField, fields: card.fields)
             extraAnswerText = extractExtraFieldValue(from: extraAField, fields: card.fields)
         } else {
+            questionText = ""
+            answerText = ""
             extraQuestionText = ""
             extraAnswerText = ""
         }
@@ -383,6 +407,27 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
                 }
             }
         }
+        return values.joined(separator: " / ")
+    }
+
+    /// Parse comma-separated field names, extract and join their values with HTML stripped,
+    /// matching how AnkiConnectClient renders question/answer for the widget.
+    private func extractOverlayFieldValue(from fieldString: String, fields: [String: String]) -> String? {
+        let trimmed = fieldString.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return nil }
+        let fieldNames = trimmed.split(separator: ",").map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        var values: [String] = []
+        for name in fieldNames {
+            if let val = fields[name] {
+                let stripped = stripHTMLForOverlay(val)
+                if !stripped.isEmpty {
+                    values.append(stripped)
+                }
+            }
+        }
+        guard !values.isEmpty else { return nil }
         return values.joined(separator: " / ")
     }
 
@@ -413,9 +458,9 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
 
         if let card = state.currentCard {
             hasCard = true
-            questionText = card.question
-            answerText = card.answer
             deckName = card.deckName
+            // questionText and answerText are set in refreshContent() to support
+            // overlay-specific field configuration
         } else {
             hasCard = false
             questionText = ""
