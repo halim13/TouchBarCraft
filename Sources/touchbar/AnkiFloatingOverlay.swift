@@ -224,6 +224,9 @@ public final class AnkiFloatingOverlayManager: NSObject {
         let hostingView = NSHostingView(rootView: FloatingOverlayContentView(host: host))
         hostingView.frame = contentRect
         hostingView.autoresizingMask = [.width, .height]
+        if #available(macOS 14.0, *) {
+            hostingView.sizingOptions = []
+        }
         panel.contentView = hostingView
 
         // Note: windowOpacity only affects the VisualEffectView background, NOT text.
@@ -445,18 +448,21 @@ public struct FloatingOverlayContentView: View {
     @ObservedObject var host: AnkiFloatingOverlayViewHost
 
     public var body: some View {
-        VStack(spacing: 0) {
-            if !host.isConnected {
-                offlineView
-            } else if !host.hasCard || host.isLoading {
-                waitingView
-            } else if !host.isShowingAnswer {
-                questionPhaseView
-            } else {
-                answerPhaseView
+        GeometryReader { proxy in
+            VStack(spacing: 0) {
+                if !host.isConnected {
+                    offlineView
+                } else if !host.hasCard || host.isLoading {
+                    waitingView
+                } else if !host.isShowingAnswer {
+                    questionPhaseView
+                } else {
+                    answerPhaseView
+                }
             }
+            .frame(width: proxy.size.width - 24, alignment: .top)
+            .padding(12)
         }
-        .padding(12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(
             VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
@@ -573,18 +579,17 @@ public struct FloatingOverlayContentView: View {
                 }
             }
 
-            ScrollView
-                 {
+            ScrollView([.vertical]) {
                 VStack(alignment: .leading, spacing: 4) {
                     cardContentText(host.questionText)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    
-                    // Extra question field (hidden if toggle is set to only show in answer)
+
                     if !host.extraQuestionText.isEmpty && !host.config.extraQuestionOnlyOnAnswer {
                         extraFieldText(host.extraQuestionText)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
+                .frame(maxWidth: .infinity)
             }
             .frame(maxWidth: .infinity)
 
@@ -607,6 +612,7 @@ public struct FloatingOverlayContentView: View {
                 .buttonStyle(.plain)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .top)
     }
 
     // MARK: - Answer Phase
@@ -664,17 +670,17 @@ public struct FloatingOverlayContentView: View {
                 .padding(.vertical, 2)
 
             // Answer
-            ScrollView {
+            ScrollView([.vertical]) {
                 VStack(alignment: .leading, spacing: 4) {
                     cardContentText(host.answerText)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     
-                    // Extra answer field
                     if !host.extraAnswerText.isEmpty {
                         extraFieldText(host.extraAnswerText)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
+                .frame(maxWidth: .infinity)
             }
             .frame(maxWidth: .infinity)
 
@@ -687,6 +693,7 @@ public struct FloatingOverlayContentView: View {
                 if host.config.showRatingButtons { ratingButtons }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .top)
     }
 
     // MARK: - Sub-Views
@@ -780,6 +787,13 @@ public struct FloatingOverlayContentView: View {
             .cornerRadius(6)
     }
 
+    /// Split non-furigana text into individual characters for CJK wrapping.
+    /// Text with spaces (Latin) is kept whole so `Text` word-wraps natively.
+    private func splitForWrapping(_ text: String) -> [String] {
+        guard !text.contains(" ") else { return [text] }
+        return text.map { String($0) }
+    }
+
     // MARK: - Extra Field Label
 
     private func extraFieldLabel(_ label: String) -> some View {
@@ -818,6 +832,11 @@ public struct FloatingOverlayContentView: View {
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private func insertBreakOpportunities(_ text: String) -> String {
+        guard !text.contains(" ") else { return text }
+        return text.map { String($0) }.joined(separator: "\u{200B}")
+    }
+
     @ViewBuilder
     private func extraFieldText(_ text: String) -> some View {
         let cleanedText = stripUnknownHTMLTags(text)
@@ -825,7 +844,7 @@ public struct FloatingOverlayContentView: View {
             extraFieldFuriganaText(cleanedText)
         } else {
             parseHTMLTags(
-                in: cleanedText,
+                in: insertBreakOpportunities(cleanedText),
                 defaultColor: Color(hex: host.config.extraFieldColorHex).opacity(host.config.textOpacity),
                 boldColor: Color(hex: host.config.extraFieldColorHex).opacity(host.config.textOpacity),
                 fontSize: extraFieldFontSize()
@@ -863,13 +882,22 @@ public struct FloatingOverlayContentView: View {
                             .if(item.isItalic) { $0.italic() }
                             .if(item.isUnderline) { $0.underline() }
                     }
-                } else {
+                } else if item.text.contains(" ") {
                     Text(item.text)
                         .font(.system(size: extraFieldFontSize(), weight: item.isBold ? .bold : .regular))
                         .foregroundColor(extraColor)
                         .if(item.isItalic) { $0.italic() }
                         .if(item.isUnderline) { $0.underline() }
                         .padding(.top, furiHeight)
+                } else {
+                    ForEach(Array(splitForWrapping(item.text).enumerated()), id: \.offset) { _, char in
+                        Text(char)
+                            .font(.system(size: extraFieldFontSize(), weight: item.isBold ? .bold : .regular))
+                            .foregroundColor(extraColor)
+                            .if(item.isItalic) { $0.italic() }
+                            .if(item.isUnderline) { $0.underline() }
+                            .padding(.top, furiHeight)
+                    }
                 }
             }
         }
@@ -910,13 +938,22 @@ public struct FloatingOverlayContentView: View {
                                 .if(item.isItalic) { $0.italic() }
                                 .if(item.isUnderline) { $0.underline() }
                         }
-                    } else {
+                    } else if item.text.contains(" ") {
                         Text(item.text)
                             .font(.system(size: previewFontSize, weight: item.isBold ? .bold : .regular))
                             .foregroundColor(previewColor)
                             .if(item.isItalic) { $0.italic() }
                             .if(item.isUnderline) { $0.underline() }
                             .padding(.top, furiHeight)
+                    } else {
+                        ForEach(Array(splitForWrapping(item.text).enumerated()), id: \.offset) { _, char in
+                            Text(char)
+                                .font(.system(size: previewFontSize, weight: item.isBold ? .bold : .regular))
+                                .foregroundColor(previewColor)
+                                .if(item.isItalic) { $0.italic() }
+                                .if(item.isUnderline) { $0.underline() }
+                                .padding(.top, furiHeight)
+                        }
                     }
                 }
             }
@@ -947,10 +984,8 @@ public struct FloatingOverlayContentView: View {
             wrappingFuriganaText(text, renderedFuriSize: renderedFuriSize)
                 .offset(y: CGFloat(host.furiganaTextOffset))
         } else {
-            // Parse HTML tags (bold/italic/underline) without furigana.
-            // [furigana] brackets are shown literally as-is.
             parseHTMLTags(
-                in: text,
+                in: insertBreakOpportunities(text),
                 defaultColor: textColor,
                 boldColor: Color(hex: host.boldColorHex).opacity(host.config.textOpacity),
                 fontSize: host.config.fontSize
@@ -980,7 +1015,7 @@ public struct FloatingOverlayContentView: View {
                             .if(item.isItalic) { $0.italic() }
                             .if(item.isUnderline) { $0.underline() }
                     }
-                } else {
+                } else if item.text.contains(" ") {
                     Text(item.text)
                         .font(.system(size: host.config.fontSize, weight: item.isBold ? .bold : .regular))
                         .foregroundColor(item.isBold
@@ -989,6 +1024,17 @@ public struct FloatingOverlayContentView: View {
                         .if(item.isItalic) { $0.italic() }
                         .if(item.isUnderline) { $0.underline() }
                         .padding(.top, furiHeight)
+                } else {
+                    ForEach(Array(splitForWrapping(item.text).enumerated()), id: \.offset) { _, char in
+                        Text(char)
+                            .font(.system(size: host.config.fontSize, weight: item.isBold ? .bold : .regular))
+                            .foregroundColor(item.isBold
+                                ? Color(hex: host.boldColorHex).opacity(host.config.textOpacity)
+                                : textColor)
+                            .if(item.isItalic) { $0.italic() }
+                            .if(item.isUnderline) { $0.underline() }
+                            .padding(.top, furiHeight)
+                    }
                 }
             }
         }

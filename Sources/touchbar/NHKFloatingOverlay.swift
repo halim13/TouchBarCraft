@@ -669,7 +669,7 @@ struct WrappingHStack: Layout {
         var currentRowHeight: CGFloat = 0
 
         for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
+            let size = subview.sizeThatFits(ProposedViewSize(width: maxWidth, height: nil))
             if currentX + size.width > maxWidth, currentX > 0 {
                 totalHeight += currentRowHeight + lineSpacing
                 currentX = size.width
@@ -690,13 +690,14 @@ struct WrappingHStack: Layout {
         var rowHeight: CGFloat = 0
 
         for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
+            let constrained = ProposedViewSize(width: maxWidth, height: nil)
+            let size = subview.sizeThatFits(constrained)
             if x + size.width > maxWidth + bounds.minX, x > bounds.minX {
                 x = bounds.minX
                 y += rowHeight + lineSpacing
                 rowHeight = 0
             }
-            subview.place(at: CGPoint(x: x, y: y), proposal: .unspecified)
+            subview.place(at: CGPoint(x: x, y: y), proposal: constrained)
             x += size.width + spacing
             rowHeight = max(rowHeight, size.height)
         }
