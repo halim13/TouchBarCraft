@@ -35,6 +35,83 @@ public struct AnkiFloatingOverlayConfig: Codable, Sendable {
     public var swapHeaderDeckAndCounts: Bool // Swap deck name and counter position in header
     public var boldColorHex: String         // Bold color for overlay; empty = use widget's bold color
 
+    enum CodingKeys: String, CodingKey {
+        case isEnabled, fontSize, windowOpacity, textOpacity, windowWidth, windowHeight
+        case showRatingButtons, showAudioButton, showSyncButton, showRevealButton
+        case overlayFuriganaFontSize, hideTitleBar
+        case textColorHex, backgroundColorHex, questionAnswerColorHex
+        case showHeader, showCounts, positionX, positionY
+        case questionField, answerField, audioField
+        case extraQuestionField, extraAnswerField, extraQuestionOnlyOnAnswer
+        case extraFieldColorHex, extraFieldFontSize
+        case swapHeaderDeckAndCounts, boldColorHex
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? false
+        self.fontSize = try container.decodeIfPresent(Double.self, forKey: .fontSize) ?? 16
+        self.windowOpacity = try container.decodeIfPresent(Double.self, forKey: .windowOpacity) ?? 0.85
+        self.textOpacity = try container.decodeIfPresent(Double.self, forKey: .textOpacity) ?? 1.0
+        self.windowWidth = try container.decodeIfPresent(Double.self, forKey: .windowWidth) ?? 420
+        self.windowHeight = try container.decodeIfPresent(Double.self, forKey: .windowHeight) ?? 300
+        self.showRatingButtons = try container.decodeIfPresent(Bool.self, forKey: .showRatingButtons) ?? true
+        self.showAudioButton = try container.decodeIfPresent(Bool.self, forKey: .showAudioButton) ?? true
+        self.showSyncButton = try container.decodeIfPresent(Bool.self, forKey: .showSyncButton) ?? true
+        self.showRevealButton = try container.decodeIfPresent(Bool.self, forKey: .showRevealButton) ?? true
+        self.overlayFuriganaFontSize = try container.decodeIfPresent(Double.self, forKey: .overlayFuriganaFontSize) ?? 0
+        self.hideTitleBar = try container.decodeIfPresent(Bool.self, forKey: .hideTitleBar) ?? false
+        self.textColorHex = try container.decodeIfPresent(String.self, forKey: .textColorHex) ?? "#FFFFFF"
+        self.backgroundColorHex = try container.decodeIfPresent(String.self, forKey: .backgroundColorHex) ?? "#1E1E24"
+        self.questionAnswerColorHex = try container.decodeIfPresent(String.self, forKey: .questionAnswerColorHex) ?? "#808080"
+        self.showHeader = try container.decodeIfPresent(Bool.self, forKey: .showHeader) ?? true
+        self.showCounts = try container.decodeIfPresent(Bool.self, forKey: .showCounts) ?? false
+        self.positionX = try container.decodeIfPresent(Double.self, forKey: .positionX) ?? 0
+        self.positionY = try container.decodeIfPresent(Double.self, forKey: .positionY) ?? 0
+        self.questionField = try container.decodeIfPresent(String.self, forKey: .questionField) ?? ""
+        self.answerField = try container.decodeIfPresent(String.self, forKey: .answerField) ?? ""
+        self.audioField = try container.decodeIfPresent(String.self, forKey: .audioField) ?? ""
+        self.extraQuestionField = try container.decodeIfPresent(String.self, forKey: .extraQuestionField) ?? ""
+        self.extraAnswerField = try container.decodeIfPresent(String.self, forKey: .extraAnswerField) ?? ""
+        self.extraQuestionOnlyOnAnswer = try container.decodeIfPresent(Bool.self, forKey: .extraQuestionOnlyOnAnswer) ?? false
+        self.extraFieldColorHex = try container.decodeIfPresent(String.self, forKey: .extraFieldColorHex) ?? "#00CED1"
+        self.extraFieldFontSize = try container.decodeIfPresent(Double.self, forKey: .extraFieldFontSize) ?? 0
+        self.swapHeaderDeckAndCounts = try container.decodeIfPresent(Bool.self, forKey: .swapHeaderDeckAndCounts) ?? false
+        self.boldColorHex = try container.decodeIfPresent(String.self, forKey: .boldColorHex) ?? ""
+    }
+
+    public init(isEnabled: Bool = false, fontSize: Double = 16, windowOpacity: Double = 0.85, textOpacity: Double = 1.0, windowWidth: Double = 420, windowHeight: Double = 300, showRatingButtons: Bool = true, showAudioButton: Bool = true, showSyncButton: Bool = true, showRevealButton: Bool = true, overlayFuriganaFontSize: Double = 0, hideTitleBar: Bool = false, textColorHex: String = "#FFFFFF", backgroundColorHex: String = "#1E1E24", questionAnswerColorHex: String = "#808080", showHeader: Bool = true, showCounts: Bool = false, positionX: Double = 0, positionY: Double = 0, questionField: String = "", answerField: String = "", audioField: String = "", extraQuestionField: String = "", extraAnswerField: String = "", extraQuestionOnlyOnAnswer: Bool = false, extraFieldColorHex: String = "#00CED1", extraFieldFontSize: Double = 0, swapHeaderDeckAndCounts: Bool = false, boldColorHex: String = "") {
+        self.isEnabled = isEnabled
+        self.fontSize = fontSize
+        self.windowOpacity = windowOpacity
+        self.textOpacity = textOpacity
+        self.windowWidth = windowWidth
+        self.windowHeight = windowHeight
+        self.showRatingButtons = showRatingButtons
+        self.showAudioButton = showAudioButton
+        self.showSyncButton = showSyncButton
+        self.showRevealButton = showRevealButton
+        self.overlayFuriganaFontSize = overlayFuriganaFontSize
+        self.hideTitleBar = hideTitleBar
+        self.textColorHex = textColorHex
+        self.backgroundColorHex = backgroundColorHex
+        self.questionAnswerColorHex = questionAnswerColorHex
+        self.showHeader = showHeader
+        self.showCounts = showCounts
+        self.positionX = positionX
+        self.positionY = positionY
+        self.questionField = questionField
+        self.answerField = answerField
+        self.audioField = audioField
+        self.extraQuestionField = extraQuestionField
+        self.extraAnswerField = extraAnswerField
+        self.extraQuestionOnlyOnAnswer = extraQuestionOnlyOnAnswer
+        self.extraFieldColorHex = extraFieldColorHex
+        self.extraFieldFontSize = extraFieldFontSize
+        self.swapHeaderDeckAndCounts = swapHeaderDeckAndCounts
+        self.boldColorHex = boldColorHex
+    }
+
     public static let defaults = AnkiFloatingOverlayConfig(
         isEnabled: false,
         fontSize: 16.0,

@@ -80,6 +80,29 @@ public struct AnkiDeckSettings: Codable, Hashable, Sendable {
         self.overlayExtraAnswerField = overlayExtraAnswerField
         self.overlayBoldColorHex = overlayBoldColorHex
     }
+
+    enum CodingKeys: String, CodingKey {
+        case questionField, answerField, audioField, touchBarAudioField
+        case extraQuestionField, extraAnswerField
+        case overlayQuestionField, overlayAnswerField, overlayAudioField
+        case overlayExtraQuestionField, overlayExtraAnswerField, overlayBoldColorHex
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.questionField = try container.decodeIfPresent(String.self, forKey: .questionField) ?? ""
+        self.answerField = try container.decodeIfPresent(String.self, forKey: .answerField) ?? ""
+        self.audioField = try container.decodeIfPresent(String.self, forKey: .audioField) ?? "Audio"
+        self.touchBarAudioField = try container.decodeIfPresent(String.self, forKey: .touchBarAudioField) ?? self.audioField
+        self.extraQuestionField = try container.decodeIfPresent(String.self, forKey: .extraQuestionField) ?? ""
+        self.extraAnswerField = try container.decodeIfPresent(String.self, forKey: .extraAnswerField) ?? ""
+        self.overlayQuestionField = try container.decodeIfPresent(String.self, forKey: .overlayQuestionField) ?? ""
+        self.overlayAnswerField = try container.decodeIfPresent(String.self, forKey: .overlayAnswerField) ?? ""
+        self.overlayAudioField = try container.decodeIfPresent(String.self, forKey: .overlayAudioField) ?? ""
+        self.overlayExtraQuestionField = try container.decodeIfPresent(String.self, forKey: .overlayExtraQuestionField) ?? ""
+        self.overlayExtraAnswerField = try container.decodeIfPresent(String.self, forKey: .overlayExtraAnswerField) ?? ""
+        self.overlayBoldColorHex = try container.decodeIfPresent(String.self, forKey: .overlayBoldColorHex) ?? ""
+    }
 }
 
 public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
