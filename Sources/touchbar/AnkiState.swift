@@ -215,7 +215,6 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
             let intervals = await AnkiConnectClient.shared.getSchedulingStates()
             self.buttonIntervals = intervals
             self.buttonLabels = card.buttonLabels
-            print("DEBUG loadCurrentCard: buttonLabels from card=\(card.buttonLabels)")
             await AnkiConnectClient.shared.startCardTimer()
         } else {
             self.newCount = 0
@@ -263,7 +262,6 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
                 self.buttonIntervals = intervals
             }
             let labels = await AnkiConnectClient.shared.getButtonLabels()
-            print("DEBUG revealAnswer: buttonLabels from API=\(labels)")
             if !labels.isEmpty {
                 self.buttonLabels = labels
             }

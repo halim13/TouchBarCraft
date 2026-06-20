@@ -408,9 +408,18 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         state.ankiState.revealAnswer()
     }
     
-    @objc private func ankiRatingTapped(_ sender: NSButton) {
+    @objc private func ankiRatingTapped(_ sender: Any) {
         guard let state = AppState.shared else { return }
-        let rating = sender.tag
+        let view: NSView?
+        if let gesture = sender as? NSGestureRecognizer {
+            view = gesture.view
+        } else if let btn = sender as? NSButton {
+            view = btn
+        } else {
+            view = sender as? NSView
+        }
+        let rating = view?.tag ?? 0
+        guard rating > 0 else { return }
         state.ankiState.submitRating(ease: rating)
     }
     
@@ -776,19 +785,80 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
             // Build rating buttons
             let count = card.buttonCount
             let buttonsToShow = getRatingButtons(for: widget, buttonCount: count, intervals: anki.buttonIntervals, labels: anki.buttonLabels, showInterval: widget.ankiShowButtonsInterval)
-            print("DEBUG TouchBar: labels=\(anki.buttonLabels) intervals=\(anki.buttonIntervals) showInterval=\(widget.ankiShowButtonsInterval) buttons=\(buttonsToShow.map{ $0.title })")
-            var ratingButtons: [NSButton] = []
-            for btnSpec in buttonsToShow {
-                let btn = NSButton(title: btnSpec.title, target: self, action: #selector(ankiRatingTapped(_:)))
-                btn.tag = btnSpec.rating
-                btn.bezelStyle = .rounded
-                btn.bezelColor = btnSpec.color
-                btn.contentTintColor = .white
-                btn.font = NSFont.systemFont(ofSize: 11, weight: .bold)
-                btn.setAccessibilityLabel("Rate \(btnSpec.title)")
-                btn.setContentCompressionResistancePriority(.required, for: .horizontal)
-                btn.setContentHuggingPriority(.required, for: .horizontal)
-                ratingButtons.append(btn)
+            var ratingButtonViews: [NSView] = []
+            if widget.ankiShowButtonsInterval {
+                // Vertical layout: small button + interval text below (outside clickable area)
+                for btnSpec in buttonsToShow {
+                    let parts = btnSpec.title.components(separatedBy: " (")
+                    let title = parts[0]
+                    let interval = parts.count > 1 ? String(parts[1].dropLast()) : ""
+
+                    let group = NSStackView()
+                    group.orientation = .vertical
+                    group.spacing = 1
+                    group.alignment = .centerX
+                    group.distribution = .fill
+                    group.translatesAutoresizingMaskIntoConstraints = false
+
+                    let btn = NSButton(title: "", target: self, action: #selector(ankiRatingTapped(_:)))
+                    btn.tag = btnSpec.rating
+                    btn.bezelStyle = .rounded
+                    btn.isBordered = false
+                    btn.wantsLayer = true
+                    btn.layer?.backgroundColor = btnSpec.color.cgColor
+                    btn.layer?.cornerRadius = 4
+                    btn.translatesAutoresizingMaskIntoConstraints = false
+
+                    let attrTitle = NSAttributedString(string: title, attributes: [
+                        .font: NSFont.systemFont(ofSize: 9, weight: .bold),
+                        .foregroundColor: NSColor.white,
+                        .paragraphStyle: {
+                            let p = NSParagraphStyle.default.mutableCopy() as! NSMutableParagraphStyle
+                            p.alignment = .center
+                            return p
+                        }()
+                    ])
+                    btn.attributedTitle = attrTitle
+
+                    btn.setContentCompressionResistancePriority(.required, for: .horizontal)
+                    btn.setContentHuggingPriority(.required, for: .horizontal)
+                    NSLayoutConstraint.activate([
+                        btn.widthAnchor.constraint(greaterThanOrEqualToConstant: 48),
+                        btn.heightAnchor.constraint(equalToConstant: 17),
+                    ])
+
+                    if !interval.isEmpty {
+                        let intervalLabel = NSTextField(labelWithString: interval)
+                        intervalLabel.font = NSFont.systemFont(ofSize: 7, weight: .medium)
+                        intervalLabel.textColor = .white.withAlphaComponent(0.8)
+                        intervalLabel.alignment = .center
+                        intervalLabel.isBezeled = false
+                        intervalLabel.drawsBackground = false
+                        intervalLabel.isEditable = false
+                        intervalLabel.isSelectable = false
+                        intervalLabel.translatesAutoresizingMaskIntoConstraints = false
+                        intervalLabel.heightAnchor.constraint(equalToConstant: 9).isActive = true
+                        group.addArrangedSubview(intervalLabel)
+                    }
+
+                    group.addArrangedSubview(btn)
+
+                    ratingButtonViews.append(group)
+                }
+            } else {
+                // Original layout: standard NSButton
+                for btnSpec in buttonsToShow {
+                    let btn = NSButton(title: btnSpec.title, target: self, action: #selector(ankiRatingTapped(_:)))
+                    btn.tag = btnSpec.rating
+                    btn.bezelStyle = .rounded
+                    btn.bezelColor = btnSpec.color
+                    btn.contentTintColor = .white
+                    btn.font = NSFont.systemFont(ofSize: 11, weight: .bold)
+                    btn.setAccessibilityLabel("Rate \(btnSpec.title)")
+                    btn.setContentCompressionResistancePriority(.required, for: .horizontal)
+                    btn.setContentHuggingPriority(.required, for: .horizontal)
+                    ratingButtonViews.append(btn)
+                }
             }
             
             // Build audio button
@@ -814,8 +884,8 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
 
             if config.isMediaOnLeft {
                 // Left: Rating+Audio | Label | Sync
-                for btn in ratingButtons {
-                    stack.addArrangedSubview(btn)
+                for view in ratingButtonViews {
+                    stack.addArrangedSubview(view)
                 }
                 if let audio = audioButton {
                     stack.addArrangedSubview(audio)
@@ -826,8 +896,8 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
                 // Default: Sync | Label | Rating+Audio
                 stack.addArrangedSubview(syncButton)
                 stack.addArrangedSubview(answerLabel)
-                for btn in ratingButtons {
-                    stack.addArrangedSubview(btn)
+                for view in ratingButtonViews {
+                    stack.addArrangedSubview(view)
                 }
                 if let audio = audioButton {
                     stack.addArrangedSubview(audio)
