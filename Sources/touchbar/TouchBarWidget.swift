@@ -177,6 +177,9 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
 
     // Anki show remaining counts toggle
     public var ankiShowRemainingCounts: Bool
+
+    // Anki show button interval durations (e.g. "30d", "35m")
+    public var ankiShowButtonsInterval: Bool
     
     // NHK furigana font size (0 = auto)
     public var nhkFuriganaFontSize: Double
@@ -274,6 +277,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         ankiBoldColorHex: String = "#FFD60A",
         ankiIsMuted: Bool = false,
         ankiShowRemainingCounts: Bool = false,
+        ankiShowButtonsInterval: Bool = true,
         nhkFuriganaFontSize: Double = 0,
         nhkFuriganaColorHex: String = "#FFFFFF",
         nhkNavOnLeft: Bool = false,
@@ -337,6 +341,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiBoldColorHex = ankiBoldColorHex
         self.ankiIsMuted = ankiIsMuted
         self.ankiShowRemainingCounts = ankiShowRemainingCounts
+        self.ankiShowButtonsInterval = ankiShowButtonsInterval
         self.nhkFuriganaFontSize = nhkFuriganaFontSize
         self.nhkFuriganaColorHex = nhkFuriganaColorHex
         self.nhkNavOnLeft = nhkNavOnLeft
@@ -370,6 +375,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         case ankiBoldColorHex
         case ankiIsMuted
         case ankiShowRemainingCounts
+        case ankiShowButtonsInterval
         case nhkFuriganaFontSize
         case nhkFuriganaColorHex
         case nhkNavOnLeft
@@ -441,6 +447,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiBoldColorHex = try container.decodeIfPresent(String.self, forKey: .ankiBoldColorHex) ?? "#FFD60A"
         self.ankiIsMuted = try container.decodeIfPresent(Bool.self, forKey: .ankiIsMuted) ?? false
         self.ankiShowRemainingCounts = try container.decodeIfPresent(Bool.self, forKey: .ankiShowRemainingCounts) ?? false
+        self.ankiShowButtonsInterval = try container.decodeIfPresent(Bool.self, forKey: .ankiShowButtonsInterval) ?? true
         self.nhkFuriganaFontSize = try container.decodeIfPresent(Double.self, forKey: .nhkFuriganaFontSize) ?? 0
         self.nhkFuriganaColorHex = try container.decodeIfPresent(String.self, forKey: .nhkFuriganaColorHex) ?? "#FFFFFF"
         self.nhkNavOnLeft = try container.decodeIfPresent(Bool.self, forKey: .nhkNavOnLeft) ?? false

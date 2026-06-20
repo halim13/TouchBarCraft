@@ -12,6 +12,7 @@ public struct AnkiCard: Sendable {
     public let touchBarAudioText: String
     public let fields: [String: String]  // all field values keyed by field name
     public let cardType: Int  // 0=new, 1=learning, 2=review, -1=unknown
+    public let buttonLabels: [Int: String]  // ease -> formatted label from Anki (e.g. "35m", "3.5mo")
 
     /// Human-readable label for the card type.
     public var cardTypeLabel: String {
@@ -266,6 +267,21 @@ public actor AnkiConnectClient {
                 }
             }
             
+            // Parse nextReviews + buttons to build button label map
+            var buttonLabels: [Int: String] = [:]
+            let nextReviews = result["nextReviews"] as? [String] ?? []
+            let buttons: [Int] = {
+                if let raw = result["buttons"] as? [Int] { return raw }
+                if let count = result["buttons"] as? Int { return Array(1...count) }
+                return []
+            }()
+            if !nextReviews.isEmpty {
+                let clean: (String) -> String = { $0.trimmingCharacters(in: CharacterSet(charactersIn: "\u{2068}\u{2069}")) }
+                for i in 0..<nextReviews.count {
+                    buttonLabels[i + 1] = clean(nextReviews[i])
+                }
+            }
+
             // If cardType is unknown, try cardsInfo fallback (more reliable)
             var resolvedType = cardType
             if resolvedType < 0 && cardId > 0 {
@@ -281,7 +297,8 @@ public actor AnkiConnectClient {
                 audioText: audioText,
                 touchBarAudioText: touchBarAudioText,
                 fields: allFields,
-                cardType: resolvedType
+                cardType: resolvedType,
+                buttonLabels: buttonLabels
             )
         } catch {
             print("AnkiConnect: Failed to get current card: \(error)")
@@ -366,6 +383,135 @@ public actor AnkiConnectClient {
         }
     }
     
+    /// Get button label strings directly from Anki's nextReviews field.
+    /// Returns ease → formatted label (e.g. 1→"35m", 3→"3.5mo"), or empty if unavailable.
+    public func getButtonLabels() async -> [Int: String] {
+        guard let cardResult = try? await request(action: "guiCurrentCard") as? [String: Any] else { return [:] }
+        let nextReviews = cardResult["nextReviews"] as? [String] ?? []
+        let buttons: [Int] = {
+            if let raw = cardResult["buttons"] as? [Int] { return raw }
+            if let count = cardResult["buttons"] as? Int { return Array(1...count) }
+            return []
+        }()
+        guard !nextReviews.isEmpty else { return [:] }
+        var labels: [Int: String] = [:]
+        let clean: (String) -> String = { $0.trimmingCharacters(in: CharacterSet(charactersIn: "\u{2068}\u{2069}")) }
+        for i in 0..<nextReviews.count {
+            labels[i + 1] = clean(nextReviews[i])
+        }
+        return labels
+    }
+
+    /// Get scheduling states (intervals) for each rating button.
+    /// Falls back to computing approximate intervals from cardsInfo if unavailable.
+    public func getSchedulingStates() async -> [Int: Int] {
+        if let rawResult = try? await request(action: "getSchedulingStates") {
+            // Direct dict: { "1": {"interval": X, ...}, ... }
+            if let result = rawResult as? [String: [String: Any]] {
+                var intervals: [Int: Int] = [:]
+                for (key, value) in result {
+                    guard let ease = Int(key) else { continue }
+                    if let secs = value["scheduled_seconds"] as? Int {
+                        intervals[ease] = secs
+                    } else if let secs = value["scheduled_seconds"] as? Double {
+                        intervals[ease] = Int(secs)
+                    } else if let interval = value["interval"] as? Int {
+                        intervals[ease] = interval
+                    } else if let interval = value["interval"] as? Double {
+                        intervals[ease] = Int(interval)
+                    }
+                }
+                if !intervals.isEmpty { return intervals }
+            }
+            // Dict of arrays: { "1": [interval, due], ... }
+            if let dictArrayResult = rawResult as? [String: [Any]] {
+                var intervals: [Int: Int] = [:]
+                for (key, value) in dictArrayResult {
+                    guard let ease = Int(key), value.count >= 1, let interval = value[0] as? Int else { continue }
+                    intervals[ease] = interval
+                }
+                if !intervals.isEmpty { return intervals }
+            }
+            // Array: [[1, interval, due], ...]
+            if let arrayResult = rawResult as? [[Any]] {
+                var intervals: [Int: Int] = [:]
+                for item in arrayResult {
+                    if item.count >= 2, let ease = item[0] as? Int, let interval = item[1] as? Int {
+                        intervals[ease] = interval
+                    }
+                }
+                if !intervals.isEmpty { return intervals }
+            }
+        }
+        return await computeApproximateIntervals()
+    }
+
+    /// Compute approximate button intervals from cardsInfo data.
+    /// Used when getSchedulingStates is not available in AnkiConnect.
+    private func computeApproximateIntervals() async -> [Int: Int] {
+        do {
+            guard let cardResult = try await request(action: "guiCurrentCard") as? [String: Any],
+                  let cardId = cardResult["cardId"] as? Int,
+                  cardId > 0,
+                  let info = try await request(action: "cardsInfo", params: ["cards": [cardId]]) as? [[String: Any]],
+                  let cardData = info.first else {
+                return [:]
+            }
+
+            let cardType = cardData["type"] as? Int ?? -1
+            let queue = cardData["queue"] as? Int ?? -1
+            let ivl = cardData["ivl"] as? Int ?? 0       // interval in days (review cards)
+            let factor = cardData["factor"] as? Int ?? 0  // ease factor (2500 = 2.5x)
+            let reps = cardData["reps"] as? Int ?? 0
+
+            var intervals: [Int: Int] = [:]
+
+            if cardType == 2 || queue == 2 {
+                // Review card
+                let easeFactor = Double(factor > 0 ? max(1300, factor) : 2500) / 1000.0
+                let hardFactor = 1.2
+                let easyBonus = 1.3
+                let maxIvl = 36500  // 100 years in days
+
+                // Again: goes to learning (typically 1 minute)
+                intervals[1] = 60
+                // Hard: max(ivl * hardFactor, 1) days in seconds
+                let hardDays = max(1, min(maxIvl, Int(Double(ivl) * hardFactor)))
+                intervals[2] = hardDays * 86400
+                // Good: ivl * easeFactor in seconds
+                let goodDays = max(1, min(maxIvl, Int(Double(ivl) * easeFactor)))
+                intervals[3] = goodDays * 86400
+                // Easy: good * easyBonus in seconds
+                let easyDays = max(1, min(maxIvl, Int(Double(goodDays) * easyBonus)))
+                intervals[4] = easyDays * 86400
+            } else if cardType == 1 || queue == 1 || queue == 3 {
+                // Learning card
+                intervals[1] = 60     // 1 minute
+                intervals[2] = 600    // 10 minutes
+                intervals[3] = 1440   // 24 minutes
+                intervals[4] = 86400  // 1 day
+            } else if cardType == 0 || queue == 0 {
+                // New card — estimate learning steps from reps
+                if reps == 0 {
+                    intervals[1] = 60    // 1 minute
+                    intervals[2] = 600   // 10 minutes
+                    intervals[3] = 1440  // 24 minutes
+                    intervals[4] = 86400 // 1 day
+                } else {
+                    intervals[1] = 60
+                    intervals[2] = 600
+                    intervals[3] = 86400   // 1 day
+                    intervals[4] = 259200  // 3 days
+                }
+            }
+
+            return intervals
+        } catch {
+            print("AnkiConnect: cardsInfo fallback failed: \(error)")
+            return [:]
+        }
+    }
+
     /// Get the statistics (new, learn, review counts) for a deck
     public func getDeckStats(name: String) async -> AnkiDeckStats? {
         do {

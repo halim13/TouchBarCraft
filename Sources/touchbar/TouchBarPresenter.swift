@@ -775,7 +775,8 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
             
             // Build rating buttons
             let count = card.buttonCount
-            let buttonsToShow = getRatingButtons(for: widget, buttonCount: count)
+            let buttonsToShow = getRatingButtons(for: widget, buttonCount: count, intervals: anki.buttonIntervals, labels: anki.buttonLabels, showInterval: widget.ankiShowButtonsInterval)
+            print("DEBUG TouchBar: labels=\(anki.buttonLabels) intervals=\(anki.buttonIntervals) showInterval=\(widget.ankiShowButtonsInterval) buttons=\(buttonsToShow.map{ $0.title })")
             var ratingButtons: [NSButton] = []
             for btnSpec in buttonsToShow {
                 let btn = NSButton(title: btnSpec.title, target: self, action: #selector(ankiRatingTapped(_:)))
@@ -1640,7 +1641,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
     
 
     
-    private func getRatingButtons(for widget: TouchBarWidget, buttonCount: Int) -> [(title: String, rating: Int, color: NSColor)] {
+    private func getRatingButtons(for widget: TouchBarWidget, buttonCount: Int, intervals: [Int: Int] = [:], labels: [Int: String] = [:], showInterval: Bool = false) -> [(title: String, rating: Int, color: NSColor)] {
         var result: [(title: String, rating: Int, color: NSColor)] = []
         
         let againColor = NSColor(Color(hex: widget.ankiAgainColorHex))
@@ -1648,27 +1649,23 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         let goodColor = NSColor(Color(hex: widget.ankiGoodColorHex))
         let easyColor = NSColor(Color(hex: widget.ankiEasyColorHex))
         
-        // Anki ease ratings di AnkiConnect bersifat 1-indexed sesuai posisi tombol:
-        //   2 tombol: 1=Again, 2=Good
-        //   3 tombol: 1=Again, 2=Good, 3=Easy
-        //   4 tombol: 1=Again, 2=Hard, 3=Good, 4=Easy
-        //
-        // Tampilkan tombol sesuai preferensi user. Untuk buttonCount < 4, ease value
-        // disesuaikan agar mapping-nya benar di Anki. Hard (ease=2) valid untuk semua
-        // jumlah tombol (meski di 2/3 tombol artinya "Good" di Anki). Easy untuk
-        // buttonCount=2 menggunakan ease=2 (tombol kedua = Good) sebagai fallback.
+        let intervalStr: (Int) -> String = { rating in
+            guard showInterval else { return "" }
+            if let label = labels[rating], !label.isEmpty {
+                return " (\(label))"
+            }
+            return ""
+        }
         
         if widget.ankiShowAgain {
-            result.append((title: "Again", rating: 1, color: againColor))
+            result.append((title: "Again" + intervalStr(1), rating: 1, color: againColor))
         }
         if widget.ankiShowHard && buttonCount >= 2 {
-            // ease=2 valid untuk semua buttonCount:
-            //   2 tombol -> Good, 3 tombol -> Good, 4 tombol -> Hard
-            result.append((title: "Hard", rating: 2, color: hardColor))
+            result.append((title: "Hard" + intervalStr(2), rating: 2, color: hardColor))
         }
         if widget.ankiShowGood && buttonCount >= 2 {
             let ease = buttonCount == 2 ? 2 : 3
-            result.append((title: "Good", rating: ease, color: goodColor))
+            result.append((title: "Good" + intervalStr(ease), rating: ease, color: goodColor))
         }
         if widget.ankiShowEasy {
             let ease: Int
@@ -1677,15 +1674,11 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
             } else if buttonCount >= 3 {
                 ease = 3
             } else {
-                // buttonCount=2: Easy tidak ada di Anki, tapi kita tampilkan
-                // dengan ease=2 (tombol kedua = Good) agar tombol tetap muncul.
                 ease = 2
             }
-            result.append((title: "Easy", rating: ease, color: easyColor))
+            result.append((title: "Easy" + intervalStr(ease), rating: ease, color: easyColor))
         }
         
-        // Deduplicate: if multiple checked buttons map to the same ease value (happens
-        // when buttonCount < 4), keep only the first one to avoid redundant buttons.
         var seenRatings = Set<Int>()
         result = result.filter { seenRatings.insert($0.rating).inserted }
         

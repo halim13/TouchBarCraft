@@ -1363,6 +1363,12 @@ struct AnkiConfigView: View {
                             set: { _ in state.ankiState.toggleMute(); state.saveConfig(); StatusItemManager.shared.refreshMuteState() }
                         ))
                         .toggleStyle(.checkbox).font(.system(size: 11))
+
+                        Toggle("Show next review duration on rating buttons (e.g. 30d, 35m)", isOn: Binding(
+                            get: { state.widgets[index].ankiShowButtonsInterval },
+                            set: { state.widgets[index].ankiShowButtonsInterval = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                        ))
+                        .toggleStyle(.checkbox).font(.system(size: 11))
                     }
                 }
             } label: {
@@ -1628,6 +1634,10 @@ struct AnkiConfigView: View {
                         Toggle("Hide Title Bar (focus mode)", isOn: Binding(
                             get: { AnkiFloatingOverlayManager.shared.config.hideTitleBar },
                             set: { var c = AnkiFloatingOverlayManager.shared.config; c.hideTitleBar = $0; AnkiFloatingOverlayManager.shared.config = c }
+                        ))
+                        Toggle("Show next review duration on rating buttons", isOn: Binding(
+                            get: { AnkiFloatingOverlayManager.shared.config.showButtonsInterval },
+                            set: { var c = AnkiFloatingOverlayManager.shared.config; c.showButtonsInterval = $0; AnkiFloatingOverlayManager.shared.config = c; AnkiFloatingOverlayManager.shared.refreshOverlay() }
                         ))
                     }
                     .toggleStyle(.checkbox).font(.system(size: 11))

@@ -34,6 +34,7 @@ public struct AnkiFloatingOverlayConfig: Codable, Sendable {
     public var extraFieldFontSize: Double   // Font size for extra fields (0 = use main fontSize - 4)
     public var swapHeaderDeckAndCounts: Bool // Swap deck name and counter position in header
     public var boldColorHex: String         // Bold color for overlay; empty = use widget's bold color
+    public var showButtonsInterval: Bool     // Show next review duration on rating buttons
 
     enum CodingKeys: String, CodingKey {
         case isEnabled, fontSize, windowOpacity, textOpacity, windowWidth, windowHeight
@@ -45,6 +46,7 @@ public struct AnkiFloatingOverlayConfig: Codable, Sendable {
         case extraQuestionField, extraAnswerField, extraQuestionOnlyOnAnswer
         case extraFieldColorHex, extraFieldFontSize
         case swapHeaderDeckAndCounts, boldColorHex
+        case showButtonsInterval
     }
 
     public init(from decoder: Decoder) throws {
@@ -78,9 +80,10 @@ public struct AnkiFloatingOverlayConfig: Codable, Sendable {
         self.extraFieldFontSize = try container.decodeIfPresent(Double.self, forKey: .extraFieldFontSize) ?? 0
         self.swapHeaderDeckAndCounts = try container.decodeIfPresent(Bool.self, forKey: .swapHeaderDeckAndCounts) ?? false
         self.boldColorHex = try container.decodeIfPresent(String.self, forKey: .boldColorHex) ?? ""
+        self.showButtonsInterval = try container.decodeIfPresent(Bool.self, forKey: .showButtonsInterval) ?? true
     }
 
-    public init(isEnabled: Bool = false, fontSize: Double = 16, windowOpacity: Double = 0.85, textOpacity: Double = 1.0, windowWidth: Double = 420, windowHeight: Double = 300, showRatingButtons: Bool = true, showAudioButton: Bool = true, showSyncButton: Bool = true, showRevealButton: Bool = true, overlayFuriganaFontSize: Double = 0, hideTitleBar: Bool = false, textColorHex: String = "#FFFFFF", backgroundColorHex: String = "#1E1E24", questionAnswerColorHex: String = "#808080", showHeader: Bool = true, showCounts: Bool = false, positionX: Double = 0, positionY: Double = 0, questionField: String = "", answerField: String = "", audioField: String = "", extraQuestionField: String = "", extraAnswerField: String = "", extraQuestionOnlyOnAnswer: Bool = false, extraFieldColorHex: String = "#00CED1", extraFieldFontSize: Double = 0, swapHeaderDeckAndCounts: Bool = false, boldColorHex: String = "") {
+    public init(isEnabled: Bool = false, fontSize: Double = 16, windowOpacity: Double = 0.85, textOpacity: Double = 1.0, windowWidth: Double = 420, windowHeight: Double = 300, showRatingButtons: Bool = true, showAudioButton: Bool = true, showSyncButton: Bool = true, showRevealButton: Bool = true, overlayFuriganaFontSize: Double = 0, hideTitleBar: Bool = false, textColorHex: String = "#FFFFFF", backgroundColorHex: String = "#1E1E24", questionAnswerColorHex: String = "#808080", showHeader: Bool = true, showCounts: Bool = false, positionX: Double = 0, positionY: Double = 0, questionField: String = "", answerField: String = "", audioField: String = "", extraQuestionField: String = "", extraAnswerField: String = "", extraQuestionOnlyOnAnswer: Bool = false, extraFieldColorHex: String = "#00CED1", extraFieldFontSize: Double = 0, swapHeaderDeckAndCounts: Bool = false, boldColorHex: String = "", showButtonsInterval: Bool = true) {
         self.isEnabled = isEnabled
         self.fontSize = fontSize
         self.windowOpacity = windowOpacity
@@ -110,6 +113,7 @@ public struct AnkiFloatingOverlayConfig: Codable, Sendable {
         self.extraFieldFontSize = extraFieldFontSize
         self.swapHeaderDeckAndCounts = swapHeaderDeckAndCounts
         self.boldColorHex = boldColorHex
+        self.showButtonsInterval = showButtonsInterval
     }
 
     public static let defaults = AnkiFloatingOverlayConfig(
@@ -141,7 +145,8 @@ public struct AnkiFloatingOverlayConfig: Codable, Sendable {
         extraFieldColorHex: "#00CED1",
         extraFieldFontSize: 0,
         swapHeaderDeckAndCounts: false,
-        boldColorHex: ""
+        boldColorHex: "",
+        showButtonsInterval: true
     )
 
     private static let userDefaultsKey = "AnkiFloatingOverlayConfig"
@@ -405,6 +410,10 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
     @Published public var extraQuestionText: String = ""
     @Published public var extraAnswerText: String = ""
 
+    // Button interval durations
+    @Published public var buttonIntervals: [Int: Int] = [:]
+    @Published public var buttonLabels: [Int: String] = [:]
+
     // Anki actions
     public var revealAnswerAction: (() -> Void)?
     public var submitRatingAction: ((Int) -> Void)?
@@ -422,6 +431,8 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
     public var showHard: Bool = true
     public var showGood: Bool = true
     public var showEasy: Bool = true
+    public var showButtonsInterval: Bool = true
+    public var buttonCount: Int = 4
 
     init(config: AnkiFloatingOverlayConfig) {
         self.config = config
@@ -440,6 +451,7 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
             showHard = widget.ankiShowHard
             showGood = widget.ankiShowGood
             showEasy = widget.ankiShowEasy
+            showButtonsInterval = config.showButtonsInterval
         }
 
         if let card = state.currentCard {
@@ -532,6 +544,10 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
         reviewCount = state.reviewCount
         cardTypeLabel = state.currentCard?.cardTypeLabel ?? ""
         cardTypeColorHex = state.currentCard?.cardTypeColorHex ?? "#FFFFFF"
+
+        buttonIntervals = state.buttonIntervals
+        buttonLabels = state.buttonLabels
+        buttonCount = state.currentCard?.buttonCount ?? 4
 
         if let card = state.currentCard {
             hasCard = true
@@ -748,6 +764,8 @@ public struct FloatingOverlayContentView: View {
                         .font(.system(size: host.config.fontSize - 4, weight: .semibold))
                         .foregroundColor(.purple)
                     Spacer()
+                    intervalHeaderText
+                        .foregroundColor(.purple)
                     HStack(spacing: 4) {
                         Image(systemName: "clock").font(.system(size: 9))
                         Text(host.sessionDuration).font(.system(size: 10, design: .monospaced))
@@ -824,6 +842,42 @@ public struct FloatingOverlayContentView: View {
         Color(hex: host.config.textColorHex).opacity(host.config.textOpacity)
     }
 
+    private var intervalHeaderText: some View {
+        let s = intervalSummary
+        if s.isEmpty {
+            return AnyView(EmptyView())
+        }
+        return AnyView(
+            HStack(spacing: 4) {
+                Text(s)
+                    .font(.system(size: 9, weight: .medium, design: .monospaced))
+                Divider()
+                    .frame(width: 1, height: 10)
+                    .background(Color.white.opacity(0.3))
+            }
+        )
+    }
+
+    private var intervalSummary: String {
+        guard !host.showButtonsInterval else { return "" }
+        let labels = host.buttonLabels
+        let bc = host.buttonCount
+        var parts: [String] = []
+        let buttonConfig: [(visible: Bool, title: String, prefix: String)] = [
+            (host.showAgain, "Again", "A"),
+            (host.showHard, "Hard", "H"),
+            (host.showGood, "Good", "G"),
+            (host.showEasy, "Easy", "E"),
+        ]
+        for (visible, title, prefix) in buttonConfig {
+            guard visible else { continue }
+            let pos = intervalPosition(for: title, buttonCount: bc)
+            guard pos > 0, let label = labels[pos], !label.isEmpty else { continue }
+            parts.append("\(prefix):\(label)")
+        }
+        return parts.isEmpty ? "" : parts.joined(separator: " ")
+    }
+
     private var countsRow: some View {
         HStack(spacing: 6) {
             // Card type indicator: colored circle
@@ -843,6 +897,15 @@ public struct FloatingOverlayContentView: View {
             }
             if host.reviewCount > 0 {
                 Text("R:\(host.reviewCount)").font(.system(size: 9, weight: .bold, design: .monospaced)).foregroundColor(.green)
+            }
+            let summary = intervalSummary
+            if !summary.isEmpty {
+                Divider()
+                    .frame(width: 1, height: 10)
+                    .background(Color.white.opacity(0.3))
+                Text(summary)
+                    .font(.system(size: 9, weight: .medium, design: .monospaced))
+                    .foregroundColor(.purple)
             }
         }
     }
@@ -879,29 +942,49 @@ public struct FloatingOverlayContentView: View {
         HStack(spacing: 6) {
             if host.showAgain {
                 Button(action: { host.submitRatingAction?(1) }) {
-                    ratingButtonContent(title: "Again", color: .red)
+                    ratingButtonContent(title: "Again", color: .red, rating: 1)
                 }.buttonStyle(.plain)
             }
             if host.showHard {
                 Button(action: { host.submitRatingAction?(2) }) {
-                    ratingButtonContent(title: "Hard", color: .orange)
+                    ratingButtonContent(title: "Hard", color: .orange, rating: 2)
                 }.buttonStyle(.plain)
             }
             if host.showGood {
                 Button(action: { host.submitRatingAction?(3) }) {
-                    ratingButtonContent(title: "Good", color: .green)
+                    ratingButtonContent(title: "Good", color: .green, rating: 3)
                 }.buttonStyle(.plain)
             }
             if host.showEasy {
                 Button(action: { host.submitRatingAction?(4) }) {
-                    ratingButtonContent(title: "Easy", color: .blue)
+                    ratingButtonContent(title: "Easy", color: .blue, rating: 4)
                 }.buttonStyle(.plain)
             }
         }
     }
 
-    private func ratingButtonContent(title: String, color: Color) -> some View {
-        Text(title)
+    /// Map button name + buttonCount to the correct position for label/interval lookup.
+    private func intervalPosition(for title: String, buttonCount: Int) -> Int {
+        switch title {
+        case "Again": return 1
+        case "Hard": return 2
+        case "Good": return buttonCount == 2 ? 2 : 3
+        case "Easy":
+            if buttonCount >= 4 { return 4 }
+            if buttonCount >= 3 { return 3 }
+            return 2
+        default: return -1
+        }
+    }
+
+    private func ratingButtonContent(title: String, color: Color, rating: Int) -> some View {
+        let intervalSuffix: String = {
+            guard host.showButtonsInterval else { return "" }
+            let pos = intervalPosition(for: title, buttonCount: host.buttonCount)
+            guard pos > 0, let label = host.buttonLabels[pos], !label.isEmpty else { return "" }
+            return " (\(label))"
+        }()
+        return Text(title + intervalSuffix)
             .font(.system(size: 12, weight: .bold))
             .foregroundColor(.white)
             .padding(.horizontal, 10).padding(.vertical, 6)

@@ -47,6 +47,11 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
     /// TouchBar extra field toggle state — whether question/answer label is showing extra field content
     public var touchBarShowingExtraQuestion: Bool = false
     public var touchBarShowingExtraAnswer: Bool = false
+
+    /// Button intervals from getSchedulingStates — ease → interval in seconds
+    public var buttonIntervals: [Int: Int] = [:]
+    /// Button labels directly from Anki (e.g. "35m", "3.5mo") — more accurate than formatted intervals
+    public var buttonLabels: [Int: String] = [:]
     
     private var connectionCheckTimer: Timer?
     private var wasConnectedBefore: Bool = false
@@ -207,11 +212,16 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
                 self.learnCount = 0
                 self.reviewCount = 0
             }
+            let intervals = await AnkiConnectClient.shared.getSchedulingStates()
+            self.buttonIntervals = intervals
+            self.buttonLabels = card.buttonLabels
+            print("DEBUG loadCurrentCard: buttonLabels from card=\(card.buttonLabels)")
             await AnkiConnectClient.shared.startCardTimer()
         } else {
             self.newCount = 0
             self.learnCount = 0
             self.reviewCount = 0
+            self.buttonIntervals = [:]
         }
         
         // Refresh touch bar, system tray menu, and floating overlay to show new card
@@ -247,6 +257,19 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
                     AnkiFloatingOverlayManager.shared.refreshOverlay()
                 }
             }
+            // Re-fetch intervals and labels after answer is revealed
+            let intervals = await AnkiConnectClient.shared.getSchedulingStates()
+            if !intervals.isEmpty {
+                self.buttonIntervals = intervals
+            }
+            let labels = await AnkiConnectClient.shared.getButtonLabels()
+            print("DEBUG revealAnswer: buttonLabels from API=\(labels)")
+            if !labels.isEmpty {
+                self.buttonLabels = labels
+            }
+            refreshTouchBar()
+            StatusItemManager.shared.refreshAnkiCardInfo()
+            AnkiFloatingOverlayManager.shared.refreshOverlay()
             await AnkiConnectClient.shared.startCardTimer()
         }
     }
