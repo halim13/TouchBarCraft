@@ -900,7 +900,11 @@ public struct FloatingOverlayContentView: View {
 
             if host.hasCardTemplate {
                 GeometryReader { geo in
-                    CardTemplateWebView(html: host.renderedQuestionHTML, maxSize: geo.size)
+                    CardTemplateWebView(html: host.renderedQuestionHTML, maxSize: geo.size, onPycmd: { cmd in
+                        if cmd == "answer" || cmd == "reveal" {
+                            host.revealAnswerAction?()
+                        }
+                    })
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
                 .frame(maxWidth: .infinity)
@@ -983,7 +987,11 @@ public struct FloatingOverlayContentView: View {
             if host.hasCardTemplate {
                 // Template handles front side + answer; no question preview needed
                 GeometryReader { geo in
-                    CardTemplateWebView(html: host.renderedAnswerHTML, maxSize: geo.size)
+                    CardTemplateWebView(html: host.renderedAnswerHTML, maxSize: geo.size, onPycmd: { cmd in
+                        if cmd == "answer" || cmd == "reveal" {
+                            host.revealAnswerAction?()
+                        }
+                    })
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
                 .frame(maxWidth: .infinity)
@@ -1449,6 +1457,7 @@ public struct FloatingOverlayContentView: View {
 public struct CardTemplateWebView: NSViewRepresentable {
     let html: String
     var maxSize: CGSize
+    var onPycmd: ((String) -> Void)?
 
     /// Find Anki's collection.media directory for resolving relative image paths.
     private static var ankiMediaURL: URL? {
@@ -1466,16 +1475,41 @@ public struct CardTemplateWebView: NSViewRepresentable {
     }
 
     /// WKWebView subclass that allows window dragging from its content area.
-    private final class DragWebView: WKWebView {
+    private final class DragWebView: WKWebView, WKScriptMessageHandler {
         override var mouseDownCanMoveWindow: Bool { true }
+        var onPycmd: ((String) -> Void)?
+
+        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            switch message.name {
+            case "pycmd":
+                if let cmd = message.body as? String {
+                    print("[WebView pycmd] \(cmd)")
+                    onPycmd?(cmd)
+                }
+            default:
+                print("[WebView \(message.name)] \(message.body)")
+            }
+        }
     }
 
     public func makeNSView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
-        config.userContentController.addUserScript(Self.viewportScript)
+        let uc = config.userContentController
+        uc.addUserScript(Self.jQueryScript)
+        uc.addUserScript(Self.consoleCaptureScript)
+        uc.addUserScript(Self.viewportScript)
         let webView = DragWebView(frame: .zero, configuration: config)
+        let dw = webView as! DragWebView
+        uc.add(dw, name: "log")
+        uc.add(dw, name: "warn")
+        uc.add(dw, name: "error")
+        uc.add(dw, name: "pycmd")
+        dw.onPycmd = onPycmd
         webView.setValue(false, forKey: "drawsBackground")
         webView.isHidden = html.isEmpty
+        if #available(macOS 14.0, *) {
+            webView.isInspectable = true
+        }
         return webView
     }
 
@@ -1488,6 +1522,24 @@ public struct CardTemplateWebView: NSViewRepresentable {
         webView.loadHTMLString(html, baseURL: Self.ankiMediaURL)
     }
 
+    /// Inject jQuery + pycmd polyfill at document start.
+    private static var jQueryScript: WKUserScript {
+        let polyfill = """
+        (function() {
+            if (!window.pycmd) {
+                window.pycmd = function(cmd) {
+                    try { window.webkit.messageHandlers.pycmd.postMessage(String(cmd)); } catch(e) {}
+                };
+            }
+            if (!window.py) {
+                window.py = window.pycmd;
+            }
+        })();
+        """
+        let source = embeddedJQuery + "\n" + polyfill
+        return WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+    }
+
     private static var viewportScript: WKUserScript {
         let source = """
         var meta = document.createElement('meta');
@@ -1496,6 +1548,31 @@ public struct CardTemplateWebView: NSViewRepresentable {
         document.head.appendChild(meta);
         """
         return WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+    }
+
+    private static var consoleCaptureScript: WKUserScript {
+        let source = """
+        (function() {
+            if (window._consoleCaptured) return;
+            window._consoleCaptured = true;
+            ['log', 'warn', 'error'].forEach(function(level) {
+                var orig = console[level];
+                console[level] = function() {
+                    var args = Array.from(arguments).map(function(a) {
+                        try { return typeof a === 'object' ? JSON.stringify(a) : String(a); } catch(e) { return String(a); }
+                    });
+                    try {
+                        window.webkit.messageHandlers[level].postMessage(args.join(' '));
+                    } catch(e) {}
+                    orig.apply(console, arguments);
+                };
+            });
+            window.onerror = function(msg, url, line, col, err) {
+                try { window.webkit.messageHandlers['error'].postMessage('UNCAUGHT: ' + msg + ' at ' + url + ':' + line); } catch(e) {}
+            };
+        })();
+        """
+        return WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
     }
 }
 
