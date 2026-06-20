@@ -7,6 +7,7 @@ public struct AnkiCard: Sendable {
     public let question: String
     public let answer: String
     public let deckName: String
+    public let modelName: String
     public let buttonCount: Int  // number of answer buttons (typically 2-4)
     public let audioText: String
     public let touchBarAudioText: String
@@ -163,6 +164,7 @@ public actor AnkiConnectClient {
             
             let cardId = result["cardId"] as? Int ?? 0
             let deckName = result["deckName"] as? String ?? ""
+            let modelName = result["modelName"] as? String ?? ""
             let buttonCount = result["buttons"] as? Int ??
                               (result["buttons"] as? [Any])?.count ?? 4
             let cardType = result["type"] as? Int ?? -1
@@ -293,6 +295,7 @@ public actor AnkiConnectClient {
                 question: questionText,
                 answer: answerText,
                 deckName: deckName,
+                modelName: modelName,
                 buttonCount: buttonCount,
                 audioText: audioText,
                 touchBarAudioText: touchBarAudioText,
@@ -400,6 +403,43 @@ public actor AnkiConnectClient {
             labels[i + 1] = clean(nextReviews[i])
         }
         return labels
+    }
+
+    /// Get card templates (front/back HTML) for a given model name.
+    /// AnkiConnect returns: { "Card 1": {"Front": "...", "Back": "..."}, ... }
+    public func modelTemplates(modelName: String) async throws -> (front: String, back: String) {
+        guard let raw = try await request(action: "modelTemplates", params: ["modelName": modelName]),
+              let dict = raw as? [String: Any] else {
+            return ("", "")
+        }
+        // Find first template entry with Front/Back keys
+        for (_, value) in dict {
+            if let tmpl = value as? [String: Any] {
+                let front = tmpl["Front"] as? String ?? ""
+                let back = tmpl["Back"] as? String ?? ""
+                if !front.isEmpty || !back.isEmpty {
+                    return (front, back)
+                }
+            }
+        }
+        return ("", "")
+    }
+
+    /// Get CSS styling for a given model name.
+    public func modelStyling(modelName: String) async throws -> String {
+        guard let raw = try await request(action: "modelStyling", params: ["modelName": modelName]),
+              let dict = raw as? [String: Any] else {
+            return ""
+        }
+        // Anki 2.1+ returns { "css": "..." }
+        if let css = dict["css"] as? String {
+            return css
+        }
+        // Fallback for older Anki versions
+        if let style = dict["style"] as? String {
+            return style
+        }
+        return ""
     }
 
     /// Get scheduling states (intervals) for each rating button.

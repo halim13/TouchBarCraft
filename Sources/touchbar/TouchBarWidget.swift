@@ -65,8 +65,11 @@ public struct AnkiDeckSettings: Codable, Hashable, Sendable {
     public var overlayExtraQuestionField: String
     public var overlayExtraAnswerField: String
     public var overlayBoldColorHex: String
+    public var frontTemplate: String
+    public var backTemplate: String
+    public var templateCss: String
     
-    public init(questionField: String, answerField: String, audioField: String, touchBarAudioField: String = "Audio", extraQuestionField: String = "", extraAnswerField: String = "", overlayQuestionField: String = "", overlayAnswerField: String = "", overlayAudioField: String = "", overlayExtraQuestionField: String = "", overlayExtraAnswerField: String = "", overlayBoldColorHex: String = "") {
+    public init(questionField: String, answerField: String, audioField: String, touchBarAudioField: String = "Audio", extraQuestionField: String = "", extraAnswerField: String = "", overlayQuestionField: String = "", overlayAnswerField: String = "", overlayAudioField: String = "", overlayExtraQuestionField: String = "", overlayExtraAnswerField: String = "", overlayBoldColorHex: String = "", frontTemplate: String = "", backTemplate: String = "", templateCss: String = "") {
         self.questionField = questionField
         self.answerField = answerField
         self.audioField = audioField
@@ -79,6 +82,9 @@ public struct AnkiDeckSettings: Codable, Hashable, Sendable {
         self.overlayExtraQuestionField = overlayExtraQuestionField
         self.overlayExtraAnswerField = overlayExtraAnswerField
         self.overlayBoldColorHex = overlayBoldColorHex
+        self.frontTemplate = frontTemplate
+        self.backTemplate = backTemplate
+        self.templateCss = templateCss
     }
 
     enum CodingKeys: String, CodingKey {
@@ -86,6 +92,7 @@ public struct AnkiDeckSettings: Codable, Hashable, Sendable {
         case extraQuestionField, extraAnswerField
         case overlayQuestionField, overlayAnswerField, overlayAudioField
         case overlayExtraQuestionField, overlayExtraAnswerField, overlayBoldColorHex
+        case frontTemplate, backTemplate, templateCss
     }
 
     public init(from decoder: Decoder) throws {
@@ -102,6 +109,9 @@ public struct AnkiDeckSettings: Codable, Hashable, Sendable {
         self.overlayExtraQuestionField = try container.decodeIfPresent(String.self, forKey: .overlayExtraQuestionField) ?? ""
         self.overlayExtraAnswerField = try container.decodeIfPresent(String.self, forKey: .overlayExtraAnswerField) ?? ""
         self.overlayBoldColorHex = try container.decodeIfPresent(String.self, forKey: .overlayBoldColorHex) ?? ""
+        self.frontTemplate = try container.decodeIfPresent(String.self, forKey: .frontTemplate) ?? ""
+        self.backTemplate = try container.decodeIfPresent(String.self, forKey: .backTemplate) ?? ""
+        self.templateCss = try container.decodeIfPresent(String.self, forKey: .templateCss) ?? ""
     }
 }
 

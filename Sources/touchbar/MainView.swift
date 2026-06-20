@@ -923,20 +923,20 @@ struct AnkiConfigView: View {
                             let oldDeck = state.widgets[index].ankiDeckName
                             let overlayConfig = AnkiFloatingOverlayManager.shared.config
                             if !oldDeck.isEmpty {
-                                state.widgets[index].ankiDeckSettings[oldDeck] = AnkiDeckSettings(
-                                    questionField: state.widgets[index].ankiQuestionField,
-                                    answerField: state.widgets[index].ankiAnswerField,
-                                    audioField: state.widgets[index].ankiAudioField,
-                                    touchBarAudioField: state.widgets[index].ankiTouchBarAudioField,
-                                    extraQuestionField: state.widgets[index].ankiExtraQuestionField,
-                                    extraAnswerField: state.widgets[index].ankiExtraAnswerField,
-                                    overlayQuestionField: overlayConfig.questionField,
-                                    overlayAnswerField: overlayConfig.answerField,
-                                    overlayAudioField: overlayConfig.audioField,
-                                    overlayExtraQuestionField: overlayConfig.extraQuestionField,
-                                    overlayExtraAnswerField: overlayConfig.extraAnswerField,
-                                    overlayBoldColorHex: overlayConfig.boldColorHex
-                                )
+                                var existing = state.widgets[index].ankiDeckSettings[oldDeck] ?? AnkiDeckSettings(questionField: "", answerField: "", audioField: "")
+                                existing.questionField = state.widgets[index].ankiQuestionField
+                                existing.answerField = state.widgets[index].ankiAnswerField
+                                existing.audioField = state.widgets[index].ankiAudioField
+                                existing.touchBarAudioField = state.widgets[index].ankiTouchBarAudioField
+                                existing.extraQuestionField = state.widgets[index].ankiExtraQuestionField
+                                existing.extraAnswerField = state.widgets[index].ankiExtraAnswerField
+                                existing.overlayQuestionField = overlayConfig.questionField
+                                existing.overlayAnswerField = overlayConfig.answerField
+                                existing.overlayAudioField = overlayConfig.audioField
+                                existing.overlayExtraQuestionField = overlayConfig.extraQuestionField
+                                existing.overlayExtraAnswerField = overlayConfig.extraAnswerField
+                                existing.overlayBoldColorHex = overlayConfig.boldColorHex
+                                state.widgets[index].ankiDeckSettings[oldDeck] = existing
                             }
                             state.widgets[index].ankiDeckName = deck
                             if !deck.isEmpty {
@@ -1474,6 +1474,63 @@ struct AnkiConfigView: View {
 
                     Divider()
 
+                    // Card Templates
+                    VStack(alignment: .leading, spacing: 8) {
+                        groupSubHeader("Card Templates")
+                        Text("Use Anki-style card templates to render question/answer with full HTML/CSS support. Import templates from the current card's note type to get started, then edit them freely without affecting Anki.")
+                            .font(.system(size: 9))
+                            .foregroundColor(.gray)
+                            .italic()
+
+                        Toggle("Use Card Template", isOn: Binding(
+                            get: { AnkiFloatingOverlayManager.shared.config.useCardTemplate },
+                            set: { val in
+                                var c = AnkiFloatingOverlayManager.shared.config
+                                c.useCardTemplate = val
+                                AnkiFloatingOverlayManager.shared.config = c
+                                AnkiFloatingOverlayManager.shared.refreshOverlay()
+                            }
+                        ))
+                        .toggleStyle(.switch)
+                        .font(.system(size: 11))
+
+                        HStack(spacing: 8) {
+                            Button("Import Templates from Current Card") {
+                                importCardTemplates()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.purple)
+                            .controlSize(.small)
+                            .disabled(!state.ankiState.isConnected || state.ankiState.selectedDeck.isEmpty)
+
+                            if hasCardTemplates() {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                                    .font(.system(size: 14))
+                                Text("Templates imported")
+                                    .font(.system(size: 9))
+                                    .foregroundColor(.green)
+                            }
+                        }
+
+                        if hasCardTemplates() {
+                            templateEditor("Front Template", text: Binding(
+                                get: { currentDeckFrontTemplate },
+                                set: { saveTemplateField(keyPath: \.frontTemplate, value: $0) }
+                            ))
+                            templateEditor("Back Template", text: Binding(
+                                get: { currentDeckBackTemplate },
+                                set: { saveTemplateField(keyPath: \.backTemplate, value: $0) }
+                            ))
+                            templateEditor("CSS Styling", text: Binding(
+                                get: { currentDeckTemplateCss },
+                                set: { saveTemplateField(keyPath: \.templateCss, value: $0) }
+                            ))
+                        }
+                    }
+
+                    Divider()
+
                     // Appearance
                     VStack(alignment: .leading, spacing: 8) {
                         groupSubHeader("Appearance")
@@ -1880,6 +1937,117 @@ struct AnkiConfigView: View {
             state.widgets[index].ankiDeckSettings[deck] = settings
         }
         state.saveConfig()
+    }
+
+    private func hasCardTemplates() -> Bool {
+        let deck = state.widgets[index].ankiDeckName
+        guard !deck.isEmpty else { return false }
+        guard let settings = state.widgets[index].ankiDeckSettings[deck] else { return false }
+        return !settings.frontTemplate.isEmpty || !settings.backTemplate.isEmpty
+    }
+
+    @State private var importInProgress: Bool = false
+    private func importCardTemplates() {
+        guard !importInProgress else { return }
+        importInProgress = true
+        Task {
+            do {
+                // Fetch fresh card data from Anki to get modelName
+                let ankiCard = try? await AnkiConnectClient.shared.getCurrentCard(
+                    questionField: state.widgets[index].ankiQuestionField,
+                    answerField: state.widgets[index].ankiAnswerField,
+                    audioField: state.widgets[index].ankiAudioField,
+                    touchBarAudioField: state.widgets[index].ankiTouchBarAudioField
+                )
+                guard let card = ankiCard, !card.modelName.isEmpty else {
+                    print("Import cancelled: no card available or model name is empty")
+                    importInProgress = false
+                    return
+                }
+                print("Importing templates for model: \(card.modelName)")
+                let (frontTemplate, backTemplate) = try await AnkiConnectClient.shared.modelTemplates(modelName: card.modelName)
+                let css = try await AnkiConnectClient.shared.modelStyling(modelName: card.modelName)
+                print("Got templates: front=\(frontTemplate.count)chars, back=\(backTemplate.count)chars, css=\(css.count)chars")
+
+                let deck = state.widgets[index].ankiDeckName
+                guard !deck.isEmpty else {
+                    print("Import cancelled: no deck selected")
+                    importInProgress = false
+                    return
+                }
+                var widget = state.widgets[index]
+                var settings = widget.ankiDeckSettings[deck] ?? AnkiDeckSettings(
+                    questionField: widget.ankiQuestionField,
+                    answerField: widget.ankiAnswerField,
+                    audioField: widget.ankiAudioField
+                )
+                settings.frontTemplate = frontTemplate
+                settings.backTemplate = backTemplate
+                settings.templateCss = css
+                widget.ankiDeckSettings[deck] = settings
+                state.widgets[index] = widget
+                state.saveConfig()
+                print("Templates saved for deck: \(deck)")
+
+                var overlayCfg = AnkiFloatingOverlayManager.shared.config
+                overlayCfg.useCardTemplate = true
+                AnkiFloatingOverlayManager.shared.config = overlayCfg
+                AnkiFloatingOverlayManager.shared.refreshOverlay()
+                print("Template import complete")
+            } catch {
+                print("Failed to import card templates: \(error)")
+            }
+            importInProgress = false
+        }
+    }
+
+    // MARK: - Template Editor Helpers
+
+    private var currentDeckFrontTemplate: String {
+        let deck = state.widgets[index].ankiDeckName
+        return state.widgets[index].ankiDeckSettings[deck]?.frontTemplate ?? ""
+    }
+
+    private var currentDeckBackTemplate: String {
+        let deck = state.widgets[index].ankiDeckName
+        return state.widgets[index].ankiDeckSettings[deck]?.backTemplate ?? ""
+    }
+
+    private var currentDeckTemplateCss: String {
+        let deck = state.widgets[index].ankiDeckName
+        return state.widgets[index].ankiDeckSettings[deck]?.templateCss ?? ""
+    }
+
+    private func saveTemplateField(keyPath: WritableKeyPath<AnkiDeckSettings, String>, value: String) {
+        let deck = state.widgets[index].ankiDeckName
+        guard !deck.isEmpty else { return }
+        var widget = state.widgets[index]
+        var settings = widget.ankiDeckSettings[deck] ?? AnkiDeckSettings(
+            questionField: widget.ankiQuestionField,
+            answerField: widget.ankiAnswerField,
+            audioField: widget.ankiAudioField
+        )
+        settings[keyPath: keyPath] = value
+        widget.ankiDeckSettings[deck] = settings
+        state.widgets[index] = widget
+        state.saveConfig()
+        AnkiFloatingOverlayManager.shared.refreshOverlay()
+    }
+
+    @ViewBuilder
+    private func templateEditor(_ label: String, text: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(.gray)
+            TextEditor(text: text)
+                .font(.system(size: 9, design: .monospaced))
+                .frame(height: 80)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4)
+                        .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                )
+        }
     }
 
     @ViewBuilder

@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import WebKit
 
 // MARK: - Floating Overlay Configuration
 // Stored in UserDefaults so it's separate from widget configuration
@@ -35,6 +36,7 @@ public struct AnkiFloatingOverlayConfig: Codable, Sendable {
     public var swapHeaderDeckAndCounts: Bool // Swap deck name and counter position in header
     public var boldColorHex: String         // Bold color for overlay; empty = use widget's bold color
     public var showButtonsInterval: Bool     // Show next review duration on rating buttons
+    public var useCardTemplate: Bool         // Use custom card templates instead of default rendering
 
     enum CodingKeys: String, CodingKey {
         case isEnabled, fontSize, windowOpacity, textOpacity, windowWidth, windowHeight
@@ -47,6 +49,7 @@ public struct AnkiFloatingOverlayConfig: Codable, Sendable {
         case extraFieldColorHex, extraFieldFontSize
         case swapHeaderDeckAndCounts, boldColorHex
         case showButtonsInterval
+        case useCardTemplate
     }
 
     public init(from decoder: Decoder) throws {
@@ -81,9 +84,10 @@ public struct AnkiFloatingOverlayConfig: Codable, Sendable {
         self.swapHeaderDeckAndCounts = try container.decodeIfPresent(Bool.self, forKey: .swapHeaderDeckAndCounts) ?? false
         self.boldColorHex = try container.decodeIfPresent(String.self, forKey: .boldColorHex) ?? ""
         self.showButtonsInterval = try container.decodeIfPresent(Bool.self, forKey: .showButtonsInterval) ?? true
+        self.useCardTemplate = try container.decodeIfPresent(Bool.self, forKey: .useCardTemplate) ?? false
     }
 
-    public init(isEnabled: Bool = false, fontSize: Double = 16, windowOpacity: Double = 0.85, textOpacity: Double = 1.0, windowWidth: Double = 420, windowHeight: Double = 300, showRatingButtons: Bool = true, showAudioButton: Bool = true, showSyncButton: Bool = true, showRevealButton: Bool = true, overlayFuriganaFontSize: Double = 0, hideTitleBar: Bool = false, textColorHex: String = "#FFFFFF", backgroundColorHex: String = "#1E1E24", questionAnswerColorHex: String = "#808080", showHeader: Bool = true, showCounts: Bool = false, positionX: Double = 0, positionY: Double = 0, questionField: String = "", answerField: String = "", audioField: String = "", extraQuestionField: String = "", extraAnswerField: String = "", extraQuestionOnlyOnAnswer: Bool = false, extraFieldColorHex: String = "#00CED1", extraFieldFontSize: Double = 0, swapHeaderDeckAndCounts: Bool = false, boldColorHex: String = "", showButtonsInterval: Bool = true) {
+    public init(isEnabled: Bool = false, fontSize: Double = 16, windowOpacity: Double = 0.85, textOpacity: Double = 1.0, windowWidth: Double = 420, windowHeight: Double = 300, showRatingButtons: Bool = true, showAudioButton: Bool = true, showSyncButton: Bool = true, showRevealButton: Bool = true, overlayFuriganaFontSize: Double = 0, hideTitleBar: Bool = false, textColorHex: String = "#FFFFFF", backgroundColorHex: String = "#1E1E24", questionAnswerColorHex: String = "#808080", showHeader: Bool = true, showCounts: Bool = false, positionX: Double = 0, positionY: Double = 0, questionField: String = "", answerField: String = "", audioField: String = "", extraQuestionField: String = "", extraAnswerField: String = "", extraQuestionOnlyOnAnswer: Bool = false, extraFieldColorHex: String = "#00CED1", extraFieldFontSize: Double = 0, swapHeaderDeckAndCounts: Bool = false, boldColorHex: String = "", showButtonsInterval: Bool = true, useCardTemplate: Bool = false) {
         self.isEnabled = isEnabled
         self.fontSize = fontSize
         self.windowOpacity = windowOpacity
@@ -114,6 +118,7 @@ public struct AnkiFloatingOverlayConfig: Codable, Sendable {
         self.swapHeaderDeckAndCounts = swapHeaderDeckAndCounts
         self.boldColorHex = boldColorHex
         self.showButtonsInterval = showButtonsInterval
+        self.useCardTemplate = useCardTemplate
     }
 
     public static let defaults = AnkiFloatingOverlayConfig(
@@ -146,7 +151,8 @@ public struct AnkiFloatingOverlayConfig: Codable, Sendable {
         extraFieldFontSize: 0,
         swapHeaderDeckAndCounts: false,
         boldColorHex: "",
-        showButtonsInterval: true
+        showButtonsInterval: true,
+        useCardTemplate: false
     )
 
     private static let userDefaultsKey = "AnkiFloatingOverlayConfig"
@@ -414,12 +420,18 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
     @Published public var buttonIntervals: [Int: Int] = [:]
     @Published public var buttonLabels: [Int: String] = [:]
 
+    // Card template rendering
+    @Published public var renderedQuestionHTML: String = ""
+    @Published public var renderedAnswerHTML: String = ""
+    @Published public var hasCardTemplate: Bool = false
+
     // Anki actions
     public var revealAnswerAction: (() -> Void)?
     public var submitRatingAction: ((Int) -> Void)?
     public var toggleAudioAction: (() -> Void)?
     public var syncAction: (() -> Void)?
     public var connectAction: (() -> Void)?
+    public var importTemplatesAction: (() async -> Void)?
 
     // Settings read from Anki widget on each refresh
     public var furiganaFontSize: Double = 0
@@ -473,12 +485,72 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
                 : config.extraAnswerField
             extraQuestionText = extractExtraFieldValue(from: extraQField, fields: card.fields)
             extraAnswerText = extractExtraFieldValue(from: extraAField, fields: card.fields)
+
+            // Render card templates if enabled and available
+            if config.useCardTemplate {
+                renderCardTemplates(card: card)
+            } else {
+                renderedQuestionHTML = ""
+                renderedAnswerHTML = ""
+                hasCardTemplate = false
+            }
         } else {
             questionText = ""
             answerText = ""
             extraQuestionText = ""
             extraAnswerText = ""
+            renderedQuestionHTML = ""
+            renderedAnswerHTML = ""
+            hasCardTemplate = false
         }
+    }
+
+    private func renderCardTemplates(card: AnkiCard) {
+        guard let widget = getAnkiWidget(),
+              let settings = widget.ankiDeckSettings[card.deckName],
+              !settings.frontTemplate.isEmpty || !settings.backTemplate.isEmpty else {
+            hasCardTemplate = false
+            renderedQuestionHTML = ""
+            renderedAnswerHTML = ""
+            return
+        }
+        hasCardTemplate = true
+        let renderedFront = processTemplate(settings.frontTemplate, fields: card.fields, css: settings.templateCss, deckName: card.deckName, frontSideRendered: nil)
+        renderedQuestionHTML = wrapTemplateInHTML(body: renderedFront, css: settings.templateCss)
+        let renderedBack = processTemplate(settings.backTemplate, fields: card.fields, css: settings.templateCss, deckName: card.deckName, frontSideRendered: renderedFront)
+        renderedAnswerHTML = wrapTemplateInHTML(body: renderedBack, css: settings.templateCss)
+    }
+
+    private func wrapTemplateInHTML(body: String, css: String) -> String {
+        """
+        <html>
+        <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+        \(css)
+        body {
+            font-family: -apple-system, 'Helvetica Neue', sans-serif;
+            font-size: \(config.fontSize)px;
+            color: #\(config.textColorHex.hasPrefix("#") ? String(config.textColorHex.dropFirst()) : config.textColorHex);
+            background: transparent;
+            padding: 0;
+            margin: 0;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            line-height: 1.6;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        img { max-width: 100%; height: auto; }
+        a { color: #007AFF; }
+        ruby { ruby-align: center; -webkit-ruby-align: center; }
+        </style>
+        </head>
+        <body class="card">\(body)</body>
+        </html>
+        """
+
     }
 
     /// Parse comma-separated field names, extract and join their values
@@ -518,6 +590,115 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
         }
         guard !values.isEmpty else { return nil }
         return values.joined(separator: " / ")
+    }
+
+    /// Process an Anki card template by replacing field references with actual values.
+    /// Supported: {{FieldName}}, {{text:FieldName}}, {{FrontSide}}, {{#FieldName}}...{{/FieldName}}, {{^FieldName}}...{{/FieldName}},
+    /// {{Deck}}, {{Subdeck}}, {{Tags}}, {{Card}}, {{Type}}
+    private func processTemplate(_ template: String, fields: [String: String], css: String, deckName: String, frontSideRendered: String?) -> String {
+        // 1. Handle conditionals: {{#Field}}...{{/Field}} and {{^Field}}...{{/Field}}
+        var result = template
+        // Match {{#FieldName}}...{{/FieldName}} (including nested, non-greedy)
+        if let regex = try? NSRegularExpression(pattern: #"\{\{#([^}]+)\}\}(.*?)\{\{\/\1\}\}"#, options: [.dotMatchesLineSeparators]) {
+            while true {
+                let range = NSRange(result.startIndex..., in: result)
+                guard let match = regex.firstMatch(in: result, options: [], range: range) else { break }
+                let fieldName = String(result[Range(match.range(at: 1), in: result)!])
+                let content = String(result[Range(match.range(at: 2), in: result)!])
+                let fieldValue = fields[fieldName]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                let replacement = fieldValue.isEmpty ? "" : content
+                result.replaceSubrange(Range(match.range, in: result)!, with: replacement)
+            }
+        }
+        // Match {{^FieldName}}...{{/FieldName}} (inverse conditional)
+        if let regex = try? NSRegularExpression(pattern: #"\{\{\^([^}]+)\}\}(.*?)\{\{\/\1\}\}"#, options: [.dotMatchesLineSeparators]) {
+            while true {
+                let range = NSRange(result.startIndex..., in: result)
+                guard let match = regex.firstMatch(in: result, options: [], range: range) else { break }
+                let fieldName = String(result[Range(match.range(at: 1), in: result)!])
+                let content = String(result[Range(match.range(at: 2), in: result)!])
+                let fieldValue = fields[fieldName]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                let replacement = fieldValue.isEmpty ? content : ""
+                result.replaceSubrange(Range(match.range, in: result)!, with: replacement)
+            }
+        }
+
+        // 2. Handle {{FrontSide}}
+        if let frontSide = frontSideRendered {
+            result = result.replacingOccurrences(of: "{{FrontSide}}", with: frontSide)
+        } else {
+            result = result.replacingOccurrences(of: "{{FrontSide}}", with: "")
+        }
+
+        // 3. Handle special fields
+        result = result.replacingOccurrences(of: "{{Deck}}", with: deckName)
+        // Extract subdeck (last part after ::)
+        let deckParts = deckName.components(separatedBy: "::")
+        let subdeck = deckParts.last ?? deckName
+        result = result.replacingOccurrences(of: "{{Subdeck}}", with: subdeck)
+
+        // 4. Handle {{text:FieldName}} — strip HTML from field value
+        if let textRegex = try? NSRegularExpression(pattern: #"\{\{text:([^}]+)\}\}"#) {
+            while true {
+                let range = NSRange(result.startIndex..., in: result)
+                guard let match = textRegex.firstMatch(in: result, options: [], range: range) else { break }
+                let fieldName = String(result[Range(match.range(at: 1), in: result)!])
+                let stripped = stripHTMLForOverlay(fields[fieldName] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                result.replaceSubrange(Range(match.range, in: result)!, with: stripped)
+            }
+        }
+
+        // 4b. Handle {{furigana:FieldName}} — convert Kanji[reading] notation to ruby HTML
+        if let furiganaRegex = try? NSRegularExpression(pattern: #"\{\{furigana:([^}]+)\}\}"#) {
+            while true {
+                let range = NSRange(result.startIndex..., in: result)
+                guard let match = furiganaRegex.firstMatch(in: result, options: [], range: range) else { break }
+                let fieldName = String(result[Range(match.range(at: 1), in: result)!])
+                let value = furiganaToRuby(fields[fieldName] ?? "")
+                result.replaceSubrange(Range(match.range, in: result)!, with: value)
+            }
+        }
+
+        // 4c. Handle other {{filterName:FieldName}} — strip unknown filter prefix, use raw value
+        if let filterRegex = try? NSRegularExpression(pattern: #"\{\{[a-zA-Z]+:([^}]+)\}\}"#) {
+            while true {
+                let range = NSRange(result.startIndex..., in: result)
+                guard let match = filterRegex.firstMatch(in: result, options: [], range: range) else { break }
+                let fieldName = String(result[Range(match.range(at: 1), in: result)!])
+                let value = fields[fieldName] ?? ""
+                result.replaceSubrange(Range(match.range, in: result)!, with: value)
+            }
+        }
+
+        // 5. Handle standard {{FieldName}} — insert raw field value (HTML preserved)
+        if let fieldRegex = try? NSRegularExpression(pattern: #"\{\{([^}#^\/:]+)\}\}"#) {
+            while true {
+                let range = NSRange(result.startIndex..., in: result)
+                guard let match = fieldRegex.firstMatch(in: result, options: [], range: range) else { break }
+                let fieldName = String(result[Range(match.range(at: 1), in: result)!]).trimmingCharacters(in: .whitespaces)
+                let value = fields[fieldName] ?? ""
+                result.replaceSubrange(Range(match.range, in: result)!, with: value)
+            }
+        }
+
+        return result
+    }
+
+    /// Convert Anki furigana notation `Kanji[reading]` to HTML ruby annotations.
+    /// Uses Unicode Han property to match only CJK characters as kanji base,
+    /// and ruby-align:center to prevent distributed ruby in WKWebView.
+    private func furiganaToRuby(_ text: String) -> String {
+        guard let regex = try? NSRegularExpression(pattern: #"(\p{Han}+)\[([^\[\]<>]+)\]"#) else { return text }
+        var result = text
+        while true {
+            let range = NSRange(result.startIndex..., in: result)
+            guard let match = regex.firstMatch(in: result, options: [], range: range) else { break }
+            let kanji = result[Range(match.range(at: 1), in: result)!]
+            let reading = result[Range(match.range(at: 2), in: result)!]
+            let ruby = "<ruby style=\"ruby-align:center;-webkit-ruby-align:center\">\(kanji)<rt>\(reading)</rt></ruby>"
+            result.replaceSubrange(Range(match.range, in: result)!, with: ruby)
+        }
+        return result
     }
 
     private func getAnkiWidget() -> TouchBarWidget? {
@@ -717,19 +898,27 @@ public struct FloatingOverlayContentView: View {
                 }
             }
 
-            ScrollView([.vertical]) {
-                VStack(alignment: .leading, spacing: 4) {
-                    cardContentText(host.questionText)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                    if !host.extraQuestionText.isEmpty && !host.config.extraQuestionOnlyOnAnswer {
-                        extraFieldText(host.extraQuestionText)
+            if host.hasCardTemplate {
+                GeometryReader { geo in
+                    CardTemplateWebView(html: host.renderedQuestionHTML, maxSize: geo.size)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                .frame(maxWidth: .infinity)
+            } else {
+                ScrollView([.vertical]) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        cardContentText(host.questionText)
                             .frame(maxWidth: .infinity, alignment: .leading)
+
+                        if !host.extraQuestionText.isEmpty && !host.config.extraQuestionOnlyOnAnswer {
+                            extraFieldText(host.extraQuestionText)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
                     }
+                    .frame(maxWidth: .infinity)
                 }
                 .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: .infinity)
 
             Spacer(minLength: 4)
 
@@ -791,38 +980,47 @@ public struct FloatingOverlayContentView: View {
                 }
             }
 
-            // Question in answer phase — with furigana support when enabled
-            questionAnswerPreviewText(host.questionText)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .lineLimit(2)
-                .truncationMode(.tail)
-
-            // Extra question field in answer phase
-            if !host.extraQuestionText.isEmpty {
-                extraFieldText(host.extraQuestionText)
+            if host.hasCardTemplate {
+                // Template handles front side + answer; no question preview needed
+                GeometryReader { geo in
+                    CardTemplateWebView(html: host.renderedAnswerHTML, maxSize: geo.size)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                .frame(maxWidth: .infinity)
+            } else {
+                // Question in answer phase — with furigana support when enabled
+                questionAnswerPreviewText(host.questionText)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .lineLimit(2)
                     .truncationMode(.tail)
-            }
 
-            Divider()
-                .background(Color.white.opacity(0.2))
-                .padding(.vertical, 2)
-
-            // Answer
-            ScrollView([.vertical]) {
-                VStack(alignment: .leading, spacing: 4) {
-                    cardContentText(host.answerText)
+                // Extra question field in answer phase
+                if !host.extraQuestionText.isEmpty {
+                    extraFieldText(host.extraQuestionText)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    
-                    if !host.extraAnswerText.isEmpty {
-                        extraFieldText(host.extraAnswerText)
+                        .lineLimit(2)
+                        .truncationMode(.tail)
+                }
+
+                Divider()
+                    .background(Color.white.opacity(0.2))
+                    .padding(.vertical, 2)
+
+                // Answer
+                ScrollView([.vertical]) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        cardContentText(host.answerText)
                             .frame(maxWidth: .infinity, alignment: .leading)
+                        
+                        if !host.extraAnswerText.isEmpty {
+                            extraFieldText(host.extraAnswerText)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
                     }
+                    .frame(maxWidth: .infinity)
                 }
                 .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: .infinity)
 
             Spacer(minLength: 4)
 
@@ -1243,6 +1441,61 @@ public struct FloatingOverlayContentView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Card Template WebView
+
+public struct CardTemplateWebView: NSViewRepresentable {
+    let html: String
+    var maxSize: CGSize
+
+    /// Find Anki's collection.media directory for resolving relative image paths.
+    private static var ankiMediaURL: URL? {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let ankiDir = home.appendingPathComponent("Library/Application Support/Anki2")
+        guard let contents = try? FileManager.default.contentsOfDirectory(atPath: ankiDir.path) else { return nil }
+        for item in contents {
+            let mediaPath = ankiDir.appendingPathComponent("\(item)/collection.media")
+            var isDir: ObjCBool = false
+            if FileManager.default.fileExists(atPath: mediaPath.path, isDirectory: &isDir), isDir.boolValue {
+                return mediaPath
+            }
+        }
+        return nil
+    }
+
+    /// WKWebView subclass that allows window dragging from its content area.
+    private final class DragWebView: WKWebView {
+        override var mouseDownCanMoveWindow: Bool { true }
+    }
+
+    public func makeNSView(context: Context) -> WKWebView {
+        let config = WKWebViewConfiguration()
+        config.userContentController.addUserScript(Self.viewportScript)
+        let webView = DragWebView(frame: .zero, configuration: config)
+        webView.setValue(false, forKey: "drawsBackground")
+        webView.isHidden = html.isEmpty
+        return webView
+    }
+
+    public func updateNSView(_ webView: WKWebView, context: Context) {
+        guard !html.isEmpty else {
+            webView.isHidden = true
+            return
+        }
+        webView.isHidden = false
+        webView.loadHTMLString(html, baseURL: Self.ankiMediaURL)
+    }
+
+    private static var viewportScript: WKUserScript {
+        let source = """
+        var meta = document.createElement('meta');
+        meta.name = 'viewport';
+        meta.content = 'width=device-width, initial-scale=1.0, user-scalable=no';
+        document.head.appendChild(meta);
+        """
+        return WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 }
 
