@@ -425,6 +425,9 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
     @Published public var renderedAnswerHTML: String = ""
     @Published public var hasCardTemplate: Bool = false
 
+    // Track current card ID to detect new cards for the persistent WebView
+    public var currentCardId: Int = 0
+
     // Anki actions
     public var revealAnswerAction: (() -> Void)?
     public var submitRatingAction: ((Int) -> Void)?
@@ -489,6 +492,8 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
             extraQuestionText = extractExtraFieldValue(from: extraQField, fields: card.fields)
             extraAnswerText = extractExtraFieldValue(from: extraAField, fields: card.fields)
 
+            currentCardId = card.cardId
+
             // Render card templates if enabled and available
             if config.useCardTemplate {
                 renderCardTemplates(card: card)
@@ -498,6 +503,7 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
                 hasCardTemplate = false
             }
         } else {
+            currentCardId = 0
             questionText = ""
             answerText = ""
             extraQuestionText = ""
@@ -792,6 +798,9 @@ public struct FloatingOverlayContentView: View {
                     offlineView
                 } else if !host.hasCard || host.isLoading {
                     waitingView
+                } else if host.hasCardTemplate {
+                    // Single persistent WebView for both question and answer phases
+                    templatePhaseView(proxy: proxy)
                 } else if !host.isShowingAnswer {
                     questionPhaseView
                 } else {
@@ -815,6 +824,90 @@ public struct FloatingOverlayContentView: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(Color.white.opacity(0.1), lineWidth: 1)
         )
+    }
+
+    /// Single persistent template WebView that handles both question and answer phases.
+    /// The WebView keeps the same instance across transitions, preserving JavaScript state
+    /// by saving checkbox/input states before loading the answer HTML and restoring them after.
+    @ViewBuilder
+    private func templatePhaseView(proxy: GeometryProxy) -> some View {
+        VStack(spacing: 8) {
+            // Header
+            if host.config.showHeader {
+                headerContent
+                Divider().background(Color.white.opacity(0.2))
+            }
+
+            // Card content (persistent WebView — same instance across phases)
+            GeometryReader { geo in
+                CardTemplateWebView(
+                    html: host.isShowingAnswer ? host.renderedAnswerHTML : host.renderedQuestionHTML,
+                    isShowingAnswer: host.isShowingAnswer,
+                    cardId: host.currentCardId,
+                    maxSize: geo.size,
+                    onPycmd: { cmd in
+                        if cmd == "answer" || cmd == "reveal" {
+                            host.revealAnswerAction?()
+                        }
+                    }
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .frame(maxWidth: .infinity)
+
+            Spacer(minLength: 4)
+
+            // Phase-specific buttons
+            if host.isShowingAnswer {
+                HStack(spacing: 8) {
+                    if host.config.showAudioButton { audioButton }
+                    if host.config.showSyncButton { syncButton }
+                    Spacer()
+                    if host.config.showRatingButtons { ratingButtons }
+                }
+            } else {
+                if host.config.showRevealButton {
+                    Button(action: { host.revealAnswerAction?() }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "eye.fill").font(.system(size: 12))
+                            Text("Show Answer")
+                                .font(.system(size: 14, weight: .semibold))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(LinearGradient(colors: [.purple, .blue], startPoint: .leading, endPoint: .trailing))
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .top)
+    }
+
+    private var headerContent: some View {
+        Group {
+            if host.config.swapHeaderDeckAndCounts {
+                HStack {
+                    countsRow
+                    Spacer()
+                    Text(host.deckName)
+                        .font(.system(size: host.config.fontSize - 4, weight: .semibold))
+                        .foregroundColor(.purple)
+                    if host.config.showSyncButton { syncButton }
+                }
+            } else {
+                HStack {
+                    Text(host.deckName)
+                        .font(.system(size: host.config.fontSize - 4, weight: .semibold))
+                        .foregroundColor(.purple)
+                    Spacer()
+                    countsRow
+                    if host.config.showSyncButton { syncButton }
+                }
+            }
+        }
     }
 
     // MARK: - Offline View
@@ -881,29 +974,9 @@ public struct FloatingOverlayContentView: View {
         VStack(spacing: 8) {
             // Header: deck name + counts + sync (optional)
             if host.config.showHeader {
-                if host.config.swapHeaderDeckAndCounts {
-                    // Swapped: counter on left, deck name on right
-                    HStack {
-                        countsRow
-                        Spacer()
-                        Text(host.deckName)
-                            .font(.system(size: host.config.fontSize - 4, weight: .semibold))
-                            .foregroundColor(.purple)
-                        if host.config.showSyncButton { syncButton }
-                    }
-                } else {
-                    // Default: deck name on left, counter on right
-                    HStack {
-                        Text(host.deckName)
-                            .font(.system(size: host.config.fontSize - 4, weight: .semibold))
-                            .foregroundColor(.purple)
-                        Spacer()
-                        countsRow
-                        if host.config.showSyncButton { syncButton }
-                    }
-                }
-                Divider().background(Color.white.opacity(0.2))            } else if host.config.showCounts {
-                // Counts only, no header or divider
+                headerContent
+                Divider().background(Color.white.opacity(0.2))
+            } else if host.config.showCounts {
                 if host.config.swapHeaderDeckAndCounts {
                     HStack {
                         countsRow
@@ -917,35 +990,23 @@ public struct FloatingOverlayContentView: View {
                 }
             }
 
-            if host.hasCardTemplate {
-                GeometryReader { geo in
-                    CardTemplateWebView(html: host.renderedQuestionHTML, maxSize: geo.size, onPycmd: { cmd in
-                        if cmd == "answer" || cmd == "reveal" {
-                            host.revealAnswerAction?()
-                        }
-                    })
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-                .frame(maxWidth: .infinity)
-            } else {
-                ScrollView([.vertical]) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        if questionTextIsEmpty {
-                            placeholderText("question")
-                        } else {
-                            cardContentText(host.questionText)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-
-                        if !host.extraQuestionText.isEmpty && !host.config.extraQuestionOnlyOnAnswer {
-                            extraFieldText(host.extraQuestionText)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
+            ScrollView([.vertical]) {
+                VStack(alignment: .leading, spacing: 4) {
+                    if questionTextIsEmpty {
+                        placeholderText("question")
+                    } else {
+                        cardContentText(host.questionText)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .frame(maxWidth: .infinity)
+
+                    if !host.extraQuestionText.isEmpty && !host.config.extraQuestionOnlyOnAnswer {
+                        extraFieldText(host.extraQuestionText)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
                 .frame(maxWidth: .infinity)
             }
+            .frame(maxWidth: .infinity)
 
             Spacer(minLength: 4)
 
@@ -1008,7 +1069,6 @@ public struct FloatingOverlayContentView: View {
                 }
                 Divider().background(Color.white.opacity(0.2))
             } else if host.config.showCounts {
-                // Counts only, no header or divider
                 if host.config.swapHeaderDeckAndCounts {
                     HStack {
                         countsRow
@@ -1022,55 +1082,42 @@ public struct FloatingOverlayContentView: View {
                 }
             }
 
-            if host.hasCardTemplate {
-                // Template handles front side + answer; no question preview needed
-                GeometryReader { geo in
-                    CardTemplateWebView(html: host.renderedAnswerHTML, maxSize: geo.size, onPycmd: { cmd in
-                        if cmd == "answer" || cmd == "reveal" {
-                            host.revealAnswerAction?()
-                        }
-                    })
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-                .frame(maxWidth: .infinity)
-            } else {
-                // Question in answer phase — with furigana support when enabled
-                questionAnswerPreviewText(host.questionText)
+            // Question in answer phase — with furigana support when enabled
+            questionAnswerPreviewText(host.questionText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .lineLimit(2)
+                .truncationMode(.tail)
+
+            // Extra question field in answer phase
+            if !host.extraQuestionText.isEmpty {
+                extraFieldText(host.extraQuestionText)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .lineLimit(2)
                     .truncationMode(.tail)
+            }
 
-                // Extra question field in answer phase
-                if !host.extraQuestionText.isEmpty {
-                    extraFieldText(host.extraQuestionText)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .lineLimit(2)
-                        .truncationMode(.tail)
-                }
+            Divider()
+                .background(Color.white.opacity(0.2))
+                .padding(.vertical, 2)
 
-                Divider()
-                    .background(Color.white.opacity(0.2))
-                    .padding(.vertical, 2)
-
-                // Answer
-                ScrollView([.vertical]) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        if answerTextIsEmpty {
-                            placeholderText("answer")
-                        } else {
-                            cardContentText(host.answerText)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        
-                        if !host.extraAnswerText.isEmpty {
-                            extraFieldText(host.extraAnswerText)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
+            // Answer
+            ScrollView([.vertical]) {
+                VStack(alignment: .leading, spacing: 4) {
+                    if answerTextIsEmpty {
+                        placeholderText("answer")
+                    } else {
+                        cardContentText(host.answerText)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .frame(maxWidth: .infinity)
+                    
+                    if !host.extraAnswerText.isEmpty {
+                        extraFieldText(host.extraAnswerText)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
                 .frame(maxWidth: .infinity)
             }
+            .frame(maxWidth: .infinity)
 
             Spacer(minLength: 4)
 
@@ -1496,8 +1543,52 @@ public struct FloatingOverlayContentView: View {
 
 // MARK: - Card Template WebView
 
+/// A persistent WebView that:
+/// - Keeps the same WKWebView across question→answer transitions
+/// - Detects new cards (via cardId) and does a full load
+/// - On answer reveal: saves checkbox/input state via JS before loading answer HTML,
+///   then restores state after the answer page finishes loading
+private let saveStateJS = """
+(function() {
+    var items = [];
+    document.querySelectorAll('input, select, textarea').forEach(function(el) {
+        if (el.id || el.name) {
+            items.push({
+                id: el.id || '',
+                name: el.name || '',
+                type: el.type || '',
+                tag: el.tagName,
+                checked: el.checked,
+                value: el.value
+            });
+        }
+    });
+    return JSON.stringify(items);
+})();
+"""
+
+private let restoreStateJS = """
+(function(json) {
+    try {
+        var states = JSON.parse(json);
+        states.forEach(function(s) {
+            var el = s.id ? document.getElementById(s.id) : null;
+            if (!el && s.name) el = document.querySelector('[name="' + s.name.replace(/"/g, '\\\\"') + '"]');
+            if (!el) return;
+            if (s.type === 'checkbox' || s.type === 'radio') {
+                el.checked = s.checked;
+            } else {
+                el.value = s.value;
+            }
+        });
+    } catch(e) {}
+})(STATES_PLACEHOLDER);
+"""
+
 public struct CardTemplateWebView: NSViewRepresentable {
     let html: String
+    var isShowingAnswer: Bool = false
+    var cardId: Int = -1
     var maxSize: CGSize
     var onPycmd: ((String) -> Void)?
 
@@ -1534,6 +1625,25 @@ public struct CardTemplateWebView: NSViewRepresentable {
         }
     }
 
+    public final class Coordinator: NSObject, WKNavigationDelegate {
+        var lastLoadedCardId: Int = -1
+        var answerRevealed: Bool = false
+        var pendingStateRestore: String?
+        weak var webView: WKWebView?
+
+        public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            if let json = pendingStateRestore {
+                let js = restoreStateJS.replacingOccurrences(of: "STATES_PLACEHOLDER", with: json)
+                webView.evaluateJavaScript(js, completionHandler: nil)
+                pendingStateRestore = nil
+            }
+        }
+    }
+
+    public func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
     public func makeNSView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         let uc = config.userContentController
@@ -1541,17 +1651,18 @@ public struct CardTemplateWebView: NSViewRepresentable {
         uc.addUserScript(Self.consoleCaptureScript)
         uc.addUserScript(Self.viewportScript)
         let webView = DragWebView(frame: .zero, configuration: config)
-        let dw = webView as! DragWebView
-        uc.add(dw, name: "log")
-        uc.add(dw, name: "warn")
-        uc.add(dw, name: "error")
-        uc.add(dw, name: "pycmd")
-        dw.onPycmd = onPycmd
+        uc.add(webView, name: "log")
+        uc.add(webView, name: "warn")
+        uc.add(webView, name: "error")
+        uc.add(webView, name: "pycmd")
+        webView.onPycmd = onPycmd
         webView.setValue(false, forKey: "drawsBackground")
         webView.isHidden = html.isEmpty
         if #available(macOS 14.0, *) {
             webView.isInspectable = true
         }
+        context.coordinator.webView = webView
+        webView.navigationDelegate = context.coordinator
         return webView
     }
 
@@ -1561,7 +1672,46 @@ public struct CardTemplateWebView: NSViewRepresentable {
             return
         }
         webView.isHidden = false
-        webView.loadHTMLString(html, baseURL: Self.ankiMediaURL)
+        (webView as? DragWebView)?.onPycmd = onPycmd
+
+        let co = context.coordinator
+        if co.lastLoadedCardId != cardId {
+            // New card: load question HTML
+            webView.loadHTMLString(html, baseURL: Self.ankiMediaURL)
+            co.lastLoadedCardId = cardId
+            co.answerRevealed = false
+            co.pendingStateRestore = nil
+            return
+        }
+
+        if isShowingAnswer && !co.answerRevealed {
+            // Reveal answer: save input states, then load answer HTML
+            co.answerRevealed = true
+            let currentHTML = html
+            webView.evaluateJavaScript(saveStateJS) { result, _ in
+                if let json = result as? String {
+                    co.pendingStateRestore = json
+                }
+                webView.loadHTMLString(currentHTML, baseURL: Self.ankiMediaURL)
+            }
+        } else if !isShowingAnswer && co.answerRevealed {
+            // Back to question: save input states, then load question HTML
+            co.answerRevealed = false
+            let currentHTML = html
+            webView.evaluateJavaScript(saveStateJS) { result, _ in
+                if let json = result as? String {
+                    co.pendingStateRestore = json
+                }
+                webView.loadHTMLString(currentHTML, baseURL: Self.ankiMediaURL)
+            }
+        } else if co.pendingStateRestore != nil && !webView.isLoading {
+            // Page finished loading (handle case where didFinish wasn't called)
+            if let json = co.pendingStateRestore {
+                let js = restoreStateJS.replacingOccurrences(of: "STATES_PLACEHOLDER", with: json)
+                webView.evaluateJavaScript(js, completionHandler: nil)
+                co.pendingStateRestore = nil
+            }
+        }
     }
 
     /// Inject jQuery + pycmd polyfill at document start.
