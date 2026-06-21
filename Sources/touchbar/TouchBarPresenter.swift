@@ -951,6 +951,26 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         return values.joined(separator: " / ")
     }
 
+    /// Check whether the actual raw fields for a comma-separated field spec are all empty.
+    /// Unlike `card.question` / `card.answer` (which fall back to Anki's rendered output),
+    /// this inspects `card.fields` directly so we can detect truly empty fields.
+    private func isCardFieldEmpty(fieldString: String, card: AnkiCard) -> Bool {
+        guard !fieldString.trimmingCharacters(in: .whitespaces).isEmpty else { return true }
+        let fieldNames = fieldString.split(separator: ",").map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        for name in fieldNames {
+            if let val = card.fields[name] {
+                let stripped = val.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if !stripped.isEmpty {
+                    return false
+                }
+            }
+        }
+        return true
+    }
+
     /// Strip HTML tags preserving bold/italic/underline for TouchBar display.
     private func stripHTMLPreservingBold(_ html: String) -> String {
         var text = html
@@ -1030,13 +1050,28 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
             displayText = widget.ankiCombineFurigana ? card.question : stripFuriganaBrackets(card.question)
         }
         
-        let textHasFurigana = displayText.contains("[") && displayText.contains("]")
+        let isEmptyField = showExtraQ
+            ? extraQText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            : isCardFieldEmpty(fieldString: widget.ankiQuestionField, card: card)
+        let placeholder = showExtraQ ? "⚠️ Please fill in the extra question field" : "⚠️ Please fill in the question field"
+        let effectiveText = isEmptyField ? placeholder : displayText
+        
+        let textHasFurigana = effectiveText.contains("[") && effectiveText.contains("]")
         
         let contentView: NSView
-        if showExtraQ {
+        if isEmptyField {
+            let label = NSTextField(labelWithString: effectiveText)
+            label.font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
+            label.textColor = textColor.withAlphaComponent(0.5)
+            label.isBezeled = false
+            label.drawsBackground = false
+            label.isEditable = false
+            label.isSelectable = false
+            contentView = label
+        } else if showExtraQ {
             if widget.ankiCombineFurigana && textHasFurigana {
                 contentView = buildFuriganaRichLabel(
-                    text: displayText,
+                    text: effectiveText,
                     fontSize: CGFloat(widget.fontSize),
                     textColor: textColor,
                     boldColor: boldColor,
@@ -1049,7 +1084,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
                     furiganaSegmentOffset: CGFloat(widget.ankiFuriganaSegmentOffset)
                 )
             } else {
-                let attributed = parseBoldTags(in: displayText, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
+                let attributed = parseBoldTags(in: effectiveText, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
                 contentView = makeLabelContainer(
                     attributedString: attributed,
                     textVerticalOffset: CGFloat(widget.ankiNonFuriganaSegmentOffset),
@@ -1061,7 +1096,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
             }
         } else if widget.ankiCombineFurigana && textHasFurigana {
             contentView = buildFuriganaRichLabel(
-                text: displayText,
+                text: effectiveText,
                 fontSize: CGFloat(widget.fontSize),
                 textColor: textColor,
                 boldColor: boldColor,
@@ -1074,7 +1109,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
                 furiganaSegmentOffset: CGFloat(widget.ankiFuriganaSegmentOffset)
             )
         } else {
-            let attributed = parseBoldTags(in: displayText, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
+            let attributed = parseBoldTags(in: effectiveText, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
             contentView = makeLabelContainer(
                 attributedString: attributed,
                 textVerticalOffset: CGFloat(widget.ankiNonFuriganaSegmentOffset),
@@ -1109,7 +1144,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         }
         
         if widget.ankiScrollMode == .both {
-            print("[ScrollText] buildQuestionLabel ankiScrollMode=both textWidth=\(displayText.count) chars hasType=\(hasType)")
+            print("[ScrollText] buildQuestionLabel ankiScrollMode=both textWidth=\(effectiveText.count) chars hasType=\(hasType)")
             
             let clipView = ClippingView()
             clipView.wantsLayer = true
@@ -1164,13 +1199,27 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
             displayText = card.answer
         }
         
-        let textHasFurigana = displayText.contains("[") && displayText.contains("]")
+        let isEmptyField = showExtraA
+            ? extraAText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            : isCardFieldEmpty(fieldString: widget.ankiAnswerField, card: card)
+        let placeholder = showExtraA ? "⚠️ Please fill in the extra answer field" : "⚠️ Please fill in the answer field"
+        let effectiveText = isEmptyField ? placeholder : displayText
+        let textHasFurigana = effectiveText.contains("[") && effectiveText.contains("]")
         
         let content: NSView
-        if showExtraA {
+        if isEmptyField {
+            let label = NSTextField(labelWithString: effectiveText)
+            label.font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
+            label.textColor = textColor.withAlphaComponent(0.5)
+            label.isBezeled = false
+            label.drawsBackground = false
+            label.isEditable = false
+            label.isSelectable = false
+            content = label
+        } else if showExtraA {
             if widget.ankiCombineFurigana && textHasFurigana {
                 content = buildFuriganaRichLabel(
-                    text: displayText,
+                    text: effectiveText,
                     fontSize: CGFloat(widget.fontSize),
                     textColor: textColor,
                     boldColor: boldColor,
@@ -1183,7 +1232,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
                     furiganaSegmentOffset: CGFloat(widget.ankiFuriganaSegmentOffset)
                 )
             } else {
-                let attributed = parseBoldTags(in: displayText, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
+                let attributed = parseBoldTags(in: effectiveText, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
                 content = makeLabelContainer(
                     attributedString: attributed,
                     textVerticalOffset: CGFloat(widget.ankiNonFuriganaSegmentOffset),
@@ -1195,7 +1244,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
             }
         } else if tapIsExtra && widget.ankiCombineFurigana && textHasFurigana {
             content = buildFuriganaRichLabel(
-                text: displayText,
+                text: effectiveText,
                 fontSize: CGFloat(widget.fontSize),
                 textColor: textColor,
                 boldColor: boldColor,
@@ -1209,7 +1258,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
             )
         } else if widget.ankiCombineFurigana && textHasFurigana {
             content = buildFuriganaRichLabel(
-                text: displayText,
+                text: effectiveText,
                 fontSize: CGFloat(widget.fontSize),
                 textColor: textColor,
                 boldColor: boldColor,
@@ -1222,7 +1271,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
                 furiganaSegmentOffset: CGFloat(widget.ankiFuriganaSegmentOffset)
             )
         } else {
-            let attributed = parseBoldTags(in: displayText, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
+            let attributed = parseBoldTags(in: effectiveText, defaultFont: font, defaultColor: textColor, boldColor: boldColor)
             content = makeLabelContainer(
                 attributedString: attributed,
                 textVerticalOffset: CGFloat(widget.ankiNonFuriganaSegmentOffset),

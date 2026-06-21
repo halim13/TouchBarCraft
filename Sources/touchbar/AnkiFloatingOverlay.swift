@@ -468,13 +468,16 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
 
         if let card = state.currentCard {
             // Compute question/answer from overlay-specific field config if set,
-            // otherwise fall back to the card's pre-rendered values (from widget config)
-            let qField = config.questionField.isEmpty ? nil : config.questionField
-            let aField = config.answerField.isEmpty ? nil : config.answerField
-            questionText = qField.flatMap { extractOverlayFieldValue(from: $0, fields: card.fields) }
-                ?? card.question
-            answerText = aField.flatMap { extractOverlayFieldValue(from: $0, fields: card.fields) }
-                ?? card.answer
+            // otherwise use widget config. If the configured fields are empty (not just
+            // absent from the card), show empty string instead of Anki's fallback rendering.
+            let qField = config.questionField.isEmpty
+                ? (getAnkiWidget()?.ankiQuestionField ?? "")
+                : config.questionField
+            let aField = config.answerField.isEmpty
+                ? (getAnkiWidget()?.ankiAnswerField ?? "")
+                : config.answerField
+            questionText = extractOverlayFieldValue(from: qField, fields: card.fields) ?? ""
+            answerText = extractOverlayFieldValue(from: aField, fields: card.fields) ?? ""
 
             // Extra fields: overlay config takes precedence, fall back to widget config
             let extraQField = config.extraQuestionField.isEmpty
@@ -911,8 +914,12 @@ public struct FloatingOverlayContentView: View {
             } else {
                 ScrollView([.vertical]) {
                     VStack(alignment: .leading, spacing: 4) {
-                        cardContentText(host.questionText)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        if questionTextIsEmpty {
+                            placeholderText("question")
+                        } else {
+                            cardContentText(host.questionText)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
 
                         if !host.extraQuestionText.isEmpty && !host.config.extraQuestionOnlyOnAnswer {
                             extraFieldText(host.extraQuestionText)
@@ -947,6 +954,21 @@ public struct FloatingOverlayContentView: View {
     }
 
     // MARK: - Answer Phase
+
+    private var questionTextIsEmpty: Bool {
+        host.questionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var answerTextIsEmpty: Bool {
+        host.answerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func placeholderText(_ fieldName: String) -> some View {
+        Text("Please fill in the \(fieldName) field")
+            .font(.system(size: host.config.fontSize, weight: .medium))
+            .foregroundColor(textColor.opacity(0.4))
+            .frame(maxWidth: .infinity, alignment: .center)
+    }
 
     private var answerPhaseView: some View {
         VStack(spacing: 8) {
@@ -1017,8 +1039,12 @@ public struct FloatingOverlayContentView: View {
                 // Answer
                 ScrollView([.vertical]) {
                     VStack(alignment: .leading, spacing: 4) {
-                        cardContentText(host.answerText)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        if answerTextIsEmpty {
+                            placeholderText("answer")
+                        } else {
+                            cardContentText(host.answerText)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
                         
                         if !host.extraAnswerText.isEmpty {
                             extraFieldText(host.extraAnswerText)
