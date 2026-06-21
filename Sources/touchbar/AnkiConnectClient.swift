@@ -14,6 +14,7 @@ public struct AnkiCard: Sendable {
     public let fields: [String: String]  // all field values keyed by field name
     public let cardType: Int  // 0=new, 1=learning, 2=review, -1=unknown
     public let buttonLabels: [Int: String]  // ease -> formatted label from Anki (e.g. "35m", "3.5mo")
+    public let tags: String  // space-separated tags for {{Tags}} template substitution
 
     /// Human-readable label for the card type.
     public var cardTypeLabel: String {
@@ -161,7 +162,7 @@ public actor AnkiConnectClient {
             guard let result = try await request(action: "guiCurrentCard") as? [String: Any] else {
                 return nil
             }
-            
+
             let cardId = result["cardId"] as? Int ?? 0
             let deckName = result["deckName"] as? String ?? ""
             let modelName = result["modelName"] as? String ?? ""
@@ -284,10 +285,42 @@ public actor AnkiConnectClient {
                 }
             }
 
-            // If cardType is unknown, try cardsInfo fallback (more reliable)
+            // Extract tags from API response
+            var cardTags: String = {
+                if let tagsArray = result["tags"] as? [String] {
+                    return tagsArray.joined(separator: " ")
+                }
+                return ""
+            }()
+
+            // If cardType is unknown or tags are empty, try cardsInfo then notesInfo fallback
             var resolvedType = cardType
-            if resolvedType < 0 && cardId > 0 {
-                resolvedType = await getCardType(cardId: cardId)
+            var noteId: Int? = nil
+            if (resolvedType < 0 || cardTags.isEmpty) && cardId > 0 {
+                if let infoResult = try? await request(action: "cardsInfo", params: ["cards": [cardId]]) as? [[String: Any]],
+                   let firstCard = infoResult.first {
+                    if resolvedType < 0 {
+                        if let queue = firstCard["queue"] as? Int { resolvedType = queue }
+                        else if let type = firstCard["type"] as? Int { resolvedType = type }
+                    }
+                    if cardTags.isEmpty {
+                        if let tagsArray = firstCard["tags"] as? [String] {
+                            cardTags = tagsArray.joined(separator: " ")
+                        } else {
+                            noteId = firstCard["note"] as? Int
+                        }
+                    }
+                }
+            }
+
+            // Last resort: try notesInfo for tags
+            if cardTags.isEmpty, let nid = noteId {
+                if let notesResult = try? await request(action: "notesInfo", params: ["notes": [nid]]) as? [[String: Any]],
+                   let firstNote = notesResult.first {
+                    if let tagsArray = firstNote["tags"] as? [String] {
+                        cardTags = tagsArray.joined(separator: " ")
+                    }
+                }
             }
 
             return AnkiCard(
@@ -301,7 +334,8 @@ public actor AnkiConnectClient {
                 touchBarAudioText: touchBarAudioText,
                 fields: allFields,
                 cardType: resolvedType,
-                buttonLabels: buttonLabels
+                buttonLabels: buttonLabels,
+                tags: cardTags
             )
         } catch {
             print("AnkiConnect: Failed to get current card: \(error)")

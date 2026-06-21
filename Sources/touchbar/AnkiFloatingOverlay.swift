@@ -479,8 +479,8 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
             let aField = config.answerField.isEmpty
                 ? (getAnkiWidget()?.ankiAnswerField ?? "")
                 : config.answerField
-            questionText = extractOverlayFieldValue(from: qField, fields: card.fields) ?? ""
-            answerText = extractOverlayFieldValue(from: aField, fields: card.fields) ?? ""
+            questionText = extractOverlayFieldValue(from: qField, fields: card.fields, tags: card.tags, cardTypeLabel: card.cardTypeLabel) ?? ""
+            answerText = extractOverlayFieldValue(from: aField, fields: card.fields, tags: card.tags, cardTypeLabel: card.cardTypeLabel) ?? ""
 
             // Extra fields: overlay config takes precedence, fall back to widget config
             let extraQField = config.extraQuestionField.isEmpty
@@ -489,8 +489,8 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
             let extraAField = config.extraAnswerField.isEmpty
                 ? (getAnkiWidget()?.ankiExtraAnswerField ?? "")
                 : config.extraAnswerField
-            extraQuestionText = extractExtraFieldValue(from: extraQField, fields: card.fields)
-            extraAnswerText = extractExtraFieldValue(from: extraAField, fields: card.fields)
+            extraQuestionText = extractExtraFieldValue(from: extraQField, fields: card.fields, tags: card.tags, cardTypeLabel: card.cardTypeLabel)
+            extraAnswerText = extractExtraFieldValue(from: extraAField, fields: card.fields, tags: card.tags, cardTypeLabel: card.cardTypeLabel)
 
             currentCardId = card.cardId
 
@@ -540,9 +540,9 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
             return
         }
         hasCardTemplate = true
-        let renderedFront = processTemplate(settings.frontTemplate, fields: card.fields, css: settings.templateCss, deckName: card.deckName, frontSideRendered: nil)
+        let renderedFront = processTemplate(settings.frontTemplate, fields: card.fields, css: settings.templateCss, deckName: card.deckName, frontSideRendered: nil, tags: card.tags, cardTypeLabel: card.cardTypeLabel)
         renderedQuestionHTML = wrapTemplateInHTML(body: renderedFront, css: settings.templateCss)
-        let renderedBack = processTemplate(settings.backTemplate, fields: card.fields, css: settings.templateCss, deckName: card.deckName, frontSideRendered: renderedFront)
+        let renderedBack = processTemplate(settings.backTemplate, fields: card.fields, css: settings.templateCss, deckName: card.deckName, frontSideRendered: renderedFront, tags: card.tags, cardTypeLabel: card.cardTypeLabel)
         renderedAnswerHTML = wrapTemplateInHTML(body: renderedBack, css: settings.templateCss)
     }
 
@@ -578,14 +578,28 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
 
     }
 
-    /// Parse comma-separated field names, extract and join their values
-    private func extractExtraFieldValue(from fieldString: String, fields: [String: String]) -> String {
+    /// Parse comma-separated field names, extract and join their values.
+    /// Supports special pseudo-fields: Tags, Type (with or without {{ }} braces).
+    private func extractExtraFieldValue(from fieldString: String, fields: [String: String], tags: String = "", cardTypeLabel: String = "") -> String {
         guard !fieldString.trimmingCharacters(in: .whitespaces).isEmpty else { return "" }
         let fieldNames = fieldString.split(separator: ",").map {
             $0.trimmingCharacters(in: .whitespacesAndNewlines)
         }
         var values: [String] = []
         for name in fieldNames {
+            let cleaned = name.trimmingCharacters(in: CharacterSet(charactersIn: "{} "))
+            if cleaned == "Tags" {
+                if !tags.isEmpty {
+                    values.append(tags)
+                }
+                continue
+            }
+            if cleaned == "Type" {
+                if !cardTypeLabel.isEmpty {
+                    values.append(cardTypeLabel)
+                }
+                continue
+            }
             if let val = fields[name] {
                 if !val.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     // Preserve HTML tags — will be parsed when rendering
@@ -598,7 +612,8 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
 
     /// Parse comma-separated field names, extract and join their values with HTML stripped,
     /// matching how AnkiConnectClient renders question/answer for the widget.
-    private func extractOverlayFieldValue(from fieldString: String, fields: [String: String]) -> String? {
+    /// Supports special pseudo-fields: Tags, Type (with or without {{ }} braces).
+    private func extractOverlayFieldValue(from fieldString: String, fields: [String: String], tags: String = "", cardTypeLabel: String = "") -> String? {
         let trimmed = fieldString.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return nil }
         let fieldNames = trimmed.split(separator: ",").map {
@@ -606,6 +621,19 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
         }
         var values: [String] = []
         for name in fieldNames {
+            let cleaned = name.trimmingCharacters(in: CharacterSet(charactersIn: "{} "))
+            if cleaned == "Tags" {
+                if !tags.isEmpty {
+                    values.append(tags)
+                }
+                continue
+            }
+            if cleaned == "Type" {
+                if !cardTypeLabel.isEmpty {
+                    values.append(cardTypeLabel)
+                }
+                continue
+            }
             if let val = fields[name] {
                 let stripped = stripHTMLForOverlay(val)
                 if !stripped.isEmpty {
@@ -617,10 +645,21 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
         return values.joined(separator: " / ")
     }
 
+    /// Resolve a template field name to its value, handling both regular fields and special pseudo-fields.
+    private func resolveFieldValue(_ name: String, fields: [String: String], deckName: String, tags: String, cardTypeLabel: String) -> String {
+        switch name {
+        case "Tags": return tags
+        case "Type": return cardTypeLabel
+        case "Deck": return deckName
+        case "Subdeck": return deckName.components(separatedBy: "::").last ?? deckName
+        default: return fields[name]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        }
+    }
+
     /// Process an Anki card template by replacing field references with actual values.
     /// Supported: {{FieldName}}, {{text:FieldName}}, {{FrontSide}}, {{#FieldName}}...{{/FieldName}}, {{^FieldName}}...{{/FieldName}},
-    /// {{Deck}}, {{Subdeck}}, {{Tags}}, {{Card}}, {{Type}}
-    private func processTemplate(_ template: String, fields: [String: String], css: String, deckName: String, frontSideRendered: String?) -> String {
+    /// {{Deck}}, {{Subdeck}}, {{Tags}}, {{Type}}
+    private func processTemplate(_ template: String, fields: [String: String], css: String, deckName: String, frontSideRendered: String?, tags: String = "", cardTypeLabel: String = "") -> String {
         // 1. Handle conditionals: {{#Field}}...{{/Field}} and {{^Field}}...{{/Field}}
         var result = template
         // Match {{#FieldName}}...{{/FieldName}} (including nested, non-greedy)
@@ -630,7 +669,8 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
                 guard let match = regex.firstMatch(in: result, options: [], range: range) else { break }
                 let fieldName = String(result[Range(match.range(at: 1), in: result)!])
                 let content = String(result[Range(match.range(at: 2), in: result)!])
-                let fieldValue = fields[fieldName]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                let fieldValue = resolveFieldValue(fieldName, fields: fields, deckName: deckName, tags: tags, cardTypeLabel: cardTypeLabel)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
                 let replacement = fieldValue.isEmpty ? "" : content
                 result.replaceSubrange(Range(match.range, in: result)!, with: replacement)
             }
@@ -642,7 +682,8 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
                 guard let match = regex.firstMatch(in: result, options: [], range: range) else { break }
                 let fieldName = String(result[Range(match.range(at: 1), in: result)!])
                 let content = String(result[Range(match.range(at: 2), in: result)!])
-                let fieldValue = fields[fieldName]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                let fieldValue = resolveFieldValue(fieldName, fields: fields, deckName: deckName, tags: tags, cardTypeLabel: cardTypeLabel)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
                 let replacement = fieldValue.isEmpty ? content : ""
                 result.replaceSubrange(Range(match.range, in: result)!, with: replacement)
             }
@@ -657,10 +698,11 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
 
         // 3. Handle special fields
         result = result.replacingOccurrences(of: "{{Deck}}", with: deckName)
-        // Extract subdeck (last part after ::)
         let deckParts = deckName.components(separatedBy: "::")
         let subdeck = deckParts.last ?? deckName
         result = result.replacingOccurrences(of: "{{Subdeck}}", with: subdeck)
+        result = result.replacingOccurrences(of: "{{Tags}}", with: tags)
+        result = result.replacingOccurrences(of: "{{Type}}", with: cardTypeLabel)
 
         // 4. Handle {{text:FieldName}} — strip HTML from field value
         if let textRegex = try? NSRegularExpression(pattern: #"\{\{text:([^}]+)\}\}"#) {
