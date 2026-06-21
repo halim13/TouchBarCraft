@@ -509,8 +509,24 @@ public final class AnkiFloatingOverlayViewHost: ObservableObject {
     }
 
     private func renderCardTemplates(card: AnkiCard) {
-        guard let widget = getAnkiWidget(),
-              let settings = widget.ankiDeckSettings[card.deckName],
+        guard let widget = getAnkiWidget() else {
+            hasCardTemplate = false
+            renderedQuestionHTML = ""
+            renderedAnswerHTML = ""
+            return
+        }
+        // Try exact deck name match first, then prefix match (parent deck)
+        let settings: AnkiDeckSettings?
+        if let exact = widget.ankiDeckSettings[card.deckName] {
+            settings = exact
+        } else {
+            let matchingKey = widget.ankiDeckSettings.keys
+                .filter { card.deckName == $0 || card.deckName.hasPrefix($0 + "::") }
+                .sorted { $0.count > $1.count }
+                .first
+            settings = matchingKey.flatMap { widget.ankiDeckSettings[$0] }
+        }
+        guard let settings = settings,
               !settings.frontTemplate.isEmpty || !settings.backTemplate.isEmpty else {
             hasCardTemplate = false
             renderedQuestionHTML = ""
