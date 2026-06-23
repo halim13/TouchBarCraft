@@ -67,6 +67,8 @@ public final class NHKNewsState {
             print("NHKNewsState: \(self.errorMessage)")
         }
         isLoading = false
+        // Refresh the physical Touch Bar to show the updated article list
+        refreshTouchBar()
     }
 
     public func nextArticle() {
@@ -184,6 +186,13 @@ public final class NHKNewsState {
     }
 
     private func refreshTouchBar() {
+        // If all NHK widgets are hidden from the physical Touch Bar, skip refresh
+        if let widgets = AppState.shared?.widgets {
+            let nhkWidgets = widgets.filter { $0.type == .nhkNews }
+            if !nhkWidgets.isEmpty && nhkWidgets.allSatisfy({ $0.hideFromTouchBar }) {
+                return
+            }
+        }
         let presenterClass: AnyClass? = NSClassFromString("touchbar.TouchBarPresenter")
         let refreshSelector = NSSelectorFromString("refreshTouchBar")
         if let presenter = presenterClass as? NSObject.Type {

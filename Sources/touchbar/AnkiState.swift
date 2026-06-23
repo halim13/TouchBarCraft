@@ -326,6 +326,14 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
     // MARK: - Touch Bar Refresh
 
     public func refreshTouchBar() {
+        // If all Anki widgets are hidden from the physical Touch Bar, skip refresh
+        // to avoid disrupting other visible widgets (e.g. NHK news).
+        if let widgets = AppState.shared?.widgets {
+            let ankiWidgets = widgets.filter { $0.type == .anki }
+            if !ankiWidgets.isEmpty && ankiWidgets.allSatisfy({ $0.hideFromTouchBar }) {
+                return
+            }
+        }
         let presenterClass: AnyClass? = NSClassFromString("touchbar.TouchBarPresenter")
         let refreshSelector = NSSelectorFromString("refreshTouchBar")
         if let presenter = presenterClass as? NSObject.Type {
