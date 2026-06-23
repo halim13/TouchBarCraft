@@ -11,6 +11,7 @@ public final class AppState {
     
     public var widgets: [TouchBarWidget] = []
     public var selectedWidgetID: UUID?
+    public var hasUnsavedChanges = false
     public var ankiState: AnkiState
     public var nhkNewsState: NHKNewsState
     
@@ -46,7 +47,7 @@ public final class AppState {
             let imported = try JSONDecoder().decode([TouchBarWidget].self, from: data)
             widgets = imported
             selectedWidgetID = imported.first?.id
-            saveConfig()
+            persistChanges()
             return true
         } catch {
             print("Failed to decode widgets from JSON: \(error.localizedDescription)")
@@ -78,23 +79,103 @@ public final class AppState {
     }
     
     // MARK: - Persistence
-    
+
     public func saveConfig() {
-        // Sync Anki mute state to the Anki widget before saving
+        hasUnsavedChanges = true
+        // No-op: changes are in-memory via binding setters.
+        // Use persistChanges() to save to disk and refresh Touch Bar,
+        // previewChanges() to preview without saving,
+        // or revertChanges() to discard in-memory changes.
         if let ankiWidgetIndex = widgets.firstIndex(where: { $0.type == .anki }) {
             widgets[ankiWidgetIndex].ankiIsMuted = ankiState.isMuted
         }
-        
+    }
+
+    /// Persist current in-memory widget state to disk and refresh Touch Bar.
+    public func persistChanges() {
+        if let ankiWidgetIndex = widgets.firstIndex(where: { $0.type == .anki }) {
+            widgets[ankiWidgetIndex].ankiIsMuted = ankiState.isMuted
+        }
+
+        // Sync overlay config to deck settings so overlay changes are persisted
+        let overlayConfig = AnkiFloatingOverlayManager.shared.config
+        if let ankiWidgetIndex = widgets.firstIndex(where: { $0.type == .anki }) {
+            let deck = widgets[ankiWidgetIndex].ankiDeckName
+            if !deck.isEmpty {
+                var settings = widgets[ankiWidgetIndex].ankiDeckSettings[deck] ?? AnkiDeckSettings(
+                    questionField: widgets[ankiWidgetIndex].ankiQuestionField,
+                    answerField: widgets[ankiWidgetIndex].ankiAnswerField,
+                    audioField: widgets[ankiWidgetIndex].ankiAudioField
+                )
+                settings.overlayQuestionField = overlayConfig.questionField
+                settings.overlayAnswerField = overlayConfig.answerField
+                settings.overlayAudioField = overlayConfig.audioField
+                settings.overlayExtraQuestionField = overlayConfig.extraQuestionField
+                settings.overlayExtraAnswerField = overlayConfig.extraAnswerField
+                settings.overlayBoldColorHex = overlayConfig.boldColorHex
+                settings.overlayExtraQuestionOnlyOnAnswer = overlayConfig.extraQuestionOnlyOnAnswer
+                widgets[ankiWidgetIndex].ankiDeckSettings[deck] = settings
+            }
+        }
+
         do {
             let data = try JSONEncoder().encode(widgets)
             try data.write(to: configPath)
-            print("Successfully saved configurations to \(configPath.path)")
-            
-            // Notify system presenter to refresh the physical Touch Bar layout!
-            TouchBarPresenter.refreshTouchBar()
         } catch {
             print("Failed to save configurations: \(error.localizedDescription)")
         }
+
+        TouchBarPresenter.refreshTouchBar()
+        hasUnsavedChanges = false
+    }
+
+    /// Preview current in-memory changes on Touch Bar without saving to disk.
+    public func previewChanges() {
+        TouchBarPresenter.refreshTouchBar()
+    }
+
+    /// Discard in-memory changes and reload from disk, restoring overlay config.
+    public func revertChanges() {
+        guard FileManager.default.fileExists(atPath: configPath.path) else { return }
+        do {
+            let data = try Data(contentsOf: configPath)
+            let loaded = try JSONDecoder().decode([TouchBarWidget].self, from: data)
+            widgets = loaded
+
+            // Restore overlay config and Anki card fields from reloaded data
+            if let ankiWidget = widgets.first(where: { $0.type == .anki }) {
+                let deck = ankiWidget.ankiDeckName
+                if !deck.isEmpty, let settings = ankiWidget.ankiDeckSettings[deck] {
+                    var config = AnkiFloatingOverlayManager.shared.config
+                    config.questionField = settings.overlayQuestionField
+                    config.answerField = settings.overlayAnswerField
+                    config.audioField = settings.overlayAudioField
+                    config.extraQuestionField = settings.overlayExtraQuestionField
+                    config.extraAnswerField = settings.overlayExtraAnswerField
+                    config.boldColorHex = settings.overlayBoldColorHex
+                    config.extraQuestionOnlyOnAnswer = settings.overlayExtraQuestionOnlyOnAnswer
+                    AnkiFloatingOverlayManager.shared.config = config
+
+                    restoreAnkiCardFields(ankiWidget: ankiWidget, settings: settings)
+                }
+                ankiState.isMuted = ankiWidget.ankiIsMuted
+            }
+        } catch {
+            print("Failed to reload config: \(error.localizedDescription)")
+        }
+
+        TouchBarPresenter.refreshTouchBar()
+        hasUnsavedChanges = false
+    }
+
+    private func restoreAnkiCardFields(ankiWidget: TouchBarWidget, settings: AnkiDeckSettings) {
+        guard let idx = widgets.firstIndex(where: { $0.id == ankiWidget.id }) else { return }
+        widgets[idx].ankiQuestionField = settings.questionField
+        widgets[idx].ankiAnswerField = settings.answerField
+        widgets[idx].ankiAudioField = settings.audioField
+        widgets[idx].ankiTouchBarAudioField = settings.touchBarAudioField
+        widgets[idx].ankiExtraQuestionField = settings.extraQuestionField
+        widgets[idx].ankiExtraAnswerField = settings.extraAnswerField
     }
     
     public func loadConfig() {
@@ -178,7 +259,7 @@ public final class AppState {
             )
         ]
         self.selectedWidgetID = self.widgets.first?.id
-        saveConfig()
+        persistChanges()
     }
     
     // MARK: - Actions
@@ -444,7 +525,7 @@ public final class AppState {
         
         widgets.append(newWidget)
         selectedWidgetID = newWidget.id
-        saveConfig()
+        persistChanges()
     }
     
     public func deleteWidget(id: UUID) {
@@ -452,12 +533,12 @@ public final class AppState {
         if selectedWidgetID == id {
             selectedWidgetID = widgets.first?.id
         }
-        saveConfig()
+        persistChanges()
     }
     
     public func moveWidget(from source: IndexSet, to destination: Int) {
         widgets.move(fromOffsets: source, toOffset: destination)
-        saveConfig()
+        persistChanges()
     }
     
     // MARK: - Timers & System Info Updates
@@ -522,7 +603,7 @@ public final class AppState {
             let widget = try JSONDecoder().decode(TouchBarWidget.self, from: data)
             widgets.append(widget)
             selectedWidgetID = widget.id
-            saveConfig()
+            persistChanges()
             return true
         } catch {
             print("Failed to decode widget from JSON: \(error.localizedDescription)")

@@ -164,7 +164,29 @@ public struct MainView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
-                    
+
+                    // Save / Preview / Cancel — visible only when there are unsaved changes
+                    HStack(spacing: 8) {
+                        Spacer()
+                        Button("Preview") { state.previewChanges() }
+                            .buttonStyle(.bordered)
+                            .tint(.blue)
+                            .controlSize(.small)
+                            .disabled(!state.hasUnsavedChanges)
+                        Button("Save") { state.persistChanges() }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.green)
+                            .controlSize(.small)
+                            .disabled(!state.hasUnsavedChanges)
+                        Button("Cancel") { state.revertChanges() }
+                            .buttonStyle(.bordered)
+                            .tint(.red)
+                            .controlSize(.small)
+                            .disabled(!state.hasUnsavedChanges)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 6)
+
                     if state.widgets.isEmpty {
                         VStack(spacing: 8) {
                             Text("No widgets active.")
@@ -761,7 +783,7 @@ extension MainView {
         var list = state.widgets
         list.swapAt(index, index - 1)
         state.widgets = list
-        state.saveConfig()
+        state.persistChanges()
     }
     
     private func moveDown(index: Int) {
@@ -769,7 +791,7 @@ extension MainView {
         var list = state.widgets
         list.swapAt(index, index + 1)
         state.widgets = list
-        state.saveConfig()
+        state.persistChanges()
     }
 
     @ViewBuilder
@@ -972,7 +994,7 @@ struct AnkiConfigView: View {
                                     AnkiFloatingOverlayManager.shared.config = overlayCfg
                                 }
                             }
-                            state.saveConfig()
+                            state.persistChanges()
                             state.ankiState.startReview(deck: deck)
                         }
                     )) {
@@ -1005,36 +1027,40 @@ struct AnkiConfigView: View {
                         ankiFieldRow("Question:", text: Binding(
                             get: { state.widgets[index].ankiQuestionField },
                             set: { val in
+                                guard val != state.widgets[index].ankiQuestionField else { return }
                                 state.widgets[index].ankiQuestionField = val
                                 saveFieldToDeckSettings { $0.questionField = val }
-                                Task { await state.ankiState.loadCurrentCard() }
+
                             }
                         ))
 
                         ankiFieldRow("Answer:", text: Binding(
                             get: { state.widgets[index].ankiAnswerField },
                             set: { val in
+                                guard val != state.widgets[index].ankiAnswerField else { return }
                                 state.widgets[index].ankiAnswerField = val
                                 saveFieldToDeckSettings { $0.answerField = val }
-                                Task { await state.ankiState.loadCurrentCard() }
+
                             }
                         ))
 
                         ankiFieldRow("Audio (Play btn):", text: Binding(
                             get: { state.widgets[index].ankiAudioField },
                             set: { val in
+                                guard val != state.widgets[index].ankiAudioField else { return }
                                 state.widgets[index].ankiAudioField = val
                                 saveFieldToDeckSettings { $0.audioField = val }
-                                Task { await state.ankiState.loadCurrentCard() }
+
                             }
                         ))
 
                         ankiFieldRow("TB Tap Audio:", text: Binding(
                             get: { state.widgets[index].ankiTouchBarAudioField },
                             set: { val in
+                                guard val != state.widgets[index].ankiTouchBarAudioField else { return }
                                 state.widgets[index].ankiTouchBarAudioField = val
                                 saveFieldToDeckSettings { $0.touchBarAudioField = val }
-                                Task { await state.ankiState.loadCurrentCard() }
+
                             }
                         ))
 
@@ -1060,7 +1086,6 @@ struct AnkiConfigView: View {
                                     if let num = Double(val.filter { $0.isNumber }) {
                                         state.widgets[index].ankiTextMaxWidth = num
                                         state.saveConfig()
-                                        state.ankiState.refreshTouchBar()
                                     }
                                 }
                             ))
@@ -1075,13 +1100,13 @@ struct AnkiConfigView: View {
                                 .frame(width: 95, alignment: .leading)
                             TextField("#HEX", text: Binding(
                                 get: { widget.ankiBoldColorHex },
-                                set: { state.widgets[index].ankiBoldColorHex = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                                set: { state.widgets[index].ankiBoldColorHex = $0; state.saveConfig() }
                             ))
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 80)
                             ColorPicker("", selection: Binding(
                                 get: { Color(hex: widget.ankiBoldColorHex) },
-                                set: { color in if let h = color.toHex() { state.widgets[index].ankiBoldColorHex = h; state.saveConfig(); state.ankiState.refreshTouchBar() } }
+                                set: { color in if let h = color.toHex() { state.widgets[index].ankiBoldColorHex = h; state.saveConfig() } }
                             ))
                         }
 
@@ -1091,7 +1116,7 @@ struct AnkiConfigView: View {
                                 .frame(width: 95, alignment: .leading)
                             Picker("", selection: Binding(
                                 get: { widget.ankiScrollMode },
-                                set: { state.widgets[index].ankiScrollMode = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                                set: { state.widgets[index].ankiScrollMode = $0; state.saveConfig() }
                             )) {
                                 ForEach(AnkiScrollMode.allCases, id: \.self) { mode in
                                     Text(mode.rawValue).tag(mode)
@@ -1111,19 +1136,19 @@ struct AnkiConfigView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Toggle("Again (1)", isOn: Binding(
                                 get: { widget.ankiShowAgain },
-                                set: { state.widgets[index].ankiShowAgain = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                                set: { state.widgets[index].ankiShowAgain = $0; state.saveConfig() }
                             ))
                             Toggle("Hard (2)", isOn: Binding(
                                 get: { widget.ankiShowHard },
-                                set: { state.widgets[index].ankiShowHard = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                                set: { state.widgets[index].ankiShowHard = $0; state.saveConfig() }
                             ))
                             Toggle("Good (3)", isOn: Binding(
                                 get: { widget.ankiShowGood },
-                                set: { state.widgets[index].ankiShowGood = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                                set: { state.widgets[index].ankiShowGood = $0; state.saveConfig() }
                             ))
                             Toggle("Easy (4)", isOn: Binding(
                                 get: { widget.ankiShowEasy },
-                                set: { state.widgets[index].ankiShowEasy = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                                set: { state.widgets[index].ankiShowEasy = $0; state.saveConfig() }
                             ))
                         }
                         .toggleStyle(.checkbox)
@@ -1131,10 +1156,10 @@ struct AnkiConfigView: View {
 
                         Divider()
 
-                        ratingColorRow(label: "Again:", hex: widget.ankiAgainColorHex) { state.widgets[index].ankiAgainColorHex = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
-                        ratingColorRow(label: "Hard:", hex: widget.ankiHardColorHex) { state.widgets[index].ankiHardColorHex = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
-                        ratingColorRow(label: "Good:", hex: widget.ankiGoodColorHex) { state.widgets[index].ankiGoodColorHex = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
-                        ratingColorRow(label: "Easy:", hex: widget.ankiEasyColorHex) { state.widgets[index].ankiEasyColorHex = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                        ratingColorRow(label: "Again:", hex: widget.ankiAgainColorHex) { state.widgets[index].ankiAgainColorHex = $0; state.saveConfig() }
+                        ratingColorRow(label: "Hard:", hex: widget.ankiHardColorHex) { state.widgets[index].ankiHardColorHex = $0; state.saveConfig() }
+                        ratingColorRow(label: "Good:", hex: widget.ankiGoodColorHex) { state.widgets[index].ankiGoodColorHex = $0; state.saveConfig() }
+                        ratingColorRow(label: "Easy:", hex: widget.ankiEasyColorHex) { state.widgets[index].ankiEasyColorHex = $0; state.saveConfig() }
 
                         Button(action: {
                             state.widgets[index].ankiAgainColorHex = "#E53333"
@@ -1142,7 +1167,6 @@ struct AnkiConfigView: View {
                             state.widgets[index].ankiGoodColorHex = "#19B24C"
                             state.widgets[index].ankiEasyColorHex = "#3380E5"
                             state.saveConfig()
-                            state.ankiState.refreshTouchBar()
                         }) {
                             Text("Reset to Default Colors")
                                 .font(.system(size: 9))
@@ -1162,7 +1186,6 @@ struct AnkiConfigView: View {
                             set: { val in
                                 state.widgets[index].ankiCombineFurigana = val
                                 state.saveConfig()
-                                state.ankiState.refreshTouchBar()
                                 StatusItemManager.shared.refreshFuriganaState()
                             }
                         ))
@@ -1177,11 +1200,10 @@ struct AnkiConfigView: View {
                                 TextField("0 = auto", text: Binding(
                                     get: { widget.ankiFuriganaFontSize == 0 ? "0" : String(format: "%.0f", widget.ankiFuriganaFontSize) },
                                     set: { val in
-                                        if let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)) {
-                                            state.widgets[index].ankiFuriganaFontSize = max(0, num)
-                                            state.saveConfig()
-                                            state.ankiState.refreshTouchBar()
-                                        }
+                                        guard let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)),
+                                              num != widget.ankiFuriganaFontSize else { return }
+                                        state.widgets[index].ankiFuriganaFontSize = max(0, num)
+                                        state.saveConfig()
                                     }
                                 ))
                                 .textFieldStyle(.roundedBorder)
@@ -1196,11 +1218,10 @@ struct AnkiConfigView: View {
                                 TextField("0", text: Binding(
                                     get: { String(format: "%.0f", widget.ankiFuriganaVerticalOffset) },
                                     set: { val in
-                                        if let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)) {
-                                            state.widgets[index].ankiFuriganaVerticalOffset = num
-                                            state.saveConfig()
-                                            state.ankiState.refreshTouchBar()
-                                        }
+                                        guard let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)),
+                                              num != widget.ankiFuriganaVerticalOffset else { return }
+                                        state.widgets[index].ankiFuriganaVerticalOffset = num
+                                        state.saveConfig()
                                     }
                                 ))
                                 .textFieldStyle(.roundedBorder)
@@ -1215,11 +1236,10 @@ struct AnkiConfigView: View {
                                 TextField("0", text: Binding(
                                     get: { String(format: "%.0f", widget.ankiFuriganaSegmentOffset) },
                                     set: { val in
-                                        if let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)) {
-                                            state.widgets[index].ankiFuriganaSegmentOffset = num
-                                            state.saveConfig()
-                                            state.ankiState.refreshTouchBar()
-                                        }
+                                        guard let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)),
+                                              num != widget.ankiFuriganaSegmentOffset else { return }
+                                        state.widgets[index].ankiFuriganaSegmentOffset = num
+                                        state.saveConfig()
                                     }
                                 ))
                                 .textFieldStyle(.roundedBorder)
@@ -1234,11 +1254,10 @@ struct AnkiConfigView: View {
                                 TextField("0", text: Binding(
                                     get: { String(format: "%.0f", widget.ankiNonFuriganaSegmentOffset) },
                                     set: { val in
-                                        if let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)) {
-                                            state.widgets[index].ankiNonFuriganaSegmentOffset = num
-                                            state.saveConfig()
-                                            state.ankiState.refreshTouchBar()
-                                        }
+                                        guard let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)),
+                                              num != widget.ankiNonFuriganaSegmentOffset else { return }
+                                        state.widgets[index].ankiNonFuriganaSegmentOffset = num
+                                        state.saveConfig()
                                     }
                                 ))
                                 .textFieldStyle(.roundedBorder)
@@ -1250,7 +1269,6 @@ struct AnkiConfigView: View {
                                 Button("Reset Size") {
                                     state.widgets[index].ankiFuriganaFontSize = 0
                                     state.saveConfig()
-                                    state.ankiState.refreshTouchBar()
                                 }
                                 .font(.system(size: 9))
                                 .foregroundColor(widget.ankiFuriganaFontSize == 0 ? .gray : .orange)
@@ -1260,7 +1278,6 @@ struct AnkiConfigView: View {
                                 Button("Reset V Offset") {
                                     state.widgets[index].ankiFuriganaVerticalOffset = 0
                                     state.saveConfig()
-                                    state.ankiState.refreshTouchBar()
                                 }
                                 .font(.system(size: 9))
                                 .foregroundColor(widget.ankiFuriganaVerticalOffset == 0 ? .gray : .orange)
@@ -1275,11 +1292,10 @@ struct AnkiConfigView: View {
                                 TextField("0", text: Binding(
                                     get: { String(format: "%.0f", widget.ankiNonFuriganaSegmentOffset) },
                                     set: { val in
-                                        if let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)) {
-                                            state.widgets[index].ankiNonFuriganaSegmentOffset = num
-                                            state.saveConfig()
-                                            state.ankiState.refreshTouchBar()
-                                        }
+                                        guard let num = Double(val.trimmingCharacters(in: .whitespacesAndNewlines)),
+                                              num != widget.ankiNonFuriganaSegmentOffset else { return }
+                                        state.widgets[index].ankiNonFuriganaSegmentOffset = num
+                                        state.saveConfig()
                                     }
                                 ))
                                 .textFieldStyle(.roundedBorder)
@@ -1305,7 +1321,7 @@ struct AnkiConfigView: View {
                                 .frame(width: 95, alignment: .leading)
                             TextField("e.g. ExtraFront", text: Binding(
                                 get: { state.widgets[index].ankiExtraQuestionField },
-                                set: { state.widgets[index].ankiExtraQuestionField = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                                set: { state.widgets[index].ankiExtraQuestionField = $0; state.saveConfig() }
                             ))
                             .textFieldStyle(.roundedBorder)
                             .font(.system(size: 11))
@@ -1317,7 +1333,7 @@ struct AnkiConfigView: View {
                                 .frame(width: 95, alignment: .leading)
                             TextField("e.g. ExtraBack", text: Binding(
                                 get: { state.widgets[index].ankiExtraAnswerField },
-                                set: { state.widgets[index].ankiExtraAnswerField = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                                set: { state.widgets[index].ankiExtraAnswerField = $0; state.saveConfig() }
                             ))
                             .textFieldStyle(.roundedBorder)
                             .font(.system(size: 11))
@@ -1325,7 +1341,7 @@ struct AnkiConfigView: View {
 
                         Toggle("Show extra field on tap / hotkey", isOn: Binding(
                             get: { state.widgets[index].ankiTapShowsExtra },
-                            set: { state.widgets[index].ankiTapShowsExtra = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                            set: { state.widgets[index].ankiTapShowsExtra = $0; state.saveConfig() }
                         ))
                         .toggleStyle(.checkbox).font(.system(size: 11))
                     }
@@ -1338,7 +1354,7 @@ struct AnkiConfigView: View {
 
                         Toggle("Show remaining cards (New/Learn/Review)", isOn: Binding(
                             get: { widget.ankiShowRemainingCounts },
-                            set: { state.widgets[index].ankiShowRemainingCounts = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                            set: { state.widgets[index].ankiShowRemainingCounts = $0; state.saveConfig() }
                         ))
                         .toggleStyle(.checkbox).font(.system(size: 11))
 
@@ -1366,7 +1382,7 @@ struct AnkiConfigView: View {
 
                         Toggle("Show next review duration on rating buttons (e.g. 30d, 35m)", isOn: Binding(
                             get: { state.widgets[index].ankiShowButtonsInterval },
-                            set: { state.widgets[index].ankiShowButtonsInterval = $0; state.saveConfig(); state.ankiState.refreshTouchBar() }
+                            set: { state.widgets[index].ankiShowButtonsInterval = $0; state.saveConfig() }
                         ))
                         .toggleStyle(.checkbox).font(.system(size: 11))
                     }
@@ -1739,6 +1755,12 @@ struct AnkiConfigView: View {
                     Text("Widget").font(.system(size: 12, weight: .bold))
                 }
 
+                Toggle("Hide from Touch Bar (keep keyboard & overlay)", isOn: Binding(
+                    get: { widget.hideFromTouchBar },
+                    set: { state.widgets[index].hideFromTouchBar = $0; state.saveConfig() }
+                ))
+                .toggleStyle(.switch).font(.system(size: 11))
+
                 HStack(spacing: 8) {
                     Text("Custom Width:")
                         .font(.system(size: 11))
@@ -1756,12 +1778,6 @@ struct AnkiConfigView: View {
                     .frame(width: 80)
                     Text("px").font(.system(size: 11)).foregroundColor(.gray)
                 }
-
-                Toggle("Hide from Touch Bar (keep keyboard & overlay)", isOn: Binding(
-                    get: { widget.hideFromTouchBar },
-                    set: { state.widgets[index].hideFromTouchBar = $0; state.saveConfig() }
-                ))
-                .toggleStyle(.switch).font(.system(size: 11))
             }
 
             Divider()
@@ -1934,6 +1950,7 @@ struct AnkiConfigView: View {
             settings.overlayExtraQuestionField = overlayConfig.extraQuestionField
             settings.overlayExtraAnswerField = overlayConfig.extraAnswerField
             settings.overlayBoldColorHex = overlayConfig.boldColorHex
+            settings.overlayExtraQuestionOnlyOnAnswer = overlayConfig.extraQuestionOnlyOnAnswer
             state.widgets[index].ankiDeckSettings[deck] = settings
         }
         state.saveConfig()
@@ -1986,7 +2003,7 @@ struct AnkiConfigView: View {
                 settings.templateCss = css
                 widget.ankiDeckSettings[deck] = settings
                 state.widgets[index] = widget
-                state.saveConfig()
+                state.persistChanges()
                 print("Templates saved for deck: \(deck)")
 
                 var overlayCfg = AnkiFloatingOverlayManager.shared.config
@@ -2030,7 +2047,7 @@ struct AnkiConfigView: View {
         settings[keyPath: keyPath] = value
         widget.ankiDeckSettings[deck] = settings
         state.widgets[index] = widget
-        state.saveConfig()
+        state.persistChanges()
         AnkiFloatingOverlayManager.shared.refreshOverlay()
     }
 
@@ -2872,7 +2889,6 @@ struct SystemMonitorOptionsView: View {
                         if let num = Double(val.filter { $0.isNumber }) {
                             state.widgets[index].customWidth = num
                             state.saveConfig()
-                            state.ankiState.refreshTouchBar()
                         }
                     }
                 ))
@@ -3030,7 +3046,6 @@ struct AnimationOptionsView: View {
                         if let num = Double(val.filter { $0.isNumber }) {
                             state.widgets[index].customWidth = num
                             state.saveConfig()
-                            state.ankiState.refreshTouchBar()
                         }
                     }
                 ))
@@ -3081,7 +3096,7 @@ struct AnimationOptionsView: View {
         if panel.runModal() == .OK {
             if let path = panel.url?.path {
                 state.widgets[index].customGifPath = path
-                state.saveConfig()
+                state.persistChanges()
             }
         }
     }
@@ -3109,7 +3124,6 @@ struct VolumeSliderOptionsView: View {
                         if let num = Double(val.filter { $0.isNumber }) {
                             state.widgets[index].volumeSliderWidth = num
                             state.saveConfig()
-                            state.ankiState.refreshTouchBar()
                         }
                     }
                 ))
@@ -3126,7 +3140,6 @@ struct VolumeSliderOptionsView: View {
                 set: { val in
                     state.widgets[index].volumeShowIcon = val
                     state.saveConfig()
-                    state.ankiState.refreshTouchBar()
                 }
             ))
             .toggleStyle(.checkbox)
@@ -3157,7 +3170,6 @@ struct BrightnessOptionsView: View {
                         if let num = Double(val.filter { $0.isNumber }) {
                             state.widgets[index].brightnessButtonSize = num
                             state.saveConfig()
-                            state.ankiState.refreshTouchBar()
                         }
                     }
                 ))

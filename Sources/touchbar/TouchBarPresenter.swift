@@ -29,7 +29,7 @@ struct AnkiTouchBarConfig {
 @MainActor
 public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRecognizerDelegate {
     @objc public static let shared = TouchBarPresenter()
-    
+
     private let trayIdentifier = "com.touchbarcraft.systemtray"
     private var systemTrayItem: NSCustomTouchBarItem?
     private var globalTouchBar: NSTouchBar?
