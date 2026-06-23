@@ -874,10 +874,22 @@ public struct FloatingOverlayContentView: View {
     @ViewBuilder
     private func templatePhaseView(proxy: GeometryProxy) -> some View {
         VStack(spacing: 8) {
-            // Header
+            // Header (controlled by showHeader), with counts-only fallback
             if host.config.showHeader {
                 headerContent
                 Divider().background(Color.white.opacity(0.2))
+            } else if host.config.showCounts {
+                if host.config.swapHeaderDeckAndCounts {
+                    HStack {
+                        countsRow
+                        Spacer()
+                    }
+                } else {
+                    HStack {
+                        Spacer()
+                        countsRow
+                    }
+                }
             }
 
             // Card content (persistent WebView — same instance across phases)
