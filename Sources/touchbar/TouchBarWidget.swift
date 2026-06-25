@@ -12,6 +12,7 @@ public enum WidgetType: String, Codable, CaseIterable, Sendable {
     case nhkNews = "NHK Easy News"
     case dock = "Dock"
     case appLauncher = "App Launcher"
+    case prayerTime = "Prayer Time"
 }
 
 public enum ActionType: String, Codable, CaseIterable, Sendable {
@@ -248,6 +249,13 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     // App Launcher: bundle identifiers of apps to show
     public var appLauncherApps: [String]
 
+    // Prayer Time properties
+    public var prayerApiKey: String
+    public var prayerLatitude: String
+    public var prayerLongitude: String
+    public var prayerMethod: Int
+    public var prayerSchool: Int
+
     public init(
         id: UUID = UUID(),
         type: WidgetType = .label,
@@ -311,7 +319,12 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         isHidden: Bool = false,
         hideFromTouchBar: Bool = false,
         customWidth: Double = 0.0,
-        appLauncherApps: [String] = []
+        appLauncherApps: [String] = [],
+        prayerApiKey: String = "",
+        prayerLatitude: String = "",
+        prayerLongitude: String = "",
+        prayerMethod: Int = 3,
+        prayerSchool: Int = 1
     ) {
         self.id = id
         self.type = type
@@ -376,6 +389,11 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.hideFromTouchBar = hideFromTouchBar
         self.customWidth = customWidth
         self.appLauncherApps = appLauncherApps
+        self.prayerApiKey = prayerApiKey
+        self.prayerLatitude = prayerLatitude
+        self.prayerLongitude = prayerLongitude
+        self.prayerMethod = prayerMethod
+        self.prayerSchool = prayerSchool
     }
     
     enum CodingKeys: String, CodingKey {
@@ -410,6 +428,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         case hideFromTouchBar
         case customWidth
         case appLauncherApps
+        case prayerApiKey, prayerLatitude, prayerLongitude, prayerMethod, prayerSchool
     }
 
     public init(from decoder: Decoder) throws {
@@ -484,5 +503,10 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.hideFromTouchBar = try container.decodeIfPresent(Bool.self, forKey: .hideFromTouchBar) ?? false
         self.customWidth = try container.decodeIfPresent(Double.self, forKey: .customWidth) ?? 0.0
         self.appLauncherApps = try container.decodeIfPresent([String].self, forKey: .appLauncherApps) ?? []
+        self.prayerApiKey = try container.decodeIfPresent(String.self, forKey: .prayerApiKey) ?? ""
+        self.prayerLatitude = try container.decodeIfPresent(String.self, forKey: .prayerLatitude) ?? ""
+        self.prayerLongitude = try container.decodeIfPresent(String.self, forKey: .prayerLongitude) ?? ""
+        self.prayerMethod = try container.decodeIfPresent(Int.self, forKey: .prayerMethod) ?? 3
+        self.prayerSchool = try container.decodeIfPresent(Int.self, forKey: .prayerSchool) ?? 1
     }
 }

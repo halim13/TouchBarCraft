@@ -14,6 +14,7 @@ public final class AppState {
     public var hasUnsavedChanges = false
     public var ankiState: AnkiState
     public var nhkNewsState: NHKNewsState
+    public var prayerTimeState: PrayerTimeState
     
     // Global swipe gesture settings (separate configs for 2-finger and 3-finger)
     public var swipe2LeftActionType: ActionType = .brightnessDown {
@@ -61,6 +62,7 @@ public final class AppState {
         self.configPath = homeDir.appendingPathComponent(".touchbarcraft.json")
         self.ankiState = AnkiState()
         self.nhkNewsState = NHKNewsState()
+        self.prayerTimeState = PrayerTimeState()
         Self.shared = self
         
         // Load saved swipe gesture settings from UserDefaults
@@ -520,6 +522,19 @@ public final class AppState {
                 backgroundColorHex: "#FF9500",
                 textColorHex: "#FFFFFF",
                 appLauncherApps: []
+            )
+        case .prayerTime:
+            newWidget = TouchBarWidget(
+                type: .prayerTime,
+                title: "🕌 {prayer}",
+                iconName: "moon.stars.fill",
+                backgroundColorHex: "#1E6B4C",
+                textColorHex: "#FFFFFF",
+                prayerApiKey: "",
+                prayerLatitude: "",
+                prayerLongitude: "",
+                prayerMethod: 3,
+                prayerSchool: 1
             )
         }
         

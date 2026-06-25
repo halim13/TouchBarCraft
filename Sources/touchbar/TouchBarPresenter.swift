@@ -576,6 +576,20 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         case .appLauncher:
             let appView = makeNativeAppLauncherView(for: widget)
             item.view = appView
+        case .prayerTime:
+            let prayerView = NSHostingView(rootView:
+                WidgetPrayerTimeView(widget: widget, state: state, isSimulator: false)
+                    .frame(height: 30)
+            )
+            let button = TouchBarContainerButton(hostView: prayerView, target: self, action: #selector(touchBarButtonTapped(_:)))
+            button.setAccessibilityIdentifier(identifier.rawValue)
+
+            let longPress = NSPressGestureRecognizer(target: self, action: #selector(widgetLongPressed(_:)))
+            longPress.minimumPressDuration = 0.5
+            longPress.allowedTouchTypes = .direct
+            button.addGestureRecognizer(longPress)
+
+            item.view = button
         }
         
         configureSwipeGesture(for: item.view, identifier: identifier.rawValue)

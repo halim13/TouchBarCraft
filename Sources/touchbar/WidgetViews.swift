@@ -1631,3 +1631,58 @@ public struct WidgetNHKNewsView: View {
         }
     }
 }
+
+// MARK: - Prayer Time Widget View
+
+public struct WidgetPrayerTimeView: View {
+    let widget: TouchBarWidget
+    let state: AppState
+    let isSimulator: Bool
+
+    public var body: some View {
+        let prayer = state.prayerTimeState
+        let nextName = prayer.currentNextPrayerName
+        let remaining = prayer.currentTimeRemainingFormatted
+        let today = prayer.todayTimes
+
+        HStack(spacing: 6) {
+            Image(systemName: "moon.stars.fill")
+                .font(.system(size: isSimulator ? widget.fontSize - 2 : widget.fontSize))
+                .foregroundColor(Color(hex: widget.textColorHex))
+
+            if prayer.isLoading && prayer.prayerTimes.isEmpty {
+                Text("Loading...")
+                    .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
+                    .foregroundColor(Color(hex: widget.textColorHex))
+            } else if let times = today, !nextName.isEmpty {
+                if times[nextName] != nil {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("\(nextName) \(remaining)")
+                            .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
+                            .foregroundColor(Color(hex: widget.textColorHex))
+                    }
+                } else {
+                    Text("No data")
+                        .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize))
+                        .foregroundColor(.gray)
+                }
+            } else if !prayer.errorMessage.isEmpty && prayer.prayerTimes.isEmpty {
+                Text("⚠️ Sync needed")
+                    .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize))
+                    .foregroundColor(.orange)
+            } else if !prayer.prayerTimes.isEmpty {
+                Text("\(nextName) \(remaining)")
+                    .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize, weight: .medium))
+                    .foregroundColor(Color(hex: widget.textColorHex))
+            } else {
+                Text("🕌 Sync")
+                    .font(.system(size: isSimulator ? widget.fontSize - 1 : widget.fontSize))
+                    .foregroundColor(Color(hex: widget.textColorHex))
+            }
+        }
+        .padding(.horizontal, isSimulator ? 8 : 12)
+        .padding(.vertical, isSimulator ? 5 : 6)
+        .background(Color(hex: widget.backgroundColorHex).opacity(0.2))
+        .cornerRadius(6)
+    }
+}
