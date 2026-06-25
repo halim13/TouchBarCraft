@@ -255,6 +255,8 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     public var prayerLongitude: String
     public var prayerMethod: Int
     public var prayerSchool: Int
+    public var prayerUseCustomTimes: Bool
+    public var prayerCustomTimes: [String: String]
 
     public init(
         id: UUID = UUID(),
@@ -324,7 +326,9 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         prayerLatitude: String = "",
         prayerLongitude: String = "",
         prayerMethod: Int = 3,
-        prayerSchool: Int = 1
+        prayerSchool: Int = 1,
+        prayerUseCustomTimes: Bool = false,
+        prayerCustomTimes: [String: String] = [:]
     ) {
         self.id = id
         self.type = type
@@ -394,6 +398,8 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.prayerLongitude = prayerLongitude
         self.prayerMethod = prayerMethod
         self.prayerSchool = prayerSchool
+        self.prayerUseCustomTimes = prayerUseCustomTimes
+        self.prayerCustomTimes = prayerCustomTimes
     }
     
     enum CodingKeys: String, CodingKey {
@@ -429,6 +435,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         case customWidth
         case appLauncherApps
         case prayerApiKey, prayerLatitude, prayerLongitude, prayerMethod, prayerSchool
+        case prayerUseCustomTimes, prayerCustomTimes
     }
 
     public init(from decoder: Decoder) throws {
@@ -508,5 +515,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.prayerLongitude = try container.decodeIfPresent(String.self, forKey: .prayerLongitude) ?? ""
         self.prayerMethod = try container.decodeIfPresent(Int.self, forKey: .prayerMethod) ?? 3
         self.prayerSchool = try container.decodeIfPresent(Int.self, forKey: .prayerSchool) ?? 1
+        self.prayerUseCustomTimes = try container.decodeIfPresent(Bool.self, forKey: .prayerUseCustomTimes) ?? false
+        self.prayerCustomTimes = try container.decodeIfPresent([String: String].self, forKey: .prayerCustomTimes) ?? [:]
     }
 }

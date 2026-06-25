@@ -2237,177 +2237,217 @@ struct PrayerTimeConfigView: View {
 
             Divider()
 
-            // API Configuration
-            VStack(alignment: .leading, spacing: 8) {
-                Text("API Configuration")
-                    .font(.system(size: 11, weight: .bold)).foregroundColor(.gray)
+            // Data Source toggle
+            Toggle("Use Custom Times (offline)", isOn: Binding(
+                get: { widget.prayerUseCustomTimes },
+                set: {
+                    state.widgets[index].prayerUseCustomTimes = $0
+                    state.saveConfig()
+                    state.prayerTimeState.refreshCurrentPrayer()
+                }
+            ))
+            .toggleStyle(.switch)
+            .font(.system(size: 11))
 
-                // API Key row with lock/unlock, reveal, and "Get API Key"
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        Text("API Key:")
-                            .font(.system(size: 11))
-                            .frame(width: 70, alignment: .leading)
+            if widget.prayerUseCustomTimes {
+                // Custom Times Input
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Custom Prayer Times")
+                        .font(.system(size: 11, weight: .bold)).foregroundColor(.gray)
 
-                        if isApiKeyLocked && !isApiKeyRevealed {
-                            let masked = maskedApiKey(widget.prayerApiKey)
-                            Text(masked)
+                    ForEach(PrayerNames.filter { $0 != "Sunrise" }, id: \.self) { name in
+                        HStack(spacing: 8) {
+                            Text(name)
                                 .font(.system(size: 11, design: .monospaced))
-                                .foregroundColor(.gray)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.vertical, 3)
-                                .padding(.horizontal, 6)
-                                .background(Color.gray.opacity(0.1))
-                                .cornerRadius(4)
-
-                            Button(action: authenticateAndReveal) {
-                                Image(systemName: "eye.slash")
-                                    .foregroundColor(.gray)
-                            }
-                            .buttonStyle(.plain)
-                            .help("Show API Key (requires authentication)")
-                        } else {
-                            TextField(isApiKeyLocked ? "Locked" : "Your API key", text: Binding(
-                                get: { widget.prayerApiKey },
-                                set: { state.widgets[index].prayerApiKey = $0; state.saveConfig() }
+                                .frame(width: 70, alignment: .leading)
+                                .foregroundColor(.white)
+                            TextField("HH:mm", text: Binding(
+                                get: { widget.prayerCustomTimes[name] ?? "" },
+                                set: {
+                                    state.widgets[index].prayerCustomTimes[name] = $0
+                                    state.saveConfig()
+                                    state.prayerTimeState.refreshCurrentPrayer()
+                                }
                             ))
                             .textFieldStyle(.roundedBorder)
-                            .disabled(isApiKeyLocked)
+                            .font(.system(size: 11, design: .monospaced))
+                            .frame(width: 80)
+                        }
+                    }
+                }
+            } else {
+                // API Configuration
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("API Configuration")
+                        .font(.system(size: 11, weight: .bold)).foregroundColor(.gray)
 
-                            if isApiKeyLocked && isApiKeyRevealed {
-                                Button(action: { isApiKeyRevealed = false }) {
-                                    Image(systemName: "eye.fill")
+                    // API Key row with lock/unlock, reveal, and "Get API Key"
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 8) {
+                            Text("API Key:")
+                                .font(.system(size: 11))
+                                .frame(width: 70, alignment: .leading)
+
+                            if isApiKeyLocked && !isApiKeyRevealed {
+                                let masked = maskedApiKey(widget.prayerApiKey)
+                                Text(masked)
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .foregroundColor(.gray)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.vertical, 3)
+                                    .padding(.horizontal, 6)
+                                    .background(Color.gray.opacity(0.1))
+                                    .cornerRadius(4)
+
+                                Button(action: authenticateAndReveal) {
+                                    Image(systemName: "eye.slash")
                                         .foregroundColor(.gray)
                                 }
                                 .buttonStyle(.plain)
-                                .help("Hide API Key")
+                                .help("Show API Key (requires authentication)")
+                            } else {
+                                TextField(isApiKeyLocked ? "Locked" : "Your API key", text: Binding(
+                                    get: { widget.prayerApiKey },
+                                    set: { state.widgets[index].prayerApiKey = $0; state.saveConfig() }
+                                ))
+                                .textFieldStyle(.roundedBorder)
+                                .disabled(isApiKeyLocked)
+
+                                if isApiKeyLocked && isApiKeyRevealed {
+                                    Button(action: { isApiKeyRevealed = false }) {
+                                        Image(systemName: "eye.fill")
+                                            .foregroundColor(.gray)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help("Hide API Key")
+                                }
                             }
+                        }
+
+                        HStack(spacing: 8) {
+                            if isApiKeyLocked {
+                                Button(action: unlockApiKey) {
+                                    Text("Update API Key")
+                                        .font(.system(size: 10, weight: .semibold))
+                                        .padding(.horizontal, 10).padding(.vertical, 4)
+                                        .background(Color.orange.opacity(0.2))
+                                        .foregroundColor(.orange)
+                                        .cornerRadius(4)
+                                }
+                                .buttonStyle(.plain)
+                            } else {
+                                Button(action: cancelApiKeyUpdate) {
+                                    Text("Cancel")
+                                        .font(.system(size: 10, weight: .semibold))
+                                        .padding(.horizontal, 10).padding(.vertical, 4)
+                                        .background(Color.gray.opacity(0.2))
+                                        .foregroundColor(.gray)
+                                        .cornerRadius(4)
+                                }
+                                .buttonStyle(.plain)
+                            }
+
+                            Button(action: {
+                                if let url = URL(string: "https://islamicapi.com/dashboard/api-key/") {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            }) {
+                                Label("Get API Key", systemImage: "arrow.up.forward.app")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .padding(.horizontal, 10).padding(.vertical, 4)
+                                    .background(Color.cyan.opacity(0.2))
+                                    .foregroundColor(.cyan)
+                                    .cornerRadius(4)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
 
                     HStack(spacing: 8) {
-                        if isApiKeyLocked {
-                            Button(action: unlockApiKey) {
-                                Text("Update API Key")
-                                    .font(.system(size: 10, weight: .semibold))
-                                    .padding(.horizontal, 10).padding(.vertical, 4)
-                                    .background(Color.orange.opacity(0.2))
-                                    .foregroundColor(.orange)
-                                    .cornerRadius(4)
-                            }
-                            .buttonStyle(.plain)
-                        } else {
-                            Button(action: cancelApiKeyUpdate) {
-                                Text("Cancel")
-                                    .font(.system(size: 10, weight: .semibold))
-                                    .padding(.horizontal, 10).padding(.vertical, 4)
-                                    .background(Color.gray.opacity(0.2))
-                                    .foregroundColor(.gray)
-                                    .cornerRadius(4)
-                            }
-                            .buttonStyle(.plain)
+                        Text("Latitude:")
+                            .font(.system(size: 11))
+                            .frame(width: 70, alignment: .leading)
+                        TextField("e.g. -6.200000", text: Binding(
+                            get: { widget.prayerLatitude },
+                            set: { state.widgets[index].prayerLatitude = $0; state.saveConfig() }
+                        ))
+                        .textFieldStyle(.roundedBorder)
+
+                        Text("Longitude:")
+                            .font(.system(size: 11))
+                        TextField("e.g. 106.816666", text: Binding(
+                            get: { widget.prayerLongitude },
+                            set: { state.widgets[index].prayerLongitude = $0; state.saveConfig() }
+                        ))
+                        .textFieldStyle(.roundedBorder)
+                    }
+
+                    HStack(spacing: 8) {
+                        Text("Method:")
+                            .font(.system(size: 11))
+                            .frame(width: 70, alignment: .leading)
+                        Picker("", selection: Binding(
+                            get: { widget.prayerMethod },
+                            set: { state.widgets[index].prayerMethod = $0; state.saveConfig() }
+                        )) {
+                            Text("MWL (3)").tag(3)
+                            Text("Karachi (1)").tag(1)
+                            Text("ISNA (2)").tag(2)
+                            Text("Umm al-Qura (4)").tag(4)
+                            Text("Egypt (5)").tag(5)
+                            Text("Tehran (7)").tag(7)
+                            Text("Gulf (8)").tag(8)
+                            Text("Kuwait (9)").tag(9)
+                            Text("Qatar (10)").tag(10)
+                            Text("Singapore (11)").tag(11)
+                            Text("UOIF France (12)").tag(12)
+                            Text("Diyanet (13)").tag(13)
+                            Text("Kemenag (20)").tag(20)
+                            Text("Jafari (0)").tag(0)
                         }
+                        .pickerStyle(.menu)
+                        .font(.system(size: 10))
+                    }
 
-                        Button(action: {
-                            if let url = URL(string: "https://islamicapi.com/dashboard/api-key/") {
-                                NSWorkspace.shared.open(url)
-                            }
-                        }) {
-                            Label("Get API Key", systemImage: "arrow.up.forward.app")
-                                .font(.system(size: 10, weight: .semibold))
-                                .padding(.horizontal, 10).padding(.vertical, 4)
-                                .background(Color.cyan.opacity(0.2))
-                                .foregroundColor(.cyan)
-                                .cornerRadius(4)
+                    HStack(spacing: 8) {
+                        Text("School:")
+                            .font(.system(size: 11))
+                            .frame(width: 70, alignment: .leading)
+                        Picker("", selection: Binding(
+                            get: { widget.prayerSchool },
+                            set: { state.widgets[index].prayerSchool = $0; state.saveConfig() }
+                        )) {
+                            Text("Shafi (1)").tag(1)
+                            Text("Hanafi (2)").tag(2)
                         }
-                        .buttonStyle(.plain)
+                        .pickerStyle(.segmented)
+                        .font(.system(size: 10))
                     }
                 }
 
-                HStack(spacing: 8) {
-                    Text("Latitude:")
-                        .font(.system(size: 11))
-                        .frame(width: 70, alignment: .leading)
-                    TextField("e.g. -6.200000", text: Binding(
-                        get: { widget.prayerLatitude },
-                        set: { state.widgets[index].prayerLatitude = $0; state.saveConfig() }
-                    ))
-                    .textFieldStyle(.roundedBorder)
+                Divider()
 
-                    Text("Longitude:")
-                        .font(.system(size: 11))
-                    TextField("e.g. 106.816666", text: Binding(
-                        get: { widget.prayerLongitude },
-                        set: { state.widgets[index].prayerLongitude = $0; state.saveConfig() }
-                    ))
-                    .textFieldStyle(.roundedBorder)
-                }
-
-                HStack(spacing: 8) {
-                    Text("Method:")
-                        .font(.system(size: 11))
-                        .frame(width: 70, alignment: .leading)
-                    Picker("", selection: Binding(
-                        get: { widget.prayerMethod },
-                        set: { state.widgets[index].prayerMethod = $0; state.saveConfig() }
-                    )) {
-                        Text("MWL (3)").tag(3)
-                        Text("Karachi (1)").tag(1)
-                        Text("ISNA (2)").tag(2)
-                        Text("Umm al-Qura (4)").tag(4)
-                        Text("Egypt (5)").tag(5)
-                        Text("Tehran (7)").tag(7)
-                        Text("Gulf (8)").tag(8)
-                        Text("Kuwait (9)").tag(9)
-                        Text("Qatar (10)").tag(10)
-                        Text("Singapore (11)").tag(11)
-                        Text("UOIF France (12)").tag(12)
-                        Text("Diyanet (13)").tag(13)
-                        Text("Kemenag (20)").tag(20)
-                        Text("Jafari (0)").tag(0)
+                Button(action: {
+                    Task {
+                        state.saveConfig()
+                        await state.prayerTimeState.fetchCurrentMonth()
+                        if state.prayerTimeState.errorMessage.isEmpty && !state.prayerTimeState.prayerTimes.isEmpty {
+                            isApiKeyLocked = true
+                            isApiKeyRevealed = false
+                        }
                     }
-                    .pickerStyle(.menu)
-                    .font(.system(size: 10))
-                }
-
-                HStack(spacing: 8) {
-                    Text("School:")
-                        .font(.system(size: 11))
-                        .frame(width: 70, alignment: .leading)
-                    Picker("", selection: Binding(
-                        get: { widget.prayerSchool },
-                        set: { state.widgets[index].prayerSchool = $0; state.saveConfig() }
-                    )) {
-                        Text("Shafi (1)").tag(1)
-                        Text("Hanafi (2)").tag(2)
+                }) {
+                    HStack {
+                        Image(systemName: "arrow.clockwise")
+                        Text("Sync Prayer Times")
                     }
-                    .pickerStyle(.segmented)
-                    .font(.system(size: 10))
+                    .padding(.vertical, 6).padding(.horizontal, 12)
+                    .background(Color.green.opacity(0.2))
+                    .foregroundColor(.green).cornerRadius(6)
                 }
+                .buttonStyle(.plain)
+                .disabled(prayer.isLoading)
             }
-
-            Divider()
-
-            Button(action: {
-                Task {
-                    state.saveConfig()
-                    await state.prayerTimeState.fetchCurrentMonth()
-                    if state.prayerTimeState.errorMessage.isEmpty && !state.prayerTimeState.prayerTimes.isEmpty {
-                        isApiKeyLocked = true
-                        isApiKeyRevealed = false
-                    }
-                }
-            }) {
-                HStack {
-                    Image(systemName: "arrow.clockwise")
-                    Text("Sync Prayer Times")
-                }
-                .padding(.vertical, 6).padding(.horizontal, 12)
-                .background(Color.green.opacity(0.2))
-                .foregroundColor(.green).cornerRadius(6)
-            }
-            .buttonStyle(.plain)
-            .disabled(prayer.isLoading)
         }
         .alert("Authentication Failed", isPresented: $showAuthFailedAlert) {
             Button("OK") {}

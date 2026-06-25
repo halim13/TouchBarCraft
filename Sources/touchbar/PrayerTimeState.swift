@@ -58,12 +58,17 @@ public final class PrayerTimeState {
         cachePath = home.appendingPathComponent(".touchbarcraft_prayer_cache.json")
         Self.shared = self
         loadCache()
-        if !prayerTimes.isEmpty {
+        if let custom = customTimesConfig, custom.useCustom {
             refreshCurrentPrayer()
             startAutoRefresh()
-        }
-        if currentMonth.isEmpty || !isCurrentMonthCached {
-            Task { await fetchCurrentMonth() }
+        } else {
+            if !prayerTimes.isEmpty {
+                refreshCurrentPrayer()
+                startAutoRefresh()
+            }
+            if currentMonth.isEmpty || !isCurrentMonthCached {
+                Task { await fetchCurrentMonth() }
+            }
         }
     }
 
@@ -78,7 +83,7 @@ public final class PrayerTimeState {
     }
 
     @MainActor
-    private func refreshCurrentPrayer() {
+    public func refreshCurrentPrayer() {
         let newName = nextPrayerName
         let newRemaining = timeRemainingFormatted
         if currentNextPrayerName != newName || currentTimeRemainingFormatted != newRemaining {
@@ -211,7 +216,18 @@ public final class PrayerTimeState {
 
     // MARK: - Next Prayer Calculation
 
+    private var customTimesConfig: (useCustom: Bool, times: [String: String])? {
+        guard let state = AppState.shared,
+              let widget = state.widgets.first(where: { $0.type == .prayerTime }),
+              widget.prayerUseCustomTimes
+        else { return nil }
+        return (true, widget.prayerCustomTimes)
+    }
+
     public var todayTimes: [String: String]? {
+        if let custom = customTimesConfig, custom.useCustom {
+            return custom.times.isEmpty ? nil : custom.times
+        }
         let fmt = DateFormatter()
         fmt.dateFormat = "yyyy-MM-dd"
         let today = fmt.string(from: Date())

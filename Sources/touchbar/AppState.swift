@@ -534,7 +534,9 @@ public final class AppState {
                 prayerLatitude: "",
                 prayerLongitude: "",
                 prayerMethod: 3,
-                prayerSchool: 1
+                prayerSchool: 1,
+                prayerUseCustomTimes: false,
+                prayerCustomTimes: [:]
             )
         }
         
