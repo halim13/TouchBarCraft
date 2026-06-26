@@ -536,7 +536,10 @@ public final class AppState {
                 prayerMethod: 3,
                 prayerSchool: 1,
                 prayerUseCustomTimes: false,
-                prayerCustomTimes: [:]
+                prayerCustomTimes: [:],
+                prayerAdzanAlertEnabled: false,
+                prayerAdzanIcon: "",
+                prayerAdzanText: ""
             )
         }
         

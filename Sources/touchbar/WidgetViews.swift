@@ -1686,3 +1686,35 @@ public struct WidgetPrayerTimeView: View {
         .cornerRadius(6)
     }
 }
+
+// MARK: - Adzan Alert View
+
+public struct AdzanAlertView: View {
+    let prayerName: String
+    let widget: TouchBarWidget
+
+    public var body: some View {
+        let icon = widget.prayerAdzanIcon.isEmpty ? "bell.badge.fill" : widget.prayerAdzanIcon
+        let textTemplate = widget.prayerAdzanText.isEmpty ? "{prayer}" : widget.prayerAdzanText
+        let alertText = textTemplate.replacingOccurrences(of: "{prayer}", with: prayerName)
+
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 20))
+                .foregroundColor(Color(hex: widget.textColorHex))
+
+            Text(alertText)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(Color(hex: widget.textColorHex))
+
+            Spacer()
+
+            Text("Tap to Dismiss")
+                .font(.system(size: 11))
+                .foregroundColor(Color(hex: widget.textColorHex).opacity(0.6))
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
+        .background(Color(hex: widget.backgroundColorHex))
+    }
+}

@@ -257,6 +257,9 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     public var prayerSchool: Int
     public var prayerUseCustomTimes: Bool
     public var prayerCustomTimes: [String: String]
+    public var prayerAdzanAlertEnabled: Bool
+    public var prayerAdzanIcon: String
+    public var prayerAdzanText: String
 
     public init(
         id: UUID = UUID(),
@@ -328,7 +331,10 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         prayerMethod: Int = 3,
         prayerSchool: Int = 1,
         prayerUseCustomTimes: Bool = false,
-        prayerCustomTimes: [String: String] = [:]
+        prayerCustomTimes: [String: String] = [:],
+        prayerAdzanAlertEnabled: Bool = false,
+        prayerAdzanIcon: String = "",
+        prayerAdzanText: String = ""
     ) {
         self.id = id
         self.type = type
@@ -400,6 +406,9 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.prayerSchool = prayerSchool
         self.prayerUseCustomTimes = prayerUseCustomTimes
         self.prayerCustomTimes = prayerCustomTimes
+        self.prayerAdzanAlertEnabled = prayerAdzanAlertEnabled
+        self.prayerAdzanIcon = prayerAdzanIcon
+        self.prayerAdzanText = prayerAdzanText
     }
     
     enum CodingKeys: String, CodingKey {
@@ -436,6 +445,8 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         case appLauncherApps
         case prayerApiKey, prayerLatitude, prayerLongitude, prayerMethod, prayerSchool
         case prayerUseCustomTimes, prayerCustomTimes
+        case prayerAdzanAlertEnabled
+        case prayerAdzanIcon, prayerAdzanText
     }
 
     public init(from decoder: Decoder) throws {
@@ -517,5 +528,8 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.prayerSchool = try container.decodeIfPresent(Int.self, forKey: .prayerSchool) ?? 1
         self.prayerUseCustomTimes = try container.decodeIfPresent(Bool.self, forKey: .prayerUseCustomTimes) ?? false
         self.prayerCustomTimes = try container.decodeIfPresent([String: String].self, forKey: .prayerCustomTimes) ?? [:]
+        self.prayerAdzanAlertEnabled = try container.decodeIfPresent(Bool.self, forKey: .prayerAdzanAlertEnabled) ?? false
+        self.prayerAdzanIcon = try container.decodeIfPresent(String.self, forKey: .prayerAdzanIcon) ?? ""
+        self.prayerAdzanText = try container.decodeIfPresent(String.self, forKey: .prayerAdzanText) ?? ""
     }
 }

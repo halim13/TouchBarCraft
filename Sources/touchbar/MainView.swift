@@ -2249,6 +2249,55 @@ struct PrayerTimeConfigView: View {
             .toggleStyle(.switch)
             .font(.system(size: 11))
 
+            Toggle("Adzan Alert (replace Touch Bar on prayer time)", isOn: Binding(
+                get: { widget.prayerAdzanAlertEnabled },
+                set: { state.widgets[index].prayerAdzanAlertEnabled = $0; state.saveConfig() }
+            ))
+            .toggleStyle(.switch)
+            .font(.system(size: 11))
+
+            if widget.prayerAdzanAlertEnabled {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        Text("Alert Icon:")
+                            .font(.system(size: 11))
+                            .frame(width: 70, alignment: .leading)
+                        TextField("bell.badge.fill", text: Binding(
+                            get: { widget.prayerAdzanIcon },
+                            set: { state.widgets[index].prayerAdzanIcon = $0; state.saveConfig() }
+                        ))
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 10, design: .monospaced))
+                    }
+
+                    HStack(spacing: 8) {
+                        Text("Alert Text:")
+                            .font(.system(size: 11))
+                            .frame(width: 70, alignment: .leading)
+                        TextField("{prayer}", text: Binding(
+                            get: { widget.prayerAdzanText },
+                            set: { state.widgets[index].prayerAdzanText = $0; state.saveConfig() }
+                        ))
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 10, design: .monospaced))
+                    }
+
+                    Text("Use {prayer} as placeholder for prayer name")
+                        .font(.system(size: 9))
+                        .foregroundColor(.gray)
+
+                    Button(action: { state.prayerTimeState.previewAdzanAlert() }) {
+                        Text("Preview Alert")
+                            .font(.system(size: 10, weight: .semibold))
+                            .padding(.horizontal, 10).padding(.vertical, 4)
+                            .background(Color.yellow.opacity(0.2))
+                            .foregroundColor(.yellow)
+                            .cornerRadius(4)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
             if widget.prayerUseCustomTimes {
                 // Custom Times Input
                 VStack(alignment: .leading, spacing: 6) {

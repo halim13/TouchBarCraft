@@ -51,6 +51,10 @@ public final class PrayerTimeState {
     public private(set) var currentNextPrayerName: String = "—"
     public private(set) var currentTimeRemainingFormatted: String = ""
 
+    public private(set) var isAdzanAlertShowing = false
+    public private(set) var currentAdzanPrayerName = ""
+    private var lastAlertedPrayer: String?
+
     private let cachePath: URL
 
     public init() {
@@ -86,10 +90,55 @@ public final class PrayerTimeState {
     public func refreshCurrentPrayer() {
         let newName = nextPrayerName
         let newRemaining = timeRemainingFormatted
+
         if currentNextPrayerName != newName || currentTimeRemainingFormatted != newRemaining {
             currentNextPrayerName = newName
             currentTimeRemainingFormatted = newRemaining
         }
+
+        // Check if adzan alert should trigger
+        if !isAdzanAlertShowing,
+           let adzanEnabled = isAdzanEnabled,
+           adzanEnabled,
+           let times = todayTimes {
+            let now = Date()
+            let cal = Calendar.current
+            let nowComp = cal.dateComponents([.hour, .minute], from: now)
+            let nowMinutes = (nowComp.hour ?? 0) * 60 + (nowComp.minute ?? 0)
+
+            for name in PrayerNames {
+                if name == "Sunrise" { continue }
+                guard let t = times[name], let parsed = parsePrayerTime(t) else { continue }
+                let prayerMinutes = parsed.hour * 60 + parsed.minute
+                let diff = nowMinutes - prayerMinutes
+                if diff >= 0 && diff < 1 && lastAlertedPrayer != name {
+                    isAdzanAlertShowing = true
+                    currentAdzanPrayerName = name
+                    lastAlertedPrayer = name
+                    TouchBarPresenter.refreshTouchBar()
+                    break
+                }
+            }
+        }
+    }
+
+    public func previewAdzanAlert() {
+        isAdzanAlertShowing = true
+        currentAdzanPrayerName = currentNextPrayerName == "—" ? "Fajr" : currentNextPrayerName
+        TouchBarPresenter.refreshTouchBar()
+    }
+
+    public func dismissAdzanAlert() {
+        isAdzanAlertShowing = false
+        currentAdzanPrayerName = ""
+        TouchBarPresenter.refreshTouchBar()
+    }
+
+    private var isAdzanEnabled: Bool? {
+        guard let state = AppState.shared,
+              let widget = state.widgets.first(where: { $0.type == .prayerTime })
+        else { return nil }
+        return widget.prayerAdzanAlertEnabled
     }
 
     private var isCurrentMonthCached: Bool {

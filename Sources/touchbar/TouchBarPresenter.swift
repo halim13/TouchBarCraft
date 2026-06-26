@@ -30,6 +30,8 @@ struct AnkiTouchBarConfig {
 public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRecognizerDelegate {
     @objc public static let shared = TouchBarPresenter()
 
+    static let adzanAlertIdentifier = NSTouchBarItem.Identifier("com.touchbarcraft.adzanAlert")
+
     private let trayIdentifier = "com.touchbarcraft.systemtray"
     private var systemTrayItem: NSCustomTouchBarItem?
     private var globalTouchBar: NSTouchBar?
@@ -167,7 +169,12 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         dfrSystemModalShowsCloseBoxWhenFrontMost?(false)
         
         let touchBar: NSTouchBar
-        if !rebuild, let existing = self.globalTouchBar {
+        if state.prayerTimeState.isAdzanAlertShowing {
+            touchBar = NSTouchBar()
+            touchBar.delegate = self
+            touchBar.defaultItemIdentifiers = [Self.adzanAlertIdentifier]
+            self.globalTouchBar = touchBar
+        } else if !rebuild, let existing = self.globalTouchBar {
             touchBar = existing
         } else {
             touchBar = NSTouchBar()
@@ -218,6 +225,11 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         guard let state = AppState.shared else { return }
         guard let widget = state.widgets.first(where: { $0.id.uuidString == identifier }) else { return }
         state.executeAction(for: widget, isLongPress: false)
+    }
+
+    @objc private func dismissAdzanAlertTapped(_ sender: NSButton) {
+        guard let state = AppState.shared else { return }
+        state.prayerTimeState.dismissAdzanAlert()
     }
     
     @objc private func widgetTapped(_ gesture: NSGestureRecognizer) {
@@ -498,6 +510,22 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
     
     public func touchBar(_ touchBar: NSTouchBar, makeItemForIdentifier identifier: NSTouchBarItem.Identifier) -> NSTouchBarItem? {
         guard let state = AppState.shared else { return nil }
+
+        if identifier == Self.adzanAlertIdentifier {
+            guard let widget = state.widgets.first(where: { $0.type == .prayerTime }) else { return nil }
+            let item = NSCustomTouchBarItem(identifier: identifier)
+            let alertView = NSHostingView(rootView:
+                AdzanAlertView(
+                    prayerName: state.prayerTimeState.currentAdzanPrayerName,
+                    widget: widget
+                )
+                .frame(maxWidth: .infinity, maxHeight: 30)
+            )
+            let button = TouchBarContainerButton(hostView: alertView, target: self, action: #selector(dismissAdzanAlertTapped(_:)))
+            item.view = button
+            return item
+        }
+
         guard let widget = state.widgets.first(where: { $0.id.uuidString == identifier.rawValue }) else { return nil }
 
         if widget.hideFromTouchBar { return nil }
