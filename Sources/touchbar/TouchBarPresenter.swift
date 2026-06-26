@@ -227,7 +227,8 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         state.executeAction(for: widget, isLongPress: false)
     }
 
-    @objc private func dismissAdzanAlertTapped(_ sender: NSButton) {
+    @objc func dismissAdzanAlertTapped(_ sender: NSGestureRecognizer) {
+        guard sender.state == .ended else { return }
         guard let state = AppState.shared else { return }
         state.prayerTimeState.dismissAdzanAlert()
     }
@@ -514,15 +515,12 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         if identifier == Self.adzanAlertIdentifier {
             guard let widget = state.widgets.first(where: { $0.type == .prayerTime }) else { return nil }
             let item = NSCustomTouchBarItem(identifier: identifier)
-            let alertView = NSHostingView(rootView:
-                AdzanAlertView(
-                    prayerName: state.prayerTimeState.currentAdzanPrayerName,
-                    widget: widget
-                )
-                .frame(maxWidth: .infinity, maxHeight: 30)
+            let alertView = NativeAdzanAlertView(
+                prayerName: state.prayerTimeState.currentAdzanPrayerName,
+                widget: widget,
+                presenter: self
             )
-            let button = TouchBarContainerButton(hostView: alertView, target: self, action: #selector(dismissAdzanAlertTapped(_:)))
-            item.view = button
+            item.view = alertView
             return item
         }
 
@@ -2699,6 +2697,82 @@ class TouchBarContainerButton: NSButton {
         ])
     }
     
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+}
+
+class FullWidthTouchBarView: NSView {
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: 5000, height: 30)
+    }
+
+    override var fittingSize: NSSize {
+        NSSize(width: 5000, height: 30)
+    }
+}
+
+class NativeAdzanAlertView: NSView {
+    init(prayerName: String, widget: TouchBarWidget, presenter: TouchBarPresenter) {
+        let iconName = widget.prayerAdzanIcon.isEmpty ? "bell.badge.fill" : widget.prayerAdzanIcon
+        let textTemplate = widget.prayerAdzanText.isEmpty ? "{prayer}" : widget.prayerAdzanText
+        let alertText = textTemplate.replacingOccurrences(of: "{prayer}", with: prayerName)
+
+        let textColor = NSColor(Color(hex: widget.textColorHex))
+        let bgColor = NSColor(Color(hex: widget.backgroundColorHex))
+
+        let iconConfig = NSImage.SymbolConfiguration(pointSize: 16, weight: .regular)
+        let iconImage = NSImage(systemSymbolName: iconName, accessibilityDescription: nil)?
+            .withSymbolConfiguration(iconConfig)
+        let iconView = NSImageView(image: iconImage ?? NSImage())
+        iconView.contentTintColor = textColor
+
+        let textLabel = NSTextField(wrappingLabelWithString: alertText)
+        textLabel.font = NSFont.systemFont(ofSize: 15, weight: .bold)
+        textLabel.textColor = textColor
+        textLabel.alignment = .center
+        textLabel.lineBreakMode = .byTruncatingTail
+        textLabel.isBezeled = false
+        textLabel.drawsBackground = false
+        textLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        textLabel.setContentHuggingPriority(.required, for: .horizontal)
+
+        let dismissLabel = NSTextField(labelWithString: "Dismiss")
+        dismissLabel.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
+        dismissLabel.textColor = textColor.withAlphaComponent(0.6)
+        dismissLabel.isBezeled = false
+        dismissLabel.drawsBackground = false
+
+        let leftSpacer = NSView()
+        leftSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        let rightSpacer = NSView()
+        rightSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.backgroundColor = bgColor.cgColor
+
+        let stack = NSStackView(views: [iconView, leftSpacer, textLabel, rightSpacer, dismissLabel])
+        stack.orientation = .horizontal
+        stack.spacing = 8
+        stack.alignment = .centerY
+        stack.distribution = .fill
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            stack.topAnchor.constraint(equalTo: topAnchor),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor),
+            rightSpacer.widthAnchor.constraint(equalTo: leftSpacer.widthAnchor),
+        ])
+
+        let tap = NSPressGestureRecognizer(target: presenter, action: #selector(TouchBarPresenter.dismissAdzanAlertTapped(_:)))
+        tap.minimumPressDuration = 0
+        tap.allowedTouchTypes = .direct
+        addGestureRecognizer(tap)
+    }
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }

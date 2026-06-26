@@ -260,7 +260,6 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     public var prayerAdzanAlertEnabled: Bool
     public var prayerAdzanIcon: String
     public var prayerAdzanText: String
-
     public init(
         id: UUID = UUID(),
         type: WidgetType = .label,
