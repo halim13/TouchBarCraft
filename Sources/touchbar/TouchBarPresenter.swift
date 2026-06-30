@@ -917,6 +917,10 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         let syncButton: NSButton
         if let cached = cachedAnkiSyncButton {
             syncButton = cached
+            syncButton.isEnabled = !anki.isSyncing
+            syncButton.contentTintColor = anki.isSyncing
+                ? NSColor(Color(hex: widget.textColorHex)).withAlphaComponent(0.4)
+                : NSColor(Color(hex: widget.textColorHex))
         } else {
             syncButton = buildSyncButton(for: widget, anki: anki)
             cachedAnkiSyncButton = syncButton
@@ -1246,7 +1250,9 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         let syncButton = NSButton(title: "", target: self, action: #selector(ankiSyncTapped(_:)))
         syncButton.bezelStyle = .rounded
         syncButton.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
-        syncButton.contentTintColor = NSColor(Color(hex: widget.textColorHex))
+        syncButton.contentTintColor = anki.isSyncing
+            ? NSColor(Color(hex: widget.textColorHex)).withAlphaComponent(0.4)
+            : NSColor(Color(hex: widget.textColorHex))
         syncButton.setAccessibilityLabel("Sync")
         
         if let syncImage = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: "Sync") {
