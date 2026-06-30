@@ -2274,30 +2274,51 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
                 manualFuriFontSize: furiSize,
                 verticalOffset: 0,
                 textVerticalOffset: 0,
-                ankiTrimText: true,
+                ankiTrimText: false,
                 furiganaColor: NSColor(Color(hex: widget.nhkFuriganaColorHex)).withAlphaComponent(0.75)
             )
         } else {
             let contentLabel = NSTextField(labelWithString: nhk.currentChunk)
             contentLabel.font = NSFont.systemFont(ofSize: kanjiSize)
             contentLabel.textColor = NSColor(Color(hex: widget.textColorHex))
-            contentLabel.lineBreakMode = .byTruncatingTail
+            contentLabel.lineBreakMode = .byClipping
+            contentLabel.cell?.usesSingleLineMode = true
+            contentLabel.cell?.wraps = false
             contentView = contentLabel
         }
-        contentView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        contentView.setContentCompressionResistancePriority(.required, for: .horizontal)
+        contentView.setContentHuggingPriority(.required, for: .horizontal)
 
-        // Wrap content in a container with click gesture for floating window
-        let contentContainer = NSStackView(views: [contentView])
-        contentContainer.orientation = .horizontal
-        contentContainer.spacing = 0
-        contentContainer.alignment = .centerY
-        contentContainer.translatesAutoresizingMaskIntoConstraints = false
-        contentContainer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        contentContainer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        // Wrap in scrollable ClippingView with pan gesture
+        let clipView = ClippingView()
+        clipView.wantsLayer = true
+        clipView.layer?.masksToBounds = true
+        clipView.translatesAutoresizingMaskIntoConstraints = false
+        clipView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        clipView.setContentHuggingPriority(.defaultLow, for: .horizontal)
+
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+        clipView.addSubview(contentView)
+        let leading = contentView.leadingAnchor.constraint(equalTo: clipView.leadingAnchor)
+        NSLayoutConstraint.activate([
+            leading,
+            contentView.topAnchor.constraint(equalTo: clipView.topAnchor),
+            contentView.bottomAnchor.constraint(equalTo: clipView.bottomAnchor),
+        ])
+
+        let pan = NSPanGestureRecognizer(target: self, action: #selector(handleLabelPan(_:)))
+        pan.allowedTouchTypes = .direct
+        pan.delegate = self
+        clipView.addGestureRecognizer(pan)
+        objc_setAssociatedObject(clipView, &TouchBarPresenter.scrollableLeadingKey, leading, .OBJC_ASSOCIATION_RETAIN)
+
+        // Click gesture for floating window on the clip view
         let contentClick = NSClickGestureRecognizer(target: self, action: #selector(nhkFloatingWindowTapped(_:)))
         contentClick.buttonMask = 1
         contentClick.allowedTouchTypes = .direct
-        contentContainer.addGestureRecognizer(contentClick)
+        clipView.addGestureRecognizer(contentClick)
+
+        let contentContainer = clipView
 
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
