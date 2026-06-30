@@ -742,45 +742,62 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         }
         
         if !anki.isShowingAnswer {
-            // Build question label
-            print("[ScrollText] BUILDING QUESTION — card=\(card.question.prefix(60))... ankiTrimText=\(widget.ankiTrimText)")
-            let questionLabel = buildQuestionLabel(for: widget, card: card, anki: anki)
+            let hideText = widget.ankiHideTextOnTouchBar
+            let questionLabel = hideText ? nil : buildQuestionLabel(for: widget, card: card, anki: anki)
             
             if widget.ankiShowRemainingCounts {
-                let controls = buildCountsAndRevealStack(for: widget, anki: anki)
-                let spacer = NSView()
-                spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-                spacer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+                let spacer = hideText ? nil : {
+                    let s = NSView()
+                    s.setContentHuggingPriority(.defaultLow, for: .horizontal)
+                    s.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+                    return s
+                }()
                 
-                if config.isMediaOnLeft {
-                    // Left: Counts+Reveal | Label | Spacer | Sync
-                    stack.addArrangedSubview(controls)
-                    stack.addArrangedSubview(questionLabel)
-                    stack.addArrangedSubview(spacer)
-                    stack.addArrangedSubview(syncButton)
+                if hideText {
+                    // Show counts label and expanding reveal button side by side
+                    let countsOnly = buildCountsOnlyLabel(for: widget, anki: anki)
+                    let container = buildExpandingRevealContainer(for: widget, anki: anki)
+                    if config.isMediaOnLeft {
+                        stack.addArrangedSubview(container)
+                        stack.addArrangedSubview(countsOnly)
+                        stack.addArrangedSubview(syncButton)
+                    } else {
+                        stack.addArrangedSubview(syncButton)
+                        stack.addArrangedSubview(countsOnly)
+                        stack.addArrangedSubview(container)
+                    }
                 } else {
-                    // Default: Sync | Label | Spacer | Counts+Reveal
-                    stack.addArrangedSubview(syncButton)
-                    stack.addArrangedSubview(questionLabel)
-                    stack.addArrangedSubview(spacer)
-                    stack.addArrangedSubview(controls)
+                    let controls = buildCountsAndRevealStack(for: widget, anki: anki)
+                    if config.isMediaOnLeft {
+                        stack.addArrangedSubview(controls)
+                        if let label = questionLabel { stack.addArrangedSubview(label) }
+                        if let s = spacer { stack.addArrangedSubview(s) }
+                        stack.addArrangedSubview(syncButton)
+                    } else {
+                        stack.addArrangedSubview(syncButton)
+                        if let label = questionLabel { stack.addArrangedSubview(label) }
+                        if let s = spacer { stack.addArrangedSubview(s) }
+                        stack.addArrangedSubview(controls)
+                    }
                 }
             } else {
-                // Container view with background & corner radius (acts as silent button)
                 let container = NSView()
                 container.wantsLayer = true
                 container.layer?.backgroundColor = NSColor(Color(hex: widget.backgroundColorHex)).cgColor
                 container.layer?.cornerRadius = 6
                 container.setAccessibilityLabel("Reveal Answer")
-                container.setContentCompressionResistancePriority(.required, for: .horizontal)
-                container.setContentHuggingPriority(.required, for: .horizontal)
                 container.translatesAutoresizingMaskIntoConstraints = false
-                NSLayoutConstraint.activate([
-                    container.widthAnchor.constraint(greaterThanOrEqualToConstant: 70),
-                    container.heightAnchor.constraint(equalToConstant: 24)
-                ])
+                container.heightAnchor.constraint(equalToConstant: 24).isActive = true
                 
-                // Centered text label inside container
+                if hideText {
+                    container.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+                    container.setContentHuggingPriority(.defaultLow, for: .horizontal)
+                } else {
+                    container.setContentCompressionResistancePriority(.required, for: .horizontal)
+                    container.setContentHuggingPriority(.required, for: .horizontal)
+                    container.widthAnchor.constraint(greaterThanOrEqualToConstant: 70).isActive = true
+                }
+                
                 let revealLabel = NSTextField(labelWithString: "Reveal ▶")
                 revealLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
                 revealLabel.textColor = NSColor(Color(hex: widget.textColorHex))
@@ -803,24 +820,25 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
                 container.addGestureRecognizer(clickGesture)
                 
                 if config.isMediaOnLeft {
-                    // Left: Reveal | Label | Spacer | Sync
-                    let labelSpacer = NSView()
-                    labelSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-                    labelSpacer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+                    let labelSpacer = hideText ? nil : {
+                        let s = NSView()
+                        s.setContentHuggingPriority(.defaultLow, for: .horizontal)
+                        s.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+                        return s
+                    }()
                     stack.addArrangedSubview(container)
-                    stack.addArrangedSubview(questionLabel)
-                    stack.addArrangedSubview(labelSpacer)
+                    if let label = questionLabel { stack.addArrangedSubview(label) }
+                    if let s = labelSpacer { stack.addArrangedSubview(s) }
                     stack.addArrangedSubview(syncButton)
                 } else {
-                    // Default: Sync | Label | Reveal
                     stack.addArrangedSubview(syncButton)
-                    stack.addArrangedSubview(questionLabel)
+                    if let label = questionLabel { stack.addArrangedSubview(label) }
                     stack.addArrangedSubview(container)
                 }
             }
         } else {
-            // Build answer label
-            let answerLabel = buildAnswerLabel(for: widget, card: card, anki: anki)
+            let hideText = widget.ankiHideTextOnTouchBar
+            let answerLabel = hideText ? nil : buildAnswerLabel(for: widget, card: card, anki: anki)
             
             // Build rating buttons
             let count = card.buttonCount
@@ -930,12 +948,12 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
                 if let audio = audioButton {
                     stack.addArrangedSubview(audio)
                 }
-                stack.addArrangedSubview(answerLabel)
+                if let label = answerLabel { stack.addArrangedSubview(label) }
                 stack.addArrangedSubview(syncButton)
             } else {
                 // Default: Sync | Label | Rating+Audio
                 stack.addArrangedSubview(syncButton)
-                stack.addArrangedSubview(answerLabel)
+                if let label = answerLabel { stack.addArrangedSubview(label) }
                 for view in ratingButtonViews {
                     stack.addArrangedSubview(view)
                 }
@@ -1686,6 +1704,80 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         verticalStack.addArrangedSubview(revealLabel)
         
         return verticalStack
+    }
+    
+    /// Build just the counts label (N/L/R) without the reveal button.
+    private func buildCountsOnlyLabel(for widget: TouchBarWidget, anki: AnkiState) -> NSTextField {
+        let countFont = NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .bold)
+        let attrStr = NSMutableAttributedString()
+        
+        if let card = anki.currentCard, !card.cardTypeLabel.isEmpty {
+            let typeColor = NSColor(Color(hex: card.cardTypeColorHex)).withAlphaComponent(0.9)
+            attrStr.append(NSAttributedString(string: "●", attributes: [
+                .font: NSFont.systemFont(ofSize: 8),
+                .foregroundColor: typeColor
+            ]))
+            attrStr.append(NSAttributedString(string: "  ", attributes: [.font: countFont]))
+        }
+        
+        attrStr.append(NSAttributedString(string: "\(anki.newCount)", attributes: [
+            .font: countFont, .foregroundColor: NSColor.systemBlue
+        ]))
+        attrStr.append(NSAttributedString(string: "  ", attributes: [.font: countFont]))
+        attrStr.append(NSAttributedString(string: "\(anki.learnCount)", attributes: [
+            .font: countFont, .foregroundColor: NSColor.systemOrange
+        ]))
+        attrStr.append(NSAttributedString(string: "  ", attributes: [.font: countFont]))
+        attrStr.append(NSAttributedString(string: "\(anki.reviewCount)", attributes: [
+            .font: countFont, .foregroundColor: NSColor.systemGreen
+        ]))
+        
+        let label = NSTextField(labelWithString: "")
+        label.attributedStringValue = attrStr
+        label.alignment = .center
+        label.isBezeled = false
+        label.drawsBackground = false
+        label.isEditable = false
+        label.isSelectable = false
+        label.setContentCompressionResistancePriority(.required, for: .horizontal)
+        label.setContentHuggingPriority(.required, for: .horizontal)
+        return label
+    }
+    
+    /// Build an expanding container view with a "Reveal ▶" label that fills available space.
+    private func buildExpandingRevealContainer(for widget: TouchBarWidget, anki: AnkiState) -> NSView {
+        let container = NSView()
+        container.wantsLayer = true
+        container.layer?.backgroundColor = NSColor(Color(hex: widget.backgroundColorHex)).cgColor
+        container.layer?.cornerRadius = 6
+        container.setAccessibilityLabel("Reveal Answer")
+        container.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        container.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        container.translatesAutoresizingMaskIntoConstraints = false
+        container.heightAnchor.constraint(equalToConstant: 24).isActive = true
+        
+        let revealLabel = NSTextField(labelWithString: "Reveal ▶")
+        revealLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+        revealLabel.textColor = NSColor(Color(hex: widget.textColorHex))
+        revealLabel.alignment = .center
+        revealLabel.isBezeled = false
+        revealLabel.drawsBackground = false
+        revealLabel.isEditable = false
+        revealLabel.isSelectable = false
+        revealLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        container.addSubview(revealLabel)
+        NSLayoutConstraint.activate([
+            revealLabel.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            revealLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor)
+        ])
+        
+        let clickGesture = NSClickGestureRecognizer(target: self, action: #selector(ankiRevealTapped(_:)))
+        clickGesture.buttonMask = 1
+        clickGesture.allowedTouchTypes = .direct
+        container.addGestureRecognizer(clickGesture)
+        
+        return container
     }
     
     private func parseBoldTags(in text: String, defaultFont: NSFont, defaultColor: NSColor, boldColor: NSColor) -> NSAttributedString {

@@ -1378,6 +1378,12 @@ struct AnkiConfigView: View {
                         ))
                         .toggleStyle(.checkbox).font(.system(size: 11))
 
+                        Toggle("Hide card text from Touch Bar (show only buttons)", isOn: Binding(
+                            get: { state.widgets[index].ankiHideTextOnTouchBar },
+                            set: { state.widgets[index].ankiHideTextOnTouchBar = $0; state.saveConfig() }
+                        ))
+                        .toggleStyle(.checkbox).font(.system(size: 11))
+
                         Toggle("Mute Anki Audio", isOn: Binding(
                             get: { state.ankiState.isMuted },
                             set: { _ in state.ankiState.toggleMute(); state.saveConfig(); StatusItemManager.shared.refreshMuteState() }

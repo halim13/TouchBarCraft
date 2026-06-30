@@ -825,24 +825,24 @@ public struct WidgetAnkiView: View {
             if widget.ankiShowRemainingCounts {
                 if isMediaOnLeft {
                     countsAndRevealContent(anki: anki)
-                    questionTextContent(anki: anki)
+                    if !widget.ankiHideTextOnTouchBar { questionTextContent(anki: anki) }
                     Spacer()
                     syncButtonContent(anki: anki)
                 } else {
                     syncButtonContent(anki: anki)
-                    questionTextContent(anki: anki)
+                    if !widget.ankiHideTextOnTouchBar { questionTextContent(anki: anki) }
                     Spacer()
                     countsAndRevealContent(anki: anki)
                 }
             } else {
                 if isMediaOnLeft {
                     revealButtonContent
-                    questionTextContent(anki: anki)
+                    if !widget.ankiHideTextOnTouchBar { questionTextContent(anki: anki) }
                     Spacer()
                     syncButtonContent(anki: anki)
                 } else {
                     syncButtonContent(anki: anki)
-                    questionTextContent(anki: anki)
+                    if !widget.ankiHideTextOnTouchBar { questionTextContent(anki: anki) }
                     revealButtonContent
                 }
             }
@@ -859,12 +859,12 @@ public struct WidgetAnkiView: View {
                 if anki.currentCard?.soundFilename != nil {
                     audioButtonContent(anki: anki)
                 }
-                answerTextContent(anki: anki)
+                if !widget.ankiHideTextOnTouchBar { answerTextContent(anki: anki) }
                 Spacer()
                 syncButtonContent(anki: anki)
             } else {
                 syncButtonContent(anki: anki)
-                answerTextContent(anki: anki)
+                if !widget.ankiHideTextOnTouchBar { answerTextContent(anki: anki) }
                 Spacer()
                 ratingContent(anki: anki)
                 if anki.currentCard?.soundFilename != nil {
