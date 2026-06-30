@@ -69,6 +69,21 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         }
     }
     
+    /// ClippingView that reports an explicit intrinsic width so parent stacks
+    /// allocate enough space for the text.
+    private class IntrinsicClippingView: ClippingView {
+        var intrinsicWidth: CGFloat = NSView.noIntrinsicMetric {
+            didSet {
+                invalidateIntrinsicContentSize()
+            }
+        }
+        override var intrinsicContentSize: NSSize {
+            NSSize(width: intrinsicWidth, height: NSView.noIntrinsicMetric)
+        }
+    }
+    
+
+    
     // Private framework loaders
     private typealias DFRElementSetControlStripPresenceForIdentifierType = @convention(c) (CFString, Bool) -> Void
     private typealias DFRSystemModalShowsCloseBoxWhenFrontMostType = @convention(c) (Bool) -> Void
@@ -2452,26 +2467,48 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
     }
     
     private func buildNHKArticleListView(nhk: NHKNewsState, article: NHKNewsArticle, stack: NSStackView, widget: TouchBarWidget) {
-        let titleContainer = NSView()
-        titleContainer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-
+        // Title label
         let titleLabel = NSTextField(labelWithString: article.title)
         titleLabel.font = NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)
         titleLabel.textColor = NSColor(Color(hex: widget.textColorHex))
-        titleLabel.lineBreakMode = .byTruncatingTail
-        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        titleLabel.lineBreakMode = .byClipping
+        titleLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        titleLabel.setContentHuggingPriority(.required, for: .horizontal)
         titleLabel.isBezeled = false
         titleLabel.drawsBackground = false
         titleLabel.isEditable = false
         titleLabel.isSelectable = false
 
-        titleContainer.addSubview(titleLabel)
+        // Wrap in scrollable IntrinsicClippingView
+        let titleContainer = IntrinsicClippingView()
+        let textW = (article.title as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: CGFloat(widget.fontSize), weight: .medium)]).width
+        titleContainer.intrinsicWidth = min(max(textW + 10, 100), 480)
+        titleContainer.wantsLayer = true
+        titleContainer.layer?.masksToBounds = true
+        titleContainer.translatesAutoresizingMaskIntoConstraints = false
+        titleContainer.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
+        titleContainer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleContainer.addSubview(titleLabel)
+        let leading = titleLabel.leadingAnchor.constraint(equalTo: titleContainer.leadingAnchor)
         NSLayoutConstraint.activate([
-            titleLabel.leadingAnchor.constraint(equalTo: titleContainer.leadingAnchor),
-            titleLabel.trailingAnchor.constraint(equalTo: titleContainer.trailingAnchor),
-            titleLabel.centerYAnchor.constraint(equalTo: titleContainer.centerYAnchor)
+            leading,
+            titleLabel.topAnchor.constraint(equalTo: titleContainer.topAnchor),
+            titleLabel.bottomAnchor.constraint(equalTo: titleContainer.bottomAnchor),
         ])
+
+        let titlePan = NSPanGestureRecognizer(target: self, action: #selector(handleLabelPan(_:)))
+        titlePan.allowedTouchTypes = .direct
+        titlePan.delegate = self
+        titleContainer.addGestureRecognizer(titlePan)
+        objc_setAssociatedObject(titleContainer, &TouchBarPresenter.scrollableLeadingKey, leading, .OBJC_ASSOCIATION_RETAIN)
+
+        // Click gesture to open floating window
+        let titleClick = NSClickGestureRecognizer(target: self, action: #selector(nhkFloatingWindowTapped(_:)))
+        titleClick.buttonMask = 1
+        titleClick.allowedTouchTypes = .direct
+        titleContainer.addGestureRecognizer(titleClick)
 
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
@@ -2582,12 +2619,17 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         contentView.setContentCompressionResistancePriority(.required, for: .horizontal)
         contentView.setContentHuggingPriority(.required, for: .horizontal)
 
-        // Wrap in scrollable ClippingView with pan gesture
-        let clipView = ClippingView()
+        // Wrap in scrollable IntrinsicClippingView with pan gesture
+        let clipView = IntrinsicClippingView()
+        let cleanText = nhk.currentChunk
+            .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+            .replacingOccurrences(of: "\\[[^\\]]*\\]", with: "", options: .regularExpression)
+        let textW = (cleanText as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: kanjiSize)]).width
+        clipView.intrinsicWidth = min(max(textW + 10, 100), 480)
         clipView.wantsLayer = true
         clipView.layer?.masksToBounds = true
         clipView.translatesAutoresizingMaskIntoConstraints = false
-        clipView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        clipView.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
         clipView.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
         contentView.translatesAutoresizingMaskIntoConstraints = false
@@ -2615,6 +2657,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
 
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        spacer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         let chunkLabel: NSTextField?
         if nhk.hasChunks {
