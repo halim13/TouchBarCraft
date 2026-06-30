@@ -423,15 +423,19 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
     
     @objc private func ankiRatingTapped(_ sender: Any) {
         guard let state = AppState.shared else { return }
-        let view: NSView?
-        if let gesture = sender as? NSGestureRecognizer {
-            view = gesture.view
+        var rating = 0
+        if let gesture = sender as? NSGestureRecognizer, let view = gesture.view {
+            if let identifier = view.identifier?.rawValue, identifier.hasPrefix("rating."),
+               let r = Int(identifier.dropFirst(7)) {
+                rating = r
+            } else {
+                rating = view.tag
+            }
         } else if let btn = sender as? NSButton {
-            view = btn
-        } else {
-            view = sender as? NSView
+            rating = btn.tag
+        } else if let view = sender as? NSView {
+            rating = view.tag
         }
-        let rating = view?.tag ?? 0
         guard rating > 0 else { return }
         state.ankiState.submitRating(ease: rating)
     }
@@ -843,8 +847,43 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
             // Build rating buttons
             let count = card.buttonCount
             let buttonsToShow = getRatingButtons(for: widget, buttonCount: count, intervals: anki.buttonIntervals, labels: anki.buttonLabels, showInterval: widget.ankiShowButtonsInterval)
+            let isSingleRating = buttonsToShow.count == 1
             var ratingButtonViews: [NSView] = []
-            if widget.ankiShowButtonsInterval {
+            if isSingleRating, let btnSpec = buttonsToShow.first {
+                // Single button: use expanding container (same approach as reveal button)
+                let container = NSView()
+                container.wantsLayer = true
+                container.layer?.backgroundColor = btnSpec.color.cgColor
+                container.layer?.cornerRadius = 6
+                container.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+                container.setContentHuggingPriority(.defaultLow, for: .horizontal)
+                container.translatesAutoresizingMaskIntoConstraints = false
+                container.heightAnchor.constraint(equalToConstant: 24).isActive = true
+
+                let label = NSTextField(labelWithString: btnSpec.title)
+                label.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+                label.textColor = .white
+                label.alignment = .center
+                label.isBezeled = false
+                label.drawsBackground = false
+                label.isEditable = false
+                label.isSelectable = false
+                label.translatesAutoresizingMaskIntoConstraints = false
+
+                container.addSubview(label)
+                NSLayoutConstraint.activate([
+                    label.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+                    label.centerYAnchor.constraint(equalTo: container.centerYAnchor)
+                ])
+
+                container.identifier = NSUserInterfaceItemIdentifier(rawValue: "rating.\(btnSpec.rating)")
+                let clickGesture = NSClickGestureRecognizer(target: self, action: #selector(ankiRatingTapped(_:)))
+                clickGesture.buttonMask = 1
+                clickGesture.allowedTouchTypes = .direct
+                container.addGestureRecognizer(clickGesture)
+
+                ratingButtonViews.append(container)
+            } else if widget.ankiShowButtonsInterval {
                 // Vertical layout: small button + interval text below (outside clickable area)
                 for btnSpec in buttonsToShow {
                     let parts = btnSpec.title.components(separatedBy: " (")

@@ -1027,6 +1027,7 @@ public struct WidgetAnkiView: View {
                         .cornerRadius(4)
                 }
                 .buttonStyle(.plain)
+                .if(buttons.count == 1) { $0.frame(maxWidth: .infinity) }
             }
         }
     }
