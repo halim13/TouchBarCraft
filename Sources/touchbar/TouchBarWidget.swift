@@ -237,6 +237,11 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
     // Hide card text from Touch Bar, show only buttons (reveal, rating, audio, sync)
     public var ankiHideTextOnTouchBar: Bool
 
+    // Long press on single rating button to submit alternative ease
+    public var ankiEnableLongPress: Bool
+    public var ankiLongPressDuration: Double
+    public var ankiLongPressRating: Int
+
     // Animation Custom properties
     public var customGifPath: String
     
@@ -323,6 +328,9 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         ankiScrollMode: AnkiScrollMode = .answerOnly,
         ankiTapShowsExtra: Bool = false,
         ankiHideTextOnTouchBar: Bool = false,
+        ankiEnableLongPress: Bool = false,
+        ankiLongPressDuration: Double = 0.5,
+        ankiLongPressRating: Int = 2,
         customGifPath: String = "",
         isHidden: Bool = false,
         hideFromTouchBar: Bool = false,
@@ -398,6 +406,9 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         self.ankiScrollMode = ankiScrollMode
         self.ankiTapShowsExtra = ankiTapShowsExtra
         self.ankiHideTextOnTouchBar = ankiHideTextOnTouchBar
+        self.ankiEnableLongPress = ankiEnableLongPress
+        self.ankiLongPressDuration = ankiLongPressDuration
+        self.ankiLongPressRating = ankiLongPressRating
         self.customGifPath = customGifPath
         self.isHidden = isHidden
         self.hideFromTouchBar = hideFromTouchBar
@@ -443,6 +454,7 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
         case ankiScrollMode
         case ankiTapShowsExtra
         case ankiHideTextOnTouchBar
+        case ankiEnableLongPress, ankiLongPressDuration, ankiLongPressRating
         case customGifPath
         case isHidden
         case hideFromTouchBar
@@ -521,6 +533,9 @@ public struct TouchBarWidget: Identifiable, Codable, Hashable, Sendable {
             ?? (ankiTrimText ? .both : .none)
         self.ankiTapShowsExtra = try container.decodeIfPresent(Bool.self, forKey: .ankiTapShowsExtra) ?? false
         self.ankiHideTextOnTouchBar = try container.decodeIfPresent(Bool.self, forKey: .ankiHideTextOnTouchBar) ?? false
+        self.ankiEnableLongPress = try container.decodeIfPresent(Bool.self, forKey: .ankiEnableLongPress) ?? false
+        self.ankiLongPressDuration = try container.decodeIfPresent(Double.self, forKey: .ankiLongPressDuration) ?? 0.5
+        self.ankiLongPressRating = try container.decodeIfPresent(Int.self, forKey: .ankiLongPressRating) ?? 2
         
         self.customGifPath = try container.decodeIfPresent(String.self, forKey: .customGifPath) ?? ""
         self.isHidden = try container.decodeIfPresent(Bool.self, forKey: .isHidden) ?? false

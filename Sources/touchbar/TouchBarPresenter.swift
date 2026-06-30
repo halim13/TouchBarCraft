@@ -440,6 +440,73 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         state.ankiState.submitRating(ease: rating)
     }
     
+    private static var originalBgKey = 0
+    private static var altBgKey = 0
+    private static var altRatingKey = 0
+    private static var longPressDurationKey = 0
+    private static var enableLongPressKey = 0
+    private static var pressStartTimeKey = 0
+    private static var longPressTriggeredKey = 0
+
+    @objc private func ankiSingleRatingPress(_ sender: NSPressGestureRecognizer) {
+        guard let state = AppState.shared, let container = sender.view else { return }
+
+        switch sender.state {
+        case .began:
+            container.alphaValue = 0.7
+            let startTime = CFAbsoluteTimeGetCurrent()
+            objc_setAssociatedObject(sender, &TouchBarPresenter.pressStartTimeKey, startTime as NSNumber, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            objc_setAssociatedObject(container, &TouchBarPresenter.longPressTriggeredKey, false as NSNumber, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+
+            let isEnabled = (objc_getAssociatedObject(container, &TouchBarPresenter.enableLongPressKey) as? NSNumber)?.boolValue ?? false
+            let duration = (objc_getAssociatedObject(container, &TouchBarPresenter.longPressDurationKey) as? NSNumber)?.doubleValue ?? 0.5
+
+            guard isEnabled, duration > 0 else { return }
+
+            let altColor = objc_getAssociatedObject(container, &TouchBarPresenter.altBgKey) as? NSColor
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [weak container, weak sender] in
+                guard let container = container, let sender = sender else { return }
+                if sender.state == .began || sender.state == .changed {
+                    container.alphaValue = 1.0
+                    if let altColor = altColor {
+                        container.layer?.backgroundColor = altColor.cgColor
+                    }
+                    objc_setAssociatedObject(container, &TouchBarPresenter.longPressTriggeredKey, true as NSNumber, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+                }
+            }
+
+        case .ended:
+            container.alphaValue = 1.0
+
+            let longPressTriggered = (objc_getAssociatedObject(container, &TouchBarPresenter.longPressTriggeredKey) as? NSNumber)?.boolValue ?? false
+
+            if longPressTriggered {
+                let altRating = (objc_getAssociatedObject(container, &TouchBarPresenter.altRatingKey) as? NSNumber)?.intValue ?? 2
+                guard (1...4).contains(altRating) else { return }
+                state.ankiState.submitRating(ease: altRating)
+            } else {
+                guard let identifier = container.identifier?.rawValue,
+                      identifier.hasPrefix("rating."),
+                      let primaryRating = Int(identifier.dropFirst(7)),
+                      primaryRating > 0 else { return }
+                if let originalBg = objc_getAssociatedObject(container, &TouchBarPresenter.originalBgKey) as? NSColor {
+                    container.layer?.backgroundColor = originalBg.cgColor
+                }
+                state.ankiState.submitRating(ease: primaryRating)
+            }
+
+        case .cancelled:
+            container.alphaValue = 1.0
+            if let originalBg = objc_getAssociatedObject(container, &TouchBarPresenter.originalBgKey) as? NSColor {
+                container.layer?.backgroundColor = originalBg.cgColor
+            }
+
+        default:
+            break
+        }
+    }
+
     @objc private func ankiSyncTapped(_ sender: NSButton) {
         guard let state = AppState.shared else { return }
         state.ankiState.syncDecks()
@@ -877,10 +944,29 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
                 ])
 
                 container.identifier = NSUserInterfaceItemIdentifier(rawValue: "rating.\(btnSpec.rating)")
-                let clickGesture = NSClickGestureRecognizer(target: self, action: #selector(ankiRatingTapped(_:)))
-                clickGesture.buttonMask = 1
-                clickGesture.allowedTouchTypes = .direct
-                container.addGestureRecognizer(clickGesture)
+
+                // Store config on container for gesture handler
+                let altColor = NSColor(Color(hex: widget.ankiAgainColorHex))
+                let altEase = widget.ankiLongPressRating
+                let altColorForEase: NSColor
+                switch altEase {
+                case 1: altColorForEase = NSColor(Color(hex: widget.ankiAgainColorHex))
+                case 2: altColorForEase = NSColor(Color(hex: widget.ankiHardColorHex))
+                case 3: altColorForEase = NSColor(Color(hex: widget.ankiGoodColorHex))
+                case 4: altColorForEase = NSColor(Color(hex: widget.ankiEasyColorHex))
+                default: altColorForEase = altColor
+                }
+                objc_setAssociatedObject(container, &TouchBarPresenter.originalBgKey, btnSpec.color, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+                objc_setAssociatedObject(container, &TouchBarPresenter.altBgKey, altColorForEase, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+                objc_setAssociatedObject(container, &TouchBarPresenter.altRatingKey, widget.ankiLongPressRating as NSNumber, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+                objc_setAssociatedObject(container, &TouchBarPresenter.longPressDurationKey, widget.ankiLongPressDuration as NSNumber, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+                objc_setAssociatedObject(container, &TouchBarPresenter.enableLongPressKey, widget.ankiEnableLongPress as NSNumber, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+
+                let pressGesture = NSPressGestureRecognizer(target: self, action: #selector(ankiSingleRatingPress(_:)))
+                pressGesture.minimumPressDuration = 0
+                pressGesture.allowedTouchTypes = .direct
+                pressGesture.buttonMask = 1
+                container.addGestureRecognizer(pressGesture)
 
                 ratingButtonViews.append(container)
             } else if widget.ankiShowButtonsInterval {

@@ -1384,6 +1384,42 @@ struct AnkiConfigView: View {
                         ))
                         .toggleStyle(.checkbox).font(.system(size: 11))
 
+                        DisclosureGroup("Long Press on Single Rating Button (Experimental)") {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Toggle("Enable long press", isOn: Binding(
+                                    get: { state.widgets[index].ankiEnableLongPress },
+                                    set: { state.widgets[index].ankiEnableLongPress = $0; state.saveConfig() }
+                                ))
+                                .toggleStyle(.checkbox).font(.system(size: 11))
+
+                                HStack {
+                                    Text("Duration: \(String(format: "%.1f", state.widgets[index].ankiLongPressDuration))s").font(.system(size: 11))
+                                    Slider(value: Binding(
+                                        get: { state.widgets[index].ankiLongPressDuration },
+                                        set: { state.widgets[index].ankiLongPressDuration = $0; state.saveConfig() }
+                                    ), in: 0.2...2.0, step: 0.1)
+                                    .frame(width: 100)
+                                }
+
+                                HStack {
+                                    Text("Alternative rating:").font(.system(size: 11))
+                                    Picker("", selection: Binding(
+                                        get: { state.widgets[index].ankiLongPressRating },
+                                        set: { state.widgets[index].ankiLongPressRating = $0; state.saveConfig() }
+                                    )) {
+                                        Text("Again").tag(1)
+                                        Text("Hard").tag(2)
+                                        Text("Good").tag(3)
+                                        Text("Easy").tag(4)
+                                    }
+                                    .pickerStyle(.segmented)
+                                    .frame(width: 200)
+                                }
+                            }
+                        }
+                        .font(.system(size: 11))
+                        .padding(.leading, 8)
+
                         Toggle("Mute Anki Audio", isOn: Binding(
                             get: { state.ankiState.isMuted },
                             set: { _ in state.ankiState.toggleMute(); state.saveConfig(); StatusItemManager.shared.refreshMuteState() }

@@ -1015,19 +1015,32 @@ public struct WidgetAnkiView: View {
             let buttons = getRatingButtons(for: widget, buttonCount: count, intervals: anki.buttonIntervals, labels: anki.buttonLabels, showInterval: widget.ankiShowButtonsInterval)
             
             ForEach(buttons, id: \.rating) { btn in
-                Button(action: {
-                    anki.submitRating(ease: btn.rating)
-                }) {
-                    Text(btn.title)
-                        .font(.system(size: isSimulator ? 10 : 11, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(btn.color)
-                        .cornerRadius(4)
+                let buttonContent = Text(btn.title)
+                    .font(.system(size: isSimulator ? 10 : 11, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(btn.color)
+                    .cornerRadius(4)
+
+                if buttons.count == 1 && widget.ankiEnableLongPress {
+                    Button(action: { anki.submitRating(ease: btn.rating) }) {
+                        buttonContent.frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.plain)
+                    .highPriorityGesture(
+                        LongPressGesture(minimumDuration: widget.ankiLongPressDuration)
+                            .onEnded { _ in
+                                anki.submitRating(ease: widget.ankiLongPressRating)
+                            }
+                    )
+                } else {
+                    Button(action: { anki.submitRating(ease: btn.rating) }) {
+                        buttonContent
+                    }
+                    .buttonStyle(.plain)
+                    .if(buttons.count == 1) { $0.frame(maxWidth: .infinity) }
                 }
-                .buttonStyle(.plain)
-                .if(buttons.count == 1) { $0.frame(maxWidth: .infinity) }
             }
         }
     }
