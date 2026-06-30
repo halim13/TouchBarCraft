@@ -447,6 +447,10 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
     private static var enableLongPressKey = 0
     private static var pressStartTimeKey = 0
     private static var longPressTriggeredKey = 0
+    private static var originalTextKey = 0
+    private static var altTextKey = 0
+    private static var labelRefKey = 0
+    private static var cancelledKey = 0
 
     @objc private func ankiSingleRatingPress(_ sender: NSPressGestureRecognizer) {
         guard let state = AppState.shared, let container = sender.view else { return }
@@ -457,6 +461,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
             let startTime = CFAbsoluteTimeGetCurrent()
             objc_setAssociatedObject(sender, &TouchBarPresenter.pressStartTimeKey, startTime as NSNumber, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
             objc_setAssociatedObject(container, &TouchBarPresenter.longPressTriggeredKey, false as NSNumber, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            objc_setAssociatedObject(container, &TouchBarPresenter.cancelledKey, false as NSNumber, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
 
             let isEnabled = (objc_getAssociatedObject(container, &TouchBarPresenter.enableLongPressKey) as? NSNumber)?.boolValue ?? false
             let duration = (objc_getAssociatedObject(container, &TouchBarPresenter.longPressDurationKey) as? NSNumber)?.doubleValue ?? 0.5
@@ -464,20 +469,43 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
             guard isEnabled, duration > 0 else { return }
 
             let altColor = objc_getAssociatedObject(container, &TouchBarPresenter.altBgKey) as? NSColor
+            let altText = objc_getAssociatedObject(container, &TouchBarPresenter.altTextKey) as? NSString as String?
 
             DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [weak container, weak sender] in
                 guard let container = container, let sender = sender else { return }
+                let isCancelled = (objc_getAssociatedObject(container, &TouchBarPresenter.cancelledKey) as? NSNumber)?.boolValue ?? false
+                guard !isCancelled else { return }
                 if sender.state == .began || sender.state == .changed {
                     container.alphaValue = 1.0
                     if let altColor = altColor {
                         container.layer?.backgroundColor = altColor.cgColor
                     }
+                    if let altText = altText, let label = objc_getAssociatedObject(container, &TouchBarPresenter.labelRefKey) as? NSTextField {
+                        label.stringValue = altText
+                    }
                     objc_setAssociatedObject(container, &TouchBarPresenter.longPressTriggeredKey, true as NSNumber, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+                }
+            }
+
+        case .changed:
+            let location = sender.location(in: container)
+            if !container.bounds.contains(location) {
+                objc_setAssociatedObject(container, &TouchBarPresenter.cancelledKey, true as NSNumber, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+                container.alphaValue = 1.0
+                if let originalBg = objc_getAssociatedObject(container, &TouchBarPresenter.originalBgKey) as? NSColor {
+                    container.layer?.backgroundColor = originalBg.cgColor
+                }
+                if let originalText = objc_getAssociatedObject(container, &TouchBarPresenter.originalTextKey) as? NSString as String?,
+                   let label = objc_getAssociatedObject(container, &TouchBarPresenter.labelRefKey) as? NSTextField {
+                    label.stringValue = originalText
                 }
             }
 
         case .ended:
             container.alphaValue = 1.0
+
+            let isCancelled = (objc_getAssociatedObject(container, &TouchBarPresenter.cancelledKey) as? NSNumber)?.boolValue ?? false
+            guard !isCancelled else { return }
 
             let longPressTriggered = (objc_getAssociatedObject(container, &TouchBarPresenter.longPressTriggeredKey) as? NSNumber)?.boolValue ?? false
 
@@ -493,6 +521,10 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
                 if let originalBg = objc_getAssociatedObject(container, &TouchBarPresenter.originalBgKey) as? NSColor {
                     container.layer?.backgroundColor = originalBg.cgColor
                 }
+                if let originalText = objc_getAssociatedObject(container, &TouchBarPresenter.originalTextKey) as? NSString as String?,
+                   let label = objc_getAssociatedObject(container, &TouchBarPresenter.labelRefKey) as? NSTextField {
+                    label.stringValue = originalText
+                }
                 state.ankiState.submitRating(ease: primaryRating)
             }
 
@@ -500,6 +532,10 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
             container.alphaValue = 1.0
             if let originalBg = objc_getAssociatedObject(container, &TouchBarPresenter.originalBgKey) as? NSColor {
                 container.layer?.backgroundColor = originalBg.cgColor
+            }
+            if let originalText = objc_getAssociatedObject(container, &TouchBarPresenter.originalTextKey) as? NSString as String?,
+               let label = objc_getAssociatedObject(container, &TouchBarPresenter.labelRefKey) as? NSTextField {
+                label.stringValue = originalText
             }
 
         default:
@@ -946,7 +982,6 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
                 container.identifier = NSUserInterfaceItemIdentifier(rawValue: "rating.\(btnSpec.rating)")
 
                 // Store config on container for gesture handler
-                let altColor = NSColor(Color(hex: widget.ankiAgainColorHex))
                 let altEase = widget.ankiLongPressRating
                 let altColorForEase: NSColor
                 switch altEase {
@@ -954,8 +989,31 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
                 case 2: altColorForEase = NSColor(Color(hex: widget.ankiHardColorHex))
                 case 3: altColorForEase = NSColor(Color(hex: widget.ankiGoodColorHex))
                 case 4: altColorForEase = NSColor(Color(hex: widget.ankiEasyColorHex))
-                default: altColorForEase = altColor
+                default: altColorForEase = btnSpec.color
                 }
+                let altLabel: String
+                switch altEase {
+                case 1: altLabel = "Again"
+                case 2: altLabel = "Hard"
+                case 3: altLabel = "Good"
+                case 4: altLabel = "Easy"
+                default: altLabel = ""
+                }
+                let altInterval: String
+                if widget.ankiShowButtonsInterval {
+                    if let lbl = anki.buttonLabels[altEase], !lbl.isEmpty {
+                        altInterval = " (\(lbl))"
+                    } else {
+                        altInterval = ""
+                    }
+                } else {
+                    altInterval = ""
+                }
+                let altTitle = altLabel + altInterval
+
+                objc_setAssociatedObject(container, &TouchBarPresenter.originalTextKey, btnSpec.title as NSString, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+                objc_setAssociatedObject(container, &TouchBarPresenter.altTextKey, altTitle as NSString, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+                objc_setAssociatedObject(container, &TouchBarPresenter.labelRefKey, label, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
                 objc_setAssociatedObject(container, &TouchBarPresenter.originalBgKey, btnSpec.color, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
                 objc_setAssociatedObject(container, &TouchBarPresenter.altBgKey, altColorForEase, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
                 objc_setAssociatedObject(container, &TouchBarPresenter.altRatingKey, widget.ankiLongPressRating as NSNumber, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
