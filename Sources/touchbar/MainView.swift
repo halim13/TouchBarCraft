@@ -1099,6 +1099,24 @@ struct AnkiConfigView: View {
                         }
 
                         HStack(spacing: 8) {
+                            Text("Max Width (no text):")
+                                .font(.system(size: 11))
+                                .frame(width: 95, alignment: .leading)
+                            TextField("", text: Binding(
+                                get: { String(Int(widget.ankiTextMaxWidthNoText)) },
+                                set: { val in
+                                    if let num = Double(val.filter { $0.isNumber }) {
+                                        state.widgets[index].ankiTextMaxWidthNoText = num
+                                        state.saveConfig()
+                                    }
+                                }
+                            ))
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 80)
+                            Text("px").font(.system(size: 11)).foregroundColor(.gray)
+                        }
+
+                        HStack(spacing: 8) {
                             Text("Bold Color:")
                                 .font(.system(size: 11))
                                 .frame(width: 95, alignment: .leading)

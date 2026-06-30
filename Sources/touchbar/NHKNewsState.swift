@@ -186,7 +186,10 @@ public final class NHKNewsState {
     }
 
     private func refreshTouchBar() {
-        // If all NHK widgets are hidden from the physical Touch Bar, skip refresh
+        // Always refresh floating window content
+        NHKFloatingWindowManager.shared.refreshContent()
+
+        // If all NHK widgets are hidden from the physical Touch Bar, skip Touch Bar refresh
         if let widgets = AppState.shared?.widgets {
             let nhkWidgets = widgets.filter { $0.type == .nhkNews }
             if !nhkWidgets.isEmpty && nhkWidgets.allSatisfy({ $0.hideFromTouchBar }) {
@@ -194,7 +197,7 @@ public final class NHKNewsState {
             }
         }
         let presenterClass: AnyClass? = NSClassFromString("touchbar.TouchBarPresenter")
-        let refreshSelector = NSSelectorFromString("refreshTouchBar")
+        let refreshSelector = NSSelectorFromString("updateNHKContent")
         if let presenter = presenterClass as? NSObject.Type {
             presenter.perform(refreshSelector)
         }

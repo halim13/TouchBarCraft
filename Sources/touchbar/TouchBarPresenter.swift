@@ -38,6 +38,17 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
     
     // Map widget ID -> widget for button action dispatch
     private var widgetMap: [String: TouchBarWidget] = [:]
+
+    // Cached Anki stack + sync button for incremental updates (avoids full rebuild glitch)
+    private var cachedAnkiStack: NSStackView?
+    private var cachedAnkiSyncButton: NSButton?
+    private var cachedAnkiWidthConstraint: NSLayoutConstraint?
+    private var cachedAnkiWidgetId: UUID?
+
+    // Cached NHK stack for incremental updates
+    private var cachedNHKStack: NSStackView?
+    private var cachedNHKWidthConstraint: NSLayoutConstraint?
+    private var cachedNHKWidgetId: UUID?
     
     // Weak references to volume sliders for live updates
     private static let volumeSliders = NSHashTable<NSSlider>.weakObjects()
@@ -215,6 +226,59 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
             presenter.dfrSystemModalShowsCloseBoxWhenFrontMost?(false)
             // Refresh NHK floating window if visible
             NHKFloatingWindowManager.shared.refreshContent()
+        }
+    }
+
+    /// Update only the Anki item's content in-place, without rebuilding the entire NSTouchBar.
+    /// This avoids the visual glitch caused by dismissing and re-presenting the Touch Bar.
+    @objc public static func updateAnkiContent() {
+        DispatchQueue.main.async {
+            let presenter = TouchBarPresenter.shared
+            guard let touchBar = presenter.globalTouchBar,
+                  let state = AppState.shared else {
+                refreshTouchBar()
+                return
+            }
+
+            for identifier in touchBar.defaultItemIdentifiers {
+                let idStr = identifier.rawValue
+                guard let widget = state.widgets.first(where: { $0.id.uuidString == idStr && $0.type == .anki }),
+                      let item = touchBar.item(forIdentifier: identifier) as? NSCustomTouchBarItem else {
+                    continue
+                }
+                let view = presenter.makeNativeAnkiView(for: widget, state: state)
+                item.view = view
+                presenter.dfrSystemModalShowsCloseBoxWhenFrontMost?(false)
+                return
+            }
+
+            refreshTouchBar()
+        }
+    }
+
+    /// Update only the NHK item's content in-place, without rebuilding the entire NSTouchBar.
+    @objc public static func updateNHKContent() {
+        DispatchQueue.main.async {
+            let presenter = TouchBarPresenter.shared
+            guard let touchBar = presenter.globalTouchBar,
+                  let state = AppState.shared else {
+                refreshTouchBar()
+                return
+            }
+
+            for identifier in touchBar.defaultItemIdentifiers {
+                let idStr = identifier.rawValue
+                guard let widget = state.widgets.first(where: { $0.id.uuidString == idStr && $0.type == .nhkNews }),
+                      let item = touchBar.item(forIdentifier: identifier) as? NSCustomTouchBarItem else {
+                    continue
+                }
+                let view = presenter.makeNativeNHKNewsView(for: widget)
+                item.view = view
+                presenter.dfrSystemModalShowsCloseBoxWhenFrontMost?(false)
+                return
+            }
+
+            refreshTouchBar()
         }
     }
     
@@ -799,19 +863,40 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
     }
     
     private func makeNativeAnkiView(for widget: TouchBarWidget, state: AppState) -> NSView {
-        let stack = NSStackView()
-        stack.orientation = .horizontal
-        stack.spacing = 8
-        stack.alignment = .centerY
-        stack.distribution = .fill
-        
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        // Set the total width of the Anki stack based on user's ankiTextMaxWidth setting
-        stack.widthAnchor.constraint(equalToConstant: CGFloat(widget.ankiTextMaxWidth + 160)).isActive = true
-
         let anki = state.ankiState
         let config = AnkiTouchBarConfig.current
-        
+
+        // Reuse cached stack to avoid Touch Bar glitch on settings changes
+        let stack: NSStackView
+        if let cached = cachedAnkiStack, cachedAnkiWidgetId == widget.id {
+            stack = cached
+            let effectiveWidth = widget.ankiHideTextOnTouchBar ? widget.ankiTextMaxWidthNoText : widget.ankiTextMaxWidth
+            cachedAnkiWidthConstraint?.constant = CGFloat(effectiveWidth + 160)
+            // Update sync button colors
+            if let syncBtn = cachedAnkiSyncButton {
+                syncBtn.bezelColor = NSColor(Color(hex: widget.backgroundColorHex))
+                syncBtn.contentTintColor = NSColor(Color(hex: widget.textColorHex))
+            }
+        } else {
+            stack = NSStackView()
+            stack.orientation = .horizontal
+            stack.spacing = 8
+            stack.alignment = .centerY
+            stack.distribution = .fill
+            stack.translatesAutoresizingMaskIntoConstraints = false
+            let initialWidth = widget.ankiHideTextOnTouchBar ? widget.ankiTextMaxWidthNoText : widget.ankiTextMaxWidth
+            cachedAnkiWidthConstraint = stack.widthAnchor.constraint(equalToConstant: CGFloat(initialWidth + 160))
+            cachedAnkiWidthConstraint?.isActive = true
+            cachedAnkiStack = stack
+            cachedAnkiWidgetId = widget.id
+        }
+
+        // Clear subviews for rebuild (but keep the stack itself alive)
+        for view in stack.arrangedSubviews {
+            stack.removeArrangedSubview(view)
+            view.removeFromSuperview()
+        }
+
         if !anki.isConnected {
             let label = NSTextField(labelWithString: "Anki Offline")
             label.font = NSFont.systemFont(ofSize: 12, weight: .medium)
@@ -828,8 +913,14 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
             return stack
         }
         
-        // Build the sync button
-        let syncButton = buildSyncButton(for: widget, anki: anki)
+        // Build or reuse the sync button
+        let syncButton: NSButton
+        if let cached = cachedAnkiSyncButton {
+            syncButton = cached
+        } else {
+            syncButton = buildSyncButton(for: widget, anki: anki)
+            cachedAnkiSyncButton = syncButton
+        }
         
         guard let card = anki.currentCard else {
             let message = anki.isLoading ? "Anki: Loading..." : (anki.selectedDeck.isEmpty ? "Anki: Select Deck" : "Anki: No cards to study")
@@ -952,8 +1043,8 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
             let buttonsToShow = getRatingButtons(for: widget, buttonCount: count, intervals: anki.buttonIntervals, labels: anki.buttonLabels, showInterval: widget.ankiShowButtonsInterval)
             let isSingleRating = buttonsToShow.count == 1
             var ratingButtonViews: [NSView] = []
-            if isSingleRating, let btnSpec = buttonsToShow.first {
-                // Single button: use expanding container (same approach as reveal button)
+            if isSingleRating, hideText, let btnSpec = buttonsToShow.first {
+                // Single button + hide text: use expanding container (same approach as reveal button)
                 let container = NSView()
                 container.wantsLayer = true
                 container.layer?.backgroundColor = btnSpec.color.cgColor
@@ -2270,18 +2361,31 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         }
         
         let nhk = state.nhkNewsState
-        let stack = NSStackView()
-        stack.orientation = .horizontal
-        stack.spacing = 6
-        stack.alignment = .centerY
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        // Custom width is handled by the caller in makeItemForIdentifier (see if widget.customWidth > 0.0)
-        
-        // News icon
+
+        // Reuse cached stack to avoid Touch Bar glitch
+        let stack: NSStackView
+        if let cached = cachedNHKStack, cachedNHKWidgetId == widget.id {
+            stack = cached
+        } else {
+            stack = NSStackView()
+            stack.orientation = .horizontal
+            stack.spacing = 6
+            stack.alignment = .centerY
+            stack.translatesAutoresizingMaskIntoConstraints = false
+            cachedNHKStack = stack
+            cachedNHKWidgetId = widget.id
+        }
+
+        // Clear subviews for rebuild (keep the stack itself alive)
+        for view in stack.arrangedSubviews {
+            stack.removeArrangedSubview(view)
+            view.removeFromSuperview()
+        }
+
+        // News icon (recreate each time — lightweight)
         let iconView = NSImageView(image: NSImage(systemSymbolName: "", accessibilityDescription: "NHK News") ?? NSImage())
         iconView.contentTintColor = NSColor(Color(hex: widget.textColorHex))
         iconView.translatesAutoresizingMaskIntoConstraints = false
-        // iconView.widthAnchor.constraint(equalToConstant: 16).isActive = true
         iconView.heightAnchor.constraint(equalToConstant: 16).isActive = true
         stack.addArrangedSubview(iconView)
         
@@ -2730,13 +2834,13 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
     @objc private func nhkPlayPauseTapped(_ sender: Any) {
         guard let state = AppState.shared else { return }
         state.nhkNewsState.playPauseAudio()
-        TouchBarPresenter.refreshTouchBar()
+        Self.updateNHKContent()
     }
 
     @objc private func nhkStopTapped(_ sender: Any) {
         guard let state = AppState.shared else { return }
         state.nhkNewsState.stopAudio()
-        TouchBarPresenter.refreshTouchBar()
+        Self.updateNHKContent()
     }
 
     @objc private func nhkFloatingWindowTapped(_ sender: Any) {

@@ -335,7 +335,7 @@ public final class AnkiState: NSObject, AVAudioPlayerDelegate {
             }
         }
         let presenterClass: AnyClass? = NSClassFromString("touchbar.TouchBarPresenter")
-        let refreshSelector = NSSelectorFromString("refreshTouchBar")
+        let refreshSelector = NSSelectorFromString("updateAnkiContent")
         if let presenter = presenterClass as? NSObject.Type {
             presenter.perform(refreshSelector)
         }
