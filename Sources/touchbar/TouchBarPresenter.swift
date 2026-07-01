@@ -60,6 +60,9 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
     // Key for associated object on scrollable label leading constraint
     private static var scrollableLeadingKey: UInt8 = 0
     
+    // Tracks dimmed rating views so we can re-apply alpha after Touch Bar press animation
+    private static let dimmedRatingViews = NSHashTable<NSView>.weakObjects()
+    
     /// Lightweight view that clips subviews to its bounds via draw-time clipping.
     /// Avoids `wantsLayer` + `masksToBounds` which can cause NSTextField rendering issues on the Touch Bar.
     private class ClippingView: NSView {
@@ -495,13 +498,38 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         state.ankiState.checkConnection()
     }
     
+    private func isHideTextBlocked(for widget: TouchBarWidget? = nil) -> Bool {
+        guard let state = AppState.shared else { return false }
+        if let widget = widget {
+            guard !widget.isHidden, widget.type == .anki, widget.ankiHideTextOnTouchBar else { return false }
+        } else {
+            guard state.widgets.contains(where: { $0.type == .anki && !$0.isHidden && $0.ankiHideTextOnTouchBar }) else { return false }
+        }
+        return !AnkiFloatingOverlayManager.shared.isShowing
+    }
+
+    /// Re-apply alpha to all dimmed rating views after Touch Bar press animation finishes
+    private func restoreBlockedAlpha() {
+        for view in TouchBarPresenter.dimmedRatingViews.allObjects {
+            view.alphaValue = 0.35
+        }
+    }
+
     @objc private func ankiRevealTapped(_ sender: Any) {
         guard let state = AppState.shared else { return }
+        if isHideTextBlocked() { return }
         state.ankiState.revealAnswer()
     }
     
     @objc private func ankiRatingTapped(_ sender: Any) {
         guard let state = AppState.shared else { return }
+        if isHideTextBlocked() {
+            // After Touch Bar finishes its press animation, re-apply dimming
+            DispatchQueue.main.async {
+                self.restoreBlockedAlpha()
+            }
+            return
+        }
         var rating = 0
         if let gesture = sender as? NSGestureRecognizer, let view = gesture.view {
             if let identifier = view.identifier?.rawValue, identifier.hasPrefix("rating."),
@@ -534,6 +562,23 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
     @objc private func ankiSingleRatingPress(_ sender: NSPressGestureRecognizer) {
         guard let state = AppState.shared, let container = sender.view else { return }
 
+        // When hide-text blocks interactions, keep the dimmed look and do nothing
+        if isHideTextBlocked() {
+            switch sender.state {
+            case .began, .changed:
+                container.alphaValue = 0.35
+            case .ended, .cancelled:
+                container.alphaValue = 0.35
+                // Also restore via async to beat any Touch Bar press animation
+                DispatchQueue.main.async { [weak container] in
+                    container?.alphaValue = 0.35
+                }
+            default:
+                break
+            }
+            return
+        }
+
         switch sender.state {
         case .began:
             container.alphaValue = 0.7
@@ -550,8 +595,12 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
             let altColor = objc_getAssociatedObject(container, &TouchBarPresenter.altBgKey) as? NSColor
             let altText = objc_getAssociatedObject(container, &TouchBarPresenter.altTextKey) as? NSString as String?
 
-            DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [weak container, weak sender] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [weak self, weak container, weak sender] in
                 guard let container = container, let sender = sender else { return }
+                if self?.isHideTextBlocked() == true {
+                    container.alphaValue = 0.35
+                    return
+                }
                 let isCancelled = (objc_getAssociatedObject(container, &TouchBarPresenter.cancelledKey) as? NSNumber)?.boolValue ?? false
                 guard !isCancelled else { return }
                 if sender.state == .began || sender.state == .changed {
@@ -567,6 +616,7 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
             }
 
         case .changed:
+            if isHideTextBlocked() { return }
             let location = sender.location(in: container)
             if !container.bounds.contains(location) {
                 objc_setAssociatedObject(container, &TouchBarPresenter.cancelledKey, true as NSNumber, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
@@ -1036,6 +1086,11 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
                 clickGesture.allowedTouchTypes = .direct
                 container.addGestureRecognizer(clickGesture)
                 
+                if isHideTextBlocked(for: widget) {
+                    container.alphaValue = 0.35
+                    TouchBarPresenter.dimmedRatingViews.add(container)
+                }
+                
                 if config.isMediaOnLeft {
                     let labelSpacer = hideText ? nil : {
                         let s = NSView()
@@ -1136,6 +1191,11 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
                 pressGesture.buttonMask = 1
                 container.addGestureRecognizer(pressGesture)
 
+                if isHideTextBlocked(for: widget) {
+                    container.alphaValue = 0.35
+                    TouchBarPresenter.dimmedRatingViews.add(container)
+                }
+
                 ratingButtonViews.append(container)
             } else if widget.ankiShowButtonsInterval {
                 // Vertical layout: small button + interval text below (outside clickable area)
@@ -1151,32 +1211,66 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
                     group.distribution = .fill
                     group.translatesAutoresizingMaskIntoConstraints = false
 
-                    let btn = NSButton(title: "", target: self, action: #selector(ankiRatingTapped(_:)))
-                    btn.tag = btnSpec.rating
-                    btn.bezelStyle = .rounded
-                    btn.isBordered = false
-                    btn.wantsLayer = true
-                    btn.layer?.backgroundColor = btnSpec.color.cgColor
-                    btn.layer?.cornerRadius = 4
-                    btn.translatesAutoresizingMaskIntoConstraints = false
+                    if isHideTextBlocked(for: widget) {
+                        // Static pill — consume touches so Touch Bar never gives pressed feedback
+                        let pill = NSView()
+                        pill.wantsLayer = true
+                        pill.layer?.backgroundColor = btnSpec.color.withAlphaComponent(0.35).cgColor
+                        pill.layer?.cornerRadius = 4
+                        pill.alphaValue = 0.35
+                        pill.translatesAutoresizingMaskIntoConstraints = false
+                        pill.widthAnchor.constraint(greaterThanOrEqualToConstant: 48).isActive = true
+                        pill.heightAnchor.constraint(equalToConstant: 17).isActive = true
+                        let label = NSTextField(labelWithString: title)
+                        label.font = NSFont.systemFont(ofSize: 9, weight: .bold)
+                        label.textColor = .white
+                        label.alignment = .center
+                        label.isBezeled = false
+                        label.drawsBackground = false
+                        label.isEditable = false
+                        label.isSelectable = false
+                        label.translatesAutoresizingMaskIntoConstraints = false
+                        pill.addSubview(label)
+                        NSLayoutConstraint.activate([
+                            label.centerXAnchor.constraint(equalTo: pill.centerXAnchor),
+                            label.centerYAnchor.constraint(equalTo: pill.centerYAnchor)
+                        ])
+                        let blockGesture = NSClickGestureRecognizer(target: self, action: #selector(ankiRatingTapped(_:)))
+                        blockGesture.allowedTouchTypes = .direct
+                        blockGesture.buttonMask = 1
+                        pill.addGestureRecognizer(blockGesture)
+                        TouchBarPresenter.dimmedRatingViews.add(pill)
+                        group.addArrangedSubview(pill)
+                    } else {
+                        let btn = NSButton(title: "", target: self, action: #selector(ankiRatingTapped(_:)))
+                        btn.tag = btnSpec.rating
+                        btn.bezelStyle = .rounded
+                        btn.isBordered = false
+                        btn.wantsLayer = true
+                        btn.layer?.backgroundColor = btnSpec.color.cgColor
+                        btn.layer?.cornerRadius = 4
+                        btn.translatesAutoresizingMaskIntoConstraints = false
 
-                    let attrTitle = NSAttributedString(string: title, attributes: [
-                        .font: NSFont.systemFont(ofSize: 9, weight: .bold),
-                        .foregroundColor: NSColor.white,
-                        .paragraphStyle: {
-                            let p = NSParagraphStyle.default.mutableCopy() as! NSMutableParagraphStyle
-                            p.alignment = .center
-                            return p
-                        }()
-                    ])
-                    btn.attributedTitle = attrTitle
+                        let attrTitle = NSAttributedString(string: title, attributes: [
+                            .font: NSFont.systemFont(ofSize: 9, weight: .bold),
+                            .foregroundColor: NSColor.white,
+                            .paragraphStyle: {
+                                let p = NSParagraphStyle.default.mutableCopy() as! NSMutableParagraphStyle
+                                p.alignment = .center
+                                return p
+                            }()
+                        ])
+                        btn.attributedTitle = attrTitle
 
-                    btn.setContentCompressionResistancePriority(.required, for: .horizontal)
-                    btn.setContentHuggingPriority(.required, for: .horizontal)
-                    NSLayoutConstraint.activate([
-                        btn.widthAnchor.constraint(greaterThanOrEqualToConstant: 48),
-                        btn.heightAnchor.constraint(equalToConstant: 17),
-                    ])
+                        btn.setContentCompressionResistancePriority(.required, for: .horizontal)
+                        btn.setContentHuggingPriority(.required, for: .horizontal)
+                        NSLayoutConstraint.activate([
+                            btn.widthAnchor.constraint(greaterThanOrEqualToConstant: 48),
+                            btn.heightAnchor.constraint(equalToConstant: 17),
+                        ])
+
+                        group.addArrangedSubview(btn)
+                    }
 
                     if !interval.isEmpty {
                         let intervalLabel = NSTextField(labelWithString: interval)
@@ -1189,26 +1283,57 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
                         intervalLabel.isSelectable = false
                         intervalLabel.translatesAutoresizingMaskIntoConstraints = false
                         intervalLabel.heightAnchor.constraint(equalToConstant: 9).isActive = true
+                        if isHideTextBlocked(for: widget) { intervalLabel.alphaValue = 0.35 }
                         group.addArrangedSubview(intervalLabel)
                     }
-
-                    group.addArrangedSubview(btn)
 
                     ratingButtonViews.append(group)
                 }
             } else {
                 // Original layout: standard NSButton
                 for btnSpec in buttonsToShow {
-                    let btn = NSButton(title: btnSpec.title, target: self, action: #selector(ankiRatingTapped(_:)))
-                    btn.tag = btnSpec.rating
-                    btn.bezelStyle = .rounded
-                    btn.bezelColor = btnSpec.color
-                    btn.contentTintColor = .white
-                    btn.font = NSFont.systemFont(ofSize: 11, weight: .bold)
-                    btn.setAccessibilityLabel("Rate \(btnSpec.title)")
-                    btn.setContentCompressionResistancePriority(.required, for: .horizontal)
-                    btn.setContentHuggingPriority(.required, for: .horizontal)
-                    ratingButtonViews.append(btn)
+                    if isHideTextBlocked(for: widget) {
+                        // Static decorative view — consume touches to prevent Touch Bar pressed state
+                        let staticView = NSView()
+                        staticView.wantsLayer = true
+                        staticView.layer?.cornerRadius = 4
+                        staticView.layer?.backgroundColor = btnSpec.color.withAlphaComponent(0.35).cgColor
+                        staticView.alphaValue = 0.35
+                        staticView.translatesAutoresizingMaskIntoConstraints = false
+                        staticView.widthAnchor.constraint(greaterThanOrEqualToConstant: 36).isActive = true
+                        staticView.heightAnchor.constraint(equalToConstant: 24).isActive = true
+                        let label = NSTextField(labelWithString: btnSpec.title)
+                        label.font = NSFont.systemFont(ofSize: 11, weight: .bold)
+                        label.textColor = .white
+                        label.alignment = .center
+                        label.isBezeled = false
+                        label.drawsBackground = false
+                        label.isEditable = false
+                        label.isSelectable = false
+                        label.translatesAutoresizingMaskIntoConstraints = false
+                        staticView.addSubview(label)
+                        NSLayoutConstraint.activate([
+                            label.centerXAnchor.constraint(equalTo: staticView.centerXAnchor),
+                            label.centerYAnchor.constraint(equalTo: staticView.centerYAnchor)
+                        ])
+                        let blockGesture = NSClickGestureRecognizer(target: self, action: #selector(ankiRatingTapped(_:)))
+                        blockGesture.allowedTouchTypes = .direct
+                        blockGesture.buttonMask = 1
+                        staticView.addGestureRecognizer(blockGesture)
+                        TouchBarPresenter.dimmedRatingViews.add(staticView)
+                        ratingButtonViews.append(staticView)
+                    } else {
+                        let btn = NSButton(title: btnSpec.title, target: self, action: #selector(ankiRatingTapped(_:)))
+                        btn.tag = btnSpec.rating
+                        btn.bezelStyle = .rounded
+                        btn.bezelColor = btnSpec.color
+                        btn.contentTintColor = .white
+                        btn.font = NSFont.systemFont(ofSize: 11, weight: .bold)
+                        btn.setAccessibilityLabel("Rate \(btnSpec.title)")
+                        btn.setContentCompressionResistancePriority(.required, for: .horizontal)
+                        btn.setContentHuggingPriority(.required, for: .horizontal)
+                        ratingButtonViews.append(btn)
+                    }
                 }
             }
             
@@ -1994,6 +2119,8 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         clickGesture.buttonMask = 1
         clickGesture.allowedTouchTypes = .direct
         revealLabel.addGestureRecognizer(clickGesture)
+        
+        if isHideTextBlocked(for: widget) { revealLabel.alphaValue = 0.35 }
 
         verticalStack.addArrangedSubview(countsLabel)
         verticalStack.addArrangedSubview(revealLabel)
@@ -2071,6 +2198,11 @@ public final class TouchBarPresenter: NSObject, NSTouchBarDelegate, NSGestureRec
         clickGesture.buttonMask = 1
         clickGesture.allowedTouchTypes = .direct
         container.addGestureRecognizer(clickGesture)
+        
+        if isHideTextBlocked(for: widget) {
+            container.alphaValue = 0.35
+            TouchBarPresenter.dimmedRatingViews.add(container)
+        }
         
         return container
     }

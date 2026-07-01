@@ -403,6 +403,12 @@ public final class GlobalHotkeyManager: NSObject {
 
     // MARK: - Action Dispatch
 
+    private func isHideTextBlocked() -> Bool {
+        guard let state = AppState.shared else { return false }
+        let hasHideText = state.widgets.contains { $0.type == .anki && !$0.isHidden && $0.ankiHideTextOnTouchBar }
+        return hasHideText && !AnkiFloatingOverlayManager.shared.isShowing
+    }
+
     private func executeAction(_ action: AnkiHotkeyAction) {
         guard let state = AppState.shared else { return }
 
@@ -428,10 +434,12 @@ public final class GlobalHotkeyManager: NSObject {
         case .connect:
             state.ankiState.checkConnection()
         case .reveal:
+            guard !isHideTextBlocked() else { return }
             state.ankiState.revealAnswer()
         case .sync:
             state.ankiState.syncDecks()
         case .rating1, .rating2, .rating3, .rating4:
+            guard !isHideTextBlocked() else { return }
             if let ease = action.ratingEase {
                 state.ankiState.submitRating(ease: ease)
             }
