@@ -226,24 +226,12 @@ public final class AnkiFloatingOverlayManager: NSObject {
         overlayWindow?.orderFront(nil)
         isShowing = true
         StatusItemManager.shared.refreshFloatingOverlayState()
-        // Rebuild Anki Touch Bar so dimmed buttons become active
-        let presenterClass: AnyClass? = NSClassFromString("touchbar.TouchBarPresenter")
-        let refreshSelector = NSSelectorFromString("updateAnkiContent")
-        if let presenter = presenterClass as? NSObject.Type {
-            presenter.perform(refreshSelector)
-        }
     }
 
     public func hide() {
         overlayWindow?.orderOut(nil)
         isShowing = false
         StatusItemManager.shared.refreshFloatingOverlayState()
-        // Rebuild Anki Touch Bar so active buttons become dimmed
-        let presenterClass: AnyClass? = NSClassFromString("touchbar.TouchBarPresenter")
-        let refreshSelector = NSSelectorFromString("updateAnkiContent")
-        if let presenter = presenterClass as? NSObject.Type {
-            presenter.perform(refreshSelector)
-        }
     }
 
     public func refreshOverlay() {
